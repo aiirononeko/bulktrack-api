@@ -1,3 +1,3 @@
-import app from './interface/http/router';
+import app from "./interface/http/router";
 
 export default app;

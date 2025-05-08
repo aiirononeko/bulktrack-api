@@ -1,9 +1,10 @@
-import { drizzle } from 'drizzle-orm/d1';
-import { v7 as uuidv7 } from 'uuid'; // UUID v7 を生成するためにuuidパッケージを利用
-import type { IUserRepository } from '../../../domain/auth/repository';
-import type { User, UserId } from '../../../domain/auth/entity';
-import { users } from '../schema'; // D1スキーマ
-import { eq } from 'drizzle-orm';
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/d1";
+
+import { v7 as uuidv7 } from "uuid";
+import type { User, UserId } from "../../../domain/auth/entity";
+import type { IUserRepository } from "../../../domain/auth/repository";
+import { users } from "../schema";
 
 export class UserRepositoryImpl implements IUserRepository {
   private readonly db;
@@ -49,4 +50,4 @@ export class UserRepositoryImpl implements IUserRepository {
     // ここでは UserId と string が互換であると仮定（実際はvalibotの型なので厳密には異なる）
     return { id: result[0].id as UserId, displayName: result[0].displayName };
   }
-} 
+}

@@ -14,7 +14,7 @@ export class AuthDomainError extends Error {
  * Represents an error related to token generation, verification, or processing.
  */
 export class TokenError extends AuthDomainError {
-  constructor(message = 'An issue occurred with token processing.') {
+  constructor(message = "An issue occurred with token processing.") {
     super(message);
   }
 }
@@ -23,7 +23,7 @@ export class TokenError extends AuthDomainError {
  * Represents an error when a token is found to be invalid (e.g., malformed, invalid signature).
  */
 export class InvalidTokenError extends TokenError {
-  constructor(message = 'The provided token is invalid.') {
+  constructor(message = "The provided token is invalid.") {
     super(message);
   }
 }
@@ -32,7 +32,7 @@ export class InvalidTokenError extends TokenError {
  * Represents an error when a token has expired.
  */
 export class TokenExpiredError extends TokenError {
-  constructor(message = 'The provided token has expired.') {
+  constructor(message = "The provided token has expired.") {
     super(message);
   }
 }
@@ -44,9 +44,13 @@ export class StorageError extends AuthDomainError {
   public readonly operation?: string;
   public readonly underlyingError?: Error;
 
-  constructor(message = 'A storage operation failed.', operation?: string, underlyingError?: Error) {
+  constructor(
+    message = "A storage operation failed.",
+    operation?: string,
+    underlyingError?: Error,
+  ) {
     super(message);
     this.operation = operation;
     this.underlyingError = underlyingError;
   }
-} 
+}

@@ -1,10 +1,19 @@
-import { object, string, number, nonEmpty, type InferOutput, pipe, minLength, literal } from 'valibot';
+import {
+  type InferOutput,
+  literal,
+  minLength,
+  nonEmpty,
+  number,
+  object,
+  pipe,
+  string,
+} from "valibot";
 
 // DeviceId
 export const DeviceIdSchema = pipe(
   string(),
-  nonEmpty('Device ID cannot be empty.'),
-  minLength(36, 'Device ID must be a valid UUID.')
+  nonEmpty("Device ID cannot be empty."),
+  minLength(36, "Device ID must be a valid UUID."),
 );
 export type DeviceId = InferOutput<typeof DeviceIdSchema>;
 
@@ -12,8 +21,8 @@ export type DeviceId = InferOutput<typeof DeviceIdSchema>;
 // AuthTokenはドメインエンティティとしてより具体的な情報を持つこともあります。
 // ここではトークン文字列そのものと有効期限を保持する例を示します。
 export const AuthTokenSchema = object({
-  accessToken: pipe(string(), nonEmpty('Access token cannot be empty.')),
-  refreshToken: pipe(string(), nonEmpty('Refresh token cannot be empty.')),
+  accessToken: pipe(string(), nonEmpty("Access token cannot be empty.")),
+  refreshToken: pipe(string(), nonEmpty("Refresh token cannot be empty.")),
   expiresIn: number(), // アクセストークンの有効期間 (秒単位など)
 });
 export type AuthToken = InferOutput<typeof AuthTokenSchema>;
@@ -30,7 +39,7 @@ export type AuthToken = InferOutput<typeof AuthTokenSchema>;
 // リフレッシュトークンペイロード
 export const RefreshTokenPayloadSchema = object({
   sub: string(), // Subject (e.g., device_id) - Should ideally be DeviceId, but schema is string
-  type: literal('device_refresh'), // Token type
+  type: literal("device_refresh"), // Token type
   exp: number(), // Expiration time (Unix timestamp)
   iat: number(), // Issued at (Unix timestamp)
   // 他のクレーム
@@ -40,8 +49,8 @@ export type RefreshTokenPayload = InferOutput<typeof RefreshTokenPayloadSchema>;
 // User ID (UUID v7想定)
 export const UserIdSchema = pipe(
   string(),
-  nonEmpty('User ID cannot be empty.'),
-  minLength(36, 'User ID must be a valid UUID.')
+  nonEmpty("User ID cannot be empty."),
+  minLength(36, "User ID must be a valid UUID."),
 );
 export type UserId = InferOutput<typeof UserIdSchema>;
 

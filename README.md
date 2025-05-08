@@ -105,7 +105,6 @@ Schema matches Go build; see [`schema.sql`](schema.sql). Drizzle models reside i
 │   │           └── dashboard/stats.ts
 │   └── infrastructure/
 │       ├── db/
-│       │   ├── drizzle.ts          # D1 connector + Drizzle client
 │       │   └── schema.ts
 │       ├── kv/tokenStore.ts
 │       ├── auth/jwtService.ts

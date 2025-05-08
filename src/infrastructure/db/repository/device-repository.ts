@@ -1,8 +1,9 @@
-import { drizzle } from 'drizzle-orm/d1';
-import type { IDeviceRepository } from '../../../domain/auth/repository';
-import type { UserDevice, DeviceId } from '../../../domain/auth/entity';
-import { userDevices } from '../schema';
-import { eq } from 'drizzle-orm';
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/d1";
+
+import type { DeviceId, UserDevice } from "../../../domain/auth/entity";
+import type { IDeviceRepository } from "../../../domain/auth/repository";
+import { userDevices } from "../schema";
 
 export class DeviceRepositoryImpl implements IDeviceRepository {
   private readonly db;

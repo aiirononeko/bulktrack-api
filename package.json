@@ -16,6 +16,7 @@
     "valibot": "^1.1.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.9.4",
     "@cloudflare/workers-types": "^4.20250508.0",
     "drizzle-kit": "^0.31.1",
     "tsx": "^4.19.4",

@@ -1,4 +1,4 @@
-import type { DeviceId, User, UserId, UserDevice } from './entity';
+import type { DeviceId, User, UserDevice, UserId } from "./entity";
 
 /**
  * リフレッシュトークンを永続化および取得するためのリポジトリインターフェース (Port)。
@@ -14,7 +14,11 @@ export interface ITokenRepository {
    * @param expiresInSeconds トークンの有効期間 (秒単位)。ストア側でTTL設定に使用します。
    * @returns Promise<void>
    */
-  saveRefreshToken(deviceId: DeviceId, refreshToken: string, expiresInSeconds: number): Promise<void>;
+  saveRefreshToken(
+    deviceId: DeviceId,
+    refreshToken: string,
+    expiresInSeconds: number,
+  ): Promise<void>;
 
   /**
    * 指定されたデバイスIDに紐づくリフレッシュトークンを取得します。
