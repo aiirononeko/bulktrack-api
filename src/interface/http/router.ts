@@ -36,7 +36,13 @@ import { AddSetToSessionCommand, AddSetToSessionHandler } from "../../app/comman
 import { WorkoutSessionService } from "../../domain/workout/service";
 import { DrizzleWorkoutSessionRepository } from "../../infrastructure/db/repository/workout-session-repository";
 import { UserIdVO, WorkoutSessionIdVO, ExerciseIdVO } from "../../domain/shared/vo/identifier"; // ExerciseIdVO をインポート
-import { AddSetRequestSchema, type AddSetResponseDto } from "../../app/dto/set.dto"; // DTO とスキーマをインポート
+import { AddSetRequestSchema } from "../../app/dto/set.dto";
+
+// Import Dashboard specific classes
+import { DrizzleDashboardRepository } from "../../infrastructure/db/repository/dashboard-repository";
+import { GetDashboardHandler } from "../../app/query/dashboard/get-dashboard";
+import type { DashboardResponseDto } from "../../app/dto/dashboard.dto.ts"; // For response typing
+import { DashboardPeriod } from "../../domain/dashboard/vo"; // Import DashboardPeriod VO
 
 // Define types for c.var
 type AppEnv = {
@@ -46,7 +52,8 @@ type AppEnv = {
     searchExercisesHandler: SearchExercisesHandler;
     startSessionHandler: StartSessionHandler;
     finishSessionHandler: FinishSessionHandler;
-    addSetToSessionHandler: AddSetToSessionHandler; // addSetToSessionHandler を追加
+    addSetToSessionHandler: AddSetToSessionHandler;
+    getDashboardHandler: GetDashboardHandler; // Add GetDashboardHandler to c.var
   };
   // Define CloudflareBindings if not already globally defined
   // This usually comes from a .d.ts file (e.g. hono/bindings or custom)
@@ -156,6 +163,22 @@ app.use("/v1/sessions/*", async (c, next) => {
   c.set("startSessionHandler", startSessionHandler);
   c.set("finishSessionHandler", finishSessionHandler); // c.var にセット
   c.set("addSetToSessionHandler", addSetToSessionHandler); // c.var にセット
+  await next();
+});
+
+// Middleware for Dependency Injection for Dashboard route
+app.use("/v1/dashboard", async (c, next) => {
+  if (!c.env.DB) {
+    console.error("CRITICAL: Missing DB environment binding for dashboard services.");
+    throw new HTTPException(500, {
+      message: "Internal Server Configuration Error for Dashboard",
+    });
+  }
+  const db = drizzle(c.env.DB, { schema: tablesSchema });
+  const dashboardRepository = new DrizzleDashboardRepository(db);
+  const getDashboardHandler = new GetDashboardHandler(dashboardRepository);
+
+  c.set("getDashboardHandler", getDashboardHandler);
   await next();
 });
 
@@ -334,6 +357,67 @@ sessionsRoutes.post("/:sessionId/sets", async (c) => {
 });
 
 app.route("/v1/sessions", sessionsRoutes);
+
+// Route for Dashboard
+app.get("/v1/dashboard", jwtAuthMiddleware, async (c) => {
+  const handler = c.var.getDashboardHandler;
+  if (!handler) {
+    console.error("GetDashboardHandler not found in c.var for /v1/dashboard route.");
+    throw new HTTPException(500, { message: "Internal Configuration Error - Handler not set" });
+  }
+
+  const jwtPayload = c.get("jwtPayload");
+  if (!jwtPayload || !jwtPayload.sub) {
+    throw new HTTPException(401, { message: "Unauthorized: Missing or invalid user ID in token" });
+  }
+  
+  const userId: UserIdVO = (() => {
+    try {
+      return new UserIdVO(jwtPayload.sub);
+    } catch (e: unknown) {
+      let errorMessage = "Unauthorized: Invalid user ID format in token";
+      if (e instanceof Error) {
+          errorMessage = `Unauthorized: Invalid user ID format in token - ${e.message}`;
+      }
+      console.error("Failed to create UserIdVO from token sub:", jwtPayload.sub, e);
+      throw new HTTPException(401, { message: errorMessage });
+    }
+  })();
+
+  const periodParam = c.req.query("period") ?? '1w';
+  const periodVO: DashboardPeriod = (() => {
+    try {
+      return DashboardPeriod.create(periodParam);
+    } catch (e: unknown) { 
+      let errorMessage = "Invalid period parameter.";
+      if (e instanceof Error) {
+        errorMessage = `Invalid period parameter: ${e.message}`;
+      }
+      throw new HTTPException(400, { message: errorMessage });
+    }
+  })();
+
+  try {
+    const dashboardData: DashboardResponseDto = await handler.execute({ userId, period: periodVO });
+    return c.json(dashboardData);
+  } catch (error: unknown) { 
+    console.error("Error fetching dashboard data:", error);
+    if (error instanceof ApplicationError) {
+      if (error instanceof ApplicationError) {
+        c.status(error.statusCode as StatusCode);
+        return c.json({
+          error: {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+          },
+        });
+      }
+    }
+    const message = (error instanceof Error) ? error.message : "Failed to fetch dashboard data";
+    throw new HTTPException(500, { message });
+  }
+});
 
 // Root path or health check (optional)
 app.get("/", (c) => {

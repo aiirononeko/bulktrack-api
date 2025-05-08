@@ -194,14 +194,23 @@ paths:
   # ---------------- Dashboard ---------------- #
   /v1/dashboard:
     get:
-      summary: Aggregated volume stats
+      summary: ユーザーのダッシュボード情報を取得
       tags: [Dashboard]
       parameters:
         - in: query
-          name: range
-          schema: { type: string, enum: [7d, 30d], default: 7d }
+          name: period
+          schema:
+            type: string
+            enum: [1w, 4w, 12w, 24w]
+            default: 1w
+          description: "集計期間を指定します (例: 1w = 1週間, 4w = 4週間)"
       responses:
-        '200': { description: Stats, content: { application/json: { schema: { $ref: '#/components/schemas/DashboardStats' } } } }
+        '200':
+          description: ダッシュボード情報
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
 
   # ---------------- Utility ---------------- #
   /v1/ping:
@@ -398,15 +407,115 @@ components:
               description: Timestamp of when the set record was created.
               readOnly: true
               example: "2025-05-08T14:02:00.000Z"
-    DashboardStats:
+    # ---- Dashboard Schemas ----
+    MuscleVolumeItem:
       type: object
       properties:
-        total_volume: { type: number, format: float }
-        muscle_breakdown:
+        muscleId: { type: integer, example: 1 }
+        name: { type: string, example: "胸" }
+        volume: { type: number, format: float, example: 3000 }
+      required: [muscleId, name, volume]
+
+    WeeklyVolumeByMuscleItem:
+      type: object
+      properties:
+        muscleId: { type: integer, example: 1 }
+        name: { type: string, example: "胸" }
+        weeks:
           type: array
           items:
             type: object
             properties:
-              muscle_id: { type: integer }
-              volume: { type: number, format: float }
-        recent_sessions: { type: integer }
+              week: { type: string, example: "2023-W40" } # YYYY-Www 形式
+              volume: { type: number, format: float, example: 2800 }
+            required: [week, volume]
+      required: [muscleId, name, weeks]
+      
+    ExerciseVolumeItem:
+      type: object
+      properties:
+        exerciseId: { type: string, format: uuid, example: "ex-uuid-1" }
+        name: { type: string, example: "ベンチプレス" }
+        totalVolume: { type: number, format: float, example: 8000 }
+      required: [exerciseId, name, totalVolume]
+
+    CurrentWeekSummary:
+      type: object
+      properties:
+        totalWorkouts: { type: integer, example: 5 }
+        currentStreak: { type: integer, example: 3 }
+        totalVolume: { type: number, format: float, example: 12500 }
+        volumeByMuscle:
+          type: array
+          items:
+            $ref: '#/components/schemas/MuscleVolumeItem'
+      required: [totalWorkouts, currentStreak, totalVolume, volumeByMuscle]
+
+    PeriodSummary:
+      type: object
+      properties:
+        period: { type: string, example: "4w" }
+        totalVolume: { type: number, format: float, example: 48000 }
+        averageWeeklyVolume: { type: number, format: float, example: 12000 }
+        volumeTrend: { type: string, enum: [increasing, decreasing, stable, N/A], example: "increasing" }
+        volumeByMuscleOverTime:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeeklyVolumeByMuscleItem'
+        topExercisesByVolume:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExerciseVolumeItem'
+      required: [period, totalVolume, averageWeeklyVolume, volumeTrend, volumeByMuscleOverTime, topExercisesByVolume]
+
+    ProgressMetricItem:
+      type: object
+      properties:
+        metricKey: { type: string, example: "body_weight" }
+        value: { type: string, example: "70.5" } # 数値も文字列として保持し、クライアントで解釈
+        unit: { type: string, nullable: true, example: "kg" }
+        recordedAt: { type: string, format: "date-time", example: "2023-10-26T08:00:00Z" }
+      required: [metricKey, value, recordedAt]
+      
+    UnderstimulatedMuscleItem:
+      type: object
+      properties:
+        muscleId: { type: integer, example: 4 }
+        name: { type: string, example: "上腕三頭筋"}
+        lastTrained: { type: string, format: "date-time", nullable: true, example: "2023-10-20T10:00:00Z" } # or date
+      required: [muscleId, name]
+
+    DashboardResponse: # これが以前の DashboardStats の代わりとなる
+      type: object
+      properties:
+        userId: { type: string, format: uuid, example: "user-uuid-string" }
+        lastSessionId: { type: string, format: uuid, nullable: true, example: "session-uuid-string" }
+        deloadWarningSignal: { type: boolean, example: false }
+        lastCalculatedAt: { type: string, format: "date-time", example: "2023-10-27T10:00:00Z" }
+        currentWeekSummary:
+          $ref: '#/components/schemas/CurrentWeekSummary'
+        periodSummary:
+          $ref: '#/components/schemas/PeriodSummary'
+        progressMetrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProgressMetricItem'
+        understimulatedMuscles:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnderstimulatedMuscleItem'
+      required:
+        - userId
+        - deloadWarningSignal
+        - lastCalculatedAt
+        - currentWeekSummary
+        - periodSummary
+        - progressMetrics
+        - understimulatedMuscles
+    
+    # DashboardStats: # 既存の DashboardStats は DashboardResponse に置き換えられたためコメントアウトまたは削除
+    #   type: object
+    #   properties:
+    #     # ... (もしここに定義があった場合) ...
+
+    # ---- End Dashboard Schemas ----

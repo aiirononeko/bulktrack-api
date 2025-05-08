@@ -1,13 +1,11 @@
 import { sql } from "drizzle-orm";
 import {
-  foreignKey,
   index,
   integer,
   primaryKey,
   real,
   sqliteTable,
   text,
-  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 // ------------------------------------------------
@@ -215,38 +213,79 @@ export const exerciseUsage = sqliteTable(
 // This logic needs to be handled by database triggers (migrations) or application logic.
 
 // ------------------------------------------------
-// 6.  AI Recommendation minimal tables (implementation later)
+// 6.  User Dashboard Stats (Real-time Aggregation)
 // ------------------------------------------------
-export const aiRecommendations = sqliteTable(
-  "ai_recommendations",
-  {
-    id: text("id").primaryKey(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    generatedAt: text("generated_at").notNull(),
-    modelVersion: text("model_version"),
-    menuJson: text("menu_json").notNull(), // full recommended program
-    expiresAt: text("expires_at"),
-    accepted: integer("accepted", { mode: "boolean" }), // SQLite doesn't have a native boolean, often stored as 0/1
-    feedbackJson: text("feedback_json"), // diff / edits from user
-  },
-  (table) => ({
-    userGeneratedIdx: index("idx_ai_rec_user_gen").on(
-      table.userId,
-      table.generatedAt, // Drizzle doesn't explicitly support DESC here
-    ),
-  }),
-);
+export const userDashboardStats = sqliteTable("user_dashboard_stats", {
+  userId: text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  lastSessionId: text("last_session_id").references(() => workoutSessions.id, { onDelete: "set null" }),
+  // Boolean or date indicating a deload might be needed
+  deloadWarningSignal: integer("deload_warning_signal", { mode: "boolean" }).default(false),
+  lastCalculatedAt: text("last_calculated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  userTimestampIdx: index("idx_user_dashboard_stats_updated").on(table.userId, table.lastCalculatedAt),
+}));
 
 // ------------------------------------------------
-// 7.  Utility Views (example)
+// 7.  User Weekly Stats (Normalized from Dashboard)
 // ------------------------------------------------
-// Views (vw_latest_set) are not directly defined in schema.ts.
-// They should be handled via migrations or by defining them as custom queries in your application code.
+export const weeklyMuscleVolumes = sqliteTable("weekly_muscle_volumes", {
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  muscleId: integer("muscle_id").notNull().references(() => muscles.id, { onDelete: "cascade" }),
+  volume: real("volume").notNull(),
+  // Identifies the week, e.g., "2023-W52-current", "2023-W51-previous" or a simple "current"/"previous"
+  // For simplicity in this example, using a flexible text field.
+  // A more structured approach might involve separate year/week_number/type fields.
+  weekIdentifier: text("week_identifier").notNull(), 
+  calculatedAt: text("calculated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.muscleId, table.weekIdentifier] }),
+  userWeekIdx: index("idx_weekly_muscle_volume_user_week").on(table.userId, table.weekIdentifier),
+}));
+
+export const weeklyUserActivity = sqliteTable("weekly_user_activity", {
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // Identifies the week, similar to weeklyMuscleVolumes.weekIdentifier
+  weekIdentifier: text("week_identifier").notNull(),
+  totalWorkouts: integer("total_workouts").notNull().default(0),
+  currentStreak: integer("current_streak").notNull().default(0), // Represents the streak at the time of calculation for this week
+  calculatedAt: text("calculated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.weekIdentifier] }),
+}));
 
 // ------------------------------------------------
-// 8.  End of schema
+// 8. User Progress and Stimulation Stats
+// ------------------------------------------------
+export const userUnderstimulatedMuscles = sqliteTable("user_understimulated_muscles", {
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  muscleId: integer("muscle_id").notNull().references(() => muscles.id, { onDelete: "cascade" }),
+  // Identifies the period for which this muscle was deemed under-stimulated, e.g., "current_week", "2023-07"
+  periodIdentifier: text("period_identifier").notNull(),
+  calculatedAt: text("calculated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.muscleId, table.periodIdentifier] }),
+  userPeriodIdx: index("idx_understimulated_user_period").on(table.userId, table.periodIdentifier),
+}));
+
+export const userProgressMetrics = sqliteTable("user_progress_metrics", {
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // Key for the metric, e.g., "overall_progress_percentage", "squat_1rm_estimate"
+  metricKey: text("metric_key").notNull(),
+  // Value of the metric. Stored as text to accommodate various data types (numbers, strings, simple JSON).
+  // Application layer will be responsible for parsing.
+  metricValue: text("metric_value"),
+  // Optional: Type of the metric to help with parsing/display, e.g., "percentage", "kg", "boolean", "json"
+  metricType: text("metric_type"),
+  // Identifies the period or context of the metric, e.g., "latest", "2023-W40", "monthly_average"
+  periodIdentifier: text("period_identifier").notNull(),
+  calculatedAt: text("calculated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.metricKey, table.periodIdentifier] }),
+  userMetricPeriodIdx: index("idx_progress_metric_user_period").on(table.userId, table.metricKey, table.periodIdentifier),
+}));
+
+// ------------------------------------------------
+// 9. End of schema
 // ------------------------------------------------
 
 // Migration helper notes (like pragma user_version) are for migration files, not the schema.ts itself.
