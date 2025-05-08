@@ -35,3 +35,28 @@ export type AuthToken = InferOutput<typeof AuthTokenSchema>;
 //   // 他のクレーム
 // });
 // export type RefreshTokenPayload = InferOutput<typeof RefreshTokenPayloadSchema>;
+
+// User ID (UUID v7想定)
+export const UserIdSchema = pipe(
+  string(),
+  nonEmpty('User ID cannot be empty.'),
+  minLength(36, 'User ID must be a valid UUID.')
+);
+export type UserId = InferOutput<typeof UserIdSchema>;
+
+// User
+export const UserSchema = object({
+  id: UserIdSchema,
+  displayName: string(), // 当面は deviceId などを初期値として利用想定
+  // goalJson などは後ほど追加
+});
+export type User = InferOutput<typeof UserSchema>;
+
+// UserDevice
+export const UserDeviceSchema = object({
+  deviceId: DeviceIdSchema,
+  userId: UserIdSchema,
+  platform: pipe(string(), minLength(1)), // e.g., 'iOS', 'Android' - 後でEnumにもできる
+  linkedAt: string(), // ISO8601 datetime string
+});
+export type UserDevice = InferOutput<typeof UserDeviceSchema>;

@@ -1,4 +1,4 @@
-import type { DeviceId } from './entity';
+import type { DeviceId, User, UserId, UserDevice } from './entity';
 
 /**
  * リフレッシュトークンを永続化および取得するためのリポジトリインターフェース (Port)。
@@ -35,4 +35,42 @@ export interface ITokenRepository {
   // 必要であれば、トークン文字列自体で検索・削除するメソッドも定義可能
   // findDeviceByRefreshToken(refreshToken: string): Promise<DeviceId | null>;
   // deleteRefreshToken(refreshToken: string): Promise<void>;
+}
+
+/**
+ * ユーザー情報を永続化および取得するためのリポジトリインターフェース (Port)。
+ */
+export interface IUserRepository {
+  /**
+   * 新しい匿名ユーザーを作成し、永続化します。
+   * @param initialDisplayName ユーザーの初期表示名（例: deviceId）
+   * @returns 作成されたユーザーエンティティ。
+   */
+  createAnonymousUser(initialDisplayName: string): Promise<User>;
+
+  /**
+   * 指定されたIDのユーザーを取得します。
+   * @param userId ユーザーID
+   * @returns 見つかった場合はユーザーエンティティ、見つからない場合は null。
+   */
+  findById(userId: UserId): Promise<User | null>;
+}
+
+/**
+ * デバイス情報を永続化および取得するためのリポジトリインターフェース (Port)。
+ */
+export interface IDeviceRepository {
+  /**
+   * 新しいデバイス情報を永続化します。
+   * @param userDevice 保存するデバイスエンティティ。
+   * @returns Promise<void>
+   */
+  save(userDevice: UserDevice): Promise<void>;
+
+  /**
+   * 指定されたデバイスIDのデバイス情報を取得します。
+   * @param deviceId デバイスID
+   * @returns 見つかった場合はデバイスエンティティ、見つからない場合は null。
+   */
+  findByDeviceId(deviceId: DeviceId): Promise<UserDevice | null>;
 }
