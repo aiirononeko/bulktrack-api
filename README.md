@@ -127,3 +127,39 @@ Schema matches Go build; see [`schema.sql`](schema.sql). Drizzle models reside i
 └── README.md
 ```
 </details>
+
+### Layer Rules
+
+1. **Domain** imports nothing outside `src/domain`. Pure functions & entities.
+2. **Application** orchestrates domain objects via commands/queries; depends only on domain ports.
+3. **Interface** owns HTTP concerns (Hono handlers), maps HTTP ↔ DTO.
+4. **Infrastructure** provides concrete adapters (D1, KV, JWT, Apple verify).
+
+### AI‑Agent Guardrails
+
+* Create files **only in directories above**.
+* Tests live beside source as `*.test.ts`.
+* Generated artifacts (`dist/`, `.d.ts`) are ignored by git — do **not** commit.
+
+---
+
+## 🛠️ Local Development
+
+```bash
+pnpm i                # install deps
+pnpm dev              # = wrangler dev --local --experimental-json-config
+```
+
+*Hot‑reload*, D1 in‑memory, Vitest watchers.
+
+---
+
+## 🧪 Testing & CI
+
+| Layer    | Tool                                           |
+| -------- | ---------------------------------------------- |
+| Unit     | **Vitest** + **@hono/testing**                 |
+| Contract | **Prism** mock server vs `openapi.yaml`        |
+| E2E      | **k6** / **Playwright** hitting `wrangler dev` |
+
+GitHub Actions matrix runs `vitest`, `tsc --noEmit`, ESLint, Drizzle migrations, and contract tests.
