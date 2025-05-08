@@ -1,11 +1,18 @@
 import { Hono } from 'hono';
+import { logger } from 'hono/logger';
+import { cors } from 'hono/cors';
+
 import deviceAuthRoutes from './handlers/auth/device';
 
-const app = new Hono<{ Bindings: CloudflareBindings }>();
+const app = new Hono();
 
-// Middleware (logging, cors, etc. can be added here)
-// app.use('*', logger()); // Example: Hono標準のロガー
-// app.use('*', cors());  // Example: CORSミドルウェア
+// Middleware
+app.use('*', logger());
+app.use('*', cors({
+  origin: '*',
+  allowHeaders: ['X-Device-Id', 'Content-Type'],
+  allowMethods: ['POST', 'GET', 'PUT', 'DELETE', 'OPTIONS'],
+}));
 
 // Route modules
 app.route('/v1/auth', deviceAuthRoutes);

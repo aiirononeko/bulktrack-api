@@ -29,8 +29,7 @@ export class ActivateDeviceCommand {
       validatedDeviceId = parse(DeviceIdSchema, input.deviceId);
     } catch (error) {
       if (error instanceof ValiError) {
-        // TODO: Replace with a proper logger or application-specific error
-        // console.error('Device ID validation failed:', error.issues);
+        console.error('Device ID validation failed:', error.issues);
         throw new Error(`Invalid device ID: ${error.issues.map(i => i.message).join(', ')}`);
       }
       throw error; // その他の予期せぬエラー
