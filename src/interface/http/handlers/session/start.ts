@@ -1,8 +1,8 @@
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import * as v from 'valibot';
-import type { StartSessionRequestDto, StartSessionResponseDto } from '../../../../app/dto/session.dto';
-import { StartSessionCommand, StartSessionHandler } from '../../../../app/command/session/start-session';
+import type { StartSessionResponseDto } from '../../../../app/dto/session.dto';
+import { StartSessionCommand, type StartSessionHandler } from '../../../../app/command/session/start-session';
 import type { StartSessionResult } from '../../../../app/command/session/start-session';
 import { WorkoutSessionService } from '../../../../domain/workout/service';
 import type { IWorkoutSessionRepository } from '../../../../domain/workout/repository';
@@ -35,13 +35,8 @@ const tempWorkoutSessionRepository: IWorkoutSessionRepository = {
   save: async (session: WorkoutSession) => { console.log('Session saved (temp):', session.toPrimitives()); }, // TODO: Implement
 };
 
-// StartSessionHandlerのインスタンスを生成 (DIは後で検討)
 // WorkoutSessionServiceは状態を持たないことが多いのでnewで良い場合もあるが、リポジトリは具体的な実装が必要
-const workoutSessionService = new WorkoutSessionService();
-const startSessionHandlerInstance = new StartSessionHandler(
-  workoutSessionService,
-  tempWorkoutSessionRepository, // TODO: インフラ層のリポジトリ実装に置き換える
-);
+const workoutSessionService = new WorkoutSessionService(tempWorkoutSessionRepository);
 
 export async function startSessionHttpHandler( // 関数名を変更して区別
   c: Context<{ Variables: AppEnvVariablesWithSessionHandler }>

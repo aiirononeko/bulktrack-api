@@ -31,7 +31,7 @@ export function toExerciseDto(exercise: Exercise, locale: string): ExerciseDto {
   const effectiveLocale = exercise.translations.find((t: ExerciseTranslation) => t.locale === locale) ? locale : 'canonical';
 
   return {
-    id: exercise.id,
+    id: exercise.id.value,
     canonical_name: exercise.canonicalName,
     locale: effectiveLocale, // または、実際に名前が取得できたロケール
     name: name,

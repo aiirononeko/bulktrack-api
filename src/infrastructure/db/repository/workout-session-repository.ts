@@ -14,13 +14,26 @@ export class DrizzleWorkoutSessionRepository implements IWorkoutSessionRepositor
 
   async save(session: WorkoutSession): Promise<void> {
     const primitives = session.toPrimitives();
-    await this.db.insert(this.schema.workoutSessions).values({
+    const valuesToInsertOrUpdate = {
       id: primitives.id,
       userId: primitives.userId,
       menuId: primitives.menuId,
       startedAt: primitives.startedAt.toISOString(),
       finishedAt: primitives.finishedAt ? primitives.finishedAt.toISOString() : null,
-    });
+    };
+
+    await this.db
+      .insert(this.schema.workoutSessions)
+      .values(valuesToInsertOrUpdate)
+      .onConflictDoUpdate({
+        target: this.schema.workoutSessions.id,
+        set: {
+          userId: valuesToInsertOrUpdate.userId,
+          menuId: valuesToInsertOrUpdate.menuId,
+          startedAt: valuesToInsertOrUpdate.startedAt,
+          finishedAt: valuesToInsertOrUpdate.finishedAt,
+        },
+      });
   }
 
   async findById(id: WorkoutSessionIdVO): Promise<WorkoutSession | null> {

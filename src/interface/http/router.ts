@@ -31,8 +31,10 @@ import { createSearchExercisesHandler } from "./handlers/exercise/search";
 
 import { startSessionHttpHandler } from "./handlers/session/start";
 import { StartSessionHandler } from "../../app/command/session/start-session";
+import { FinishSessionCommand, FinishSessionHandler } from "../../app/command/session/finish-session";
 import { WorkoutSessionService } from "../../domain/workout/service";
 import { DrizzleWorkoutSessionRepository } from "../../infrastructure/db/repository/workout-session-repository";
+import { UserIdVO, WorkoutSessionIdVO } from "../../domain/shared/vo/identifier";
 
 // Define types for c.var
 type AppEnv = {
@@ -41,6 +43,7 @@ type AppEnv = {
     refreshTokenCommand: RefreshTokenCommand;
     searchExercisesHandler: SearchExercisesHandler;
     startSessionHandler: StartSessionHandler;
+    finishSessionHandler: FinishSessionHandler;
     // jwtPayload is automatically added by hono/jwt if needed here, or can be accessed via c.get('jwtPayload')
   };
   // Define CloudflareBindings if not already globally defined
@@ -130,13 +133,22 @@ app.use("/v1/sessions/*", async (c, next) => {
   // WorkoutSessionRepositoryの実装をインスタンス化
   const workoutSessionRepository = new DrizzleWorkoutSessionRepository(db, tablesSchema);
   
-  const workoutSessionService = new WorkoutSessionService(); // 依存がなければこのままでOK
+  // WorkoutSessionService にリポジトリを注入
+  const workoutSessionService = new WorkoutSessionService(workoutSessionRepository); 
+  
   const startSessionHandler = new StartSessionHandler(
     workoutSessionService,
-    workoutSessionRepository // 実際のRepositoryに置き換え
+    workoutSessionRepository
+  );
+
+  // FinishSessionHandler をインスタンス化してセット
+  const finishSessionHandler = new FinishSessionHandler(
+    workoutSessionRepository, // DrizzleWorkoutSessionRepository を使用
+    workoutSessionService   // 正しく初期化された WorkoutSessionService を使用
   );
 
   c.set("startSessionHandler", startSessionHandler);
+  c.set("finishSessionHandler", finishSessionHandler); // c.var にセット
   await next();
 });
 
@@ -211,6 +223,45 @@ app.get("/v1/exercises", async (c) => {
 const sessionsRoutes = new Hono<AppEnv>();
 sessionsRoutes.use("*", jwtAuthMiddleware); // ★ 実際の認証ミドルウェアを使用
 sessionsRoutes.post("/", startSessionHttpHandler);
+
+// POST /v1/sessions/:sessionId/finish ルートを追加
+sessionsRoutes.post("/:sessionId/finish", async (c) => {
+  const handler = c.var.finishSessionHandler;
+  if (!handler) {
+    console.error("FinishSessionHandler not found in c.var for /v1/sessions/:sessionId/finish route.");
+    throw new HTTPException(500, { message: "Internal Configuration Error - Handler not set" });
+  }
+
+  const sessionIdParam = c.req.param("sessionId");
+  const jwtPayload = c.get("jwtPayload");
+
+  if (!jwtPayload || !jwtPayload.sub) {
+    throw new HTTPException(401, { message: "Unauthorized: Missing or invalid token payload" });
+  }
+
+  try {
+    const command = new FinishSessionCommand(
+      new WorkoutSessionIdVO(sessionIdParam),
+      new UserIdVO(jwtPayload.sub)
+    );
+    const resultDto = await handler.execute(command);
+    return c.json(resultDto);
+  } catch (error) {
+    // ドメインやアプリケーション層からのエラーを適切に処理
+    if (error instanceof Error && (error.message.includes("not found") || error.message.includes("Forbidden"))) {
+      // 例: セッションが見つからない、または権限がない場合
+      throw new HTTPException(404, { message: error.message });
+    }
+    if (error instanceof Error && error.message.includes("already been finished")) {
+      throw new HTTPException(400, { message: error.message }); // Bad Request
+    }
+    if (error instanceof Error && error.message.includes("earlier than start time")) {
+      throw new HTTPException(400, { message: error.message }); // Bad Request
+    }
+    // その他の予期せぬエラーはグローバルエラーハンドラに任せる
+    throw error;
+  }
+});
 
 app.route("/v1/sessions", sessionsRoutes);
 
