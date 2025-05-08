@@ -3,14 +3,17 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import type { StatusCode } from "hono/utils/http-status";
+import { drizzle } from 'drizzle-orm/d1'; // Import drizzle for D1
 
 import { ApplicationError } from "../../app/errors";
+
 import deviceAuthRoutes from "./handlers/auth/device";
 import refreshAuthRoutes from "./handlers/auth/refresh";
 
 import { ActivateDeviceCommand } from "../../app/command/auth/activate-device-command";
 import { RefreshTokenCommand } from "../../app/command/auth/refresh-token-command";
 import { AuthService as DomainAuthService } from "../../domain/auth/service";
+
 // --- DI Setup ---
 // Import services and commands
 import { JwtServiceImpl } from "../../infrastructure/auth/jwt-service";
@@ -18,13 +21,28 @@ import { DeviceRepositoryImpl } from "../../infrastructure/db/repository/device-
 import { UserRepositoryImpl } from "../../infrastructure/db/repository/user-repository"; // For ActivateDeviceCommand
 import { KvTokenStoreImpl } from "../../infrastructure/kv/token-store";
 
+// Import services and handlers for Exercises
+import { DrizzleExerciseRepository } from "../../infrastructure/db/repository/exercise-repository";
+import * as tablesSchema from "../../infrastructure/db/schema"; // Import schema object
+import { ExerciseService } from "../../domain/exercise/service";
+import { SearchExercisesHandler } from "../../app/query/exercise/search-exercise";
+import { createSearchExercisesHandler } from "./handlers/exercise/search";
+
 // Define types for c.var
 type AppEnv = {
   Variables: {
     activateDeviceCommand: ActivateDeviceCommand;
     refreshTokenCommand: RefreshTokenCommand;
+    searchExercisesHandler: SearchExercisesHandler; // Added for exercises
   };
-  Bindings: CloudflareBindings;
+  // Define CloudflareBindings if not already globally defined
+  // This usually comes from a .d.ts file (e.g. hono/bindings or custom)
+  Bindings: {
+    DB: D1Database;
+    JWT_SECRET: string;
+    REFRESH_TOKENS_KV: KVNamespace;
+    // Add other bindings as needed
+  };
 };
 
 const app = new Hono<AppEnv>();
@@ -71,6 +89,25 @@ app.use("/v1/auth/*", async (c, next) => {
 
   await next();
 });
+
+// Middleware for Dependency Injection for Exercise routes
+app.use("/v1/exercises", async (c, next) => {
+  if (!c.env.DB) {
+    console.error("CRITICAL: Missing DB environment binding for exercise services.");
+    throw new HTTPException(500, {
+      message: "Internal Server Configuration Error for Exercises",
+    });
+  }
+  const db = drizzle(c.env.DB, { schema: tablesSchema }); // Wrap D1Database with Drizzle
+  const exerciseRepository = new DrizzleExerciseRepository(db, tablesSchema);
+  const exerciseService = new ExerciseService(exerciseRepository);
+  const searchExercisesHandler = new SearchExercisesHandler(exerciseService);
+
+  c.set("searchExercisesHandler", searchExercisesHandler);
+
+  await next();
+});
+
 // --- End DI Setup ---
 
 // Middleware
@@ -79,7 +116,7 @@ app.use(
   "*",
   cors({
     origin: "*",
-    allowHeaders: ["X-Device-Id", "Content-Type", "X-Platform"],
+    allowHeaders: ["X-Device-Id", "Content-Type", "X-Platform", "Authorization"],
     allowMethods: ["POST", "GET", "PUT", "DELETE", "OPTIONS"],
   }),
 );
@@ -116,6 +153,17 @@ app.onError((err, c) => {
 // Route modules
 app.route("/v1/auth", deviceAuthRoutes);
 app.route("/v1/auth", refreshAuthRoutes);
+
+// Route for Exercises
+app.get("/v1/exercises", async (c) => {
+  const handler = c.var.searchExercisesHandler;
+  if (!handler) {
+    console.error("SearchExercisesHandler not found in c.var for /v1/exercises route.");
+    throw new HTTPException(500, { message: "Internal Configuration Error - Handler not set" });
+  }
+  const actualHandler = createSearchExercisesHandler(handler);
+  return actualHandler(c);
+});
 
 // Root path or health check (optional)
 app.get("/", (c) => {
