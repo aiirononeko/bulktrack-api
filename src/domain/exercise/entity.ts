@@ -1,4 +1,6 @@
-export type ExerciseId = string; // UUID v7
+import type { ExerciseIdVO } from "../shared/vo/identifier";
+
+export type ExerciseId = ExerciseIdVO;
 
 // 翻訳情報を表す型
 export type ExerciseTranslation = {

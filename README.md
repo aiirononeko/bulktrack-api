@@ -102,13 +102,13 @@ The Aggregator Worker runs this nightly to update `muscle_volumes_day`, feeding 
 │   ├── app/                       # Application layer (CQRS)
 │   │   ├── command/
 │   │   │   ├── exercise/
-│   │   │   │   └── createExercise.ts
+│   │   │   │   └── create-exercise.ts
 │   │   │   └── session/
-│   │   │       ├── startSession.ts
-│   │   │       └── finishSession.ts
+│   │   │       ├── start-session.ts
+│   │   │       └── finish-session.ts
 │   │   ├── query/
 │   │   │   └── exercise/
-│   │   │       └── searchExercise.ts
+│   │   │       └── search-exercise.ts
 │   │   ├── dto/
 │   │   └── errors/
 │   ├── interface/                 # Delivery layer
@@ -133,8 +133,8 @@ The Aggregator Worker runs this nightly to update `muscle_volumes_day`, feeding 
 │   └── infrastructure/
 │       ├── db/
 │       │   └── schema.ts
-│       ├── kv/tokenStore.ts
-│       ├── auth/jwtService.ts
+│       ├── kv/token-store.ts
+│       ├── auth/jwt-service.ts
 │       └── logging/logger.ts
 ├── drizzle/                        # Migration files
 ├── api/

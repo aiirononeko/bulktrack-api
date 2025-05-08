@@ -1,4 +1,5 @@
-import type { Exercise, ExerciseId } from './entity';
+import type { Exercise } from "./entity";
+import type { ExerciseIdVO } from "../shared/vo/identifier";
 
 export interface IExerciseRepository {
   /**
@@ -15,7 +16,7 @@ export interface IExerciseRepository {
    * @param id 取得するエクササイズのID
    * @returns エクササイズエンティティ、見つからない場合はnull
    */
-  findById(id: ExerciseId): Promise<Exercise | null>;
+  findById(id: ExerciseIdVO): Promise<Exercise | null>;
 
   /**
    * 新しいエクササイズを作成（永続化）します。

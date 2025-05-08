@@ -1,9 +1,10 @@
-import { Hono } from "hono";
+import { Hono, type Next, type Context } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import type { StatusCode } from "hono/utils/http-status";
-import { drizzle } from 'drizzle-orm/d1'; // Import drizzle for D1
+import { drizzle } from 'drizzle-orm/d1';
+import { jwt } from 'hono/jwt';
 
 import { ApplicationError } from "../../app/errors";
 
@@ -28,12 +29,19 @@ import { ExerciseService } from "../../domain/exercise/service";
 import { SearchExercisesHandler } from "../../app/query/exercise/search-exercise";
 import { createSearchExercisesHandler } from "./handlers/exercise/search";
 
+import { startSessionHttpHandler } from "./handlers/session/start";
+import { StartSessionHandler } from "../../app/command/session/start-session";
+import { WorkoutSessionService } from "../../domain/workout/service";
+import { DrizzleWorkoutSessionRepository } from "../../infrastructure/db/repository/workout-session-repository";
+
 // Define types for c.var
 type AppEnv = {
   Variables: {
     activateDeviceCommand: ActivateDeviceCommand;
     refreshTokenCommand: RefreshTokenCommand;
-    searchExercisesHandler: SearchExercisesHandler; // Added for exercises
+    searchExercisesHandler: SearchExercisesHandler;
+    startSessionHandler: StartSessionHandler;
+    // jwtPayload is automatically added by hono/jwt if needed here, or can be accessed via c.get('jwtPayload')
   };
   // Define CloudflareBindings if not already globally defined
   // This usually comes from a .d.ts file (e.g. hono/bindings or custom)
@@ -108,7 +116,41 @@ app.use("/v1/exercises", async (c, next) => {
   await next();
 });
 
-// --- End DI Setup ---
+// Middleware for Dependency Injection for Session routes
+app.use("/v1/sessions/*", async (c, next) => {
+  if (!c.env.DB) {
+    console.error("CRITICAL: Missing DB environment binding for session services.");
+    throw new HTTPException(500, {
+      message: "Internal Server Configuration Error for Sessions",
+    });
+  }
+  // Drizzleインスタンスの準備
+  const db = drizzle(c.env.DB, { schema: tablesSchema });
+
+  // WorkoutSessionRepositoryの実装をインスタンス化
+  const workoutSessionRepository = new DrizzleWorkoutSessionRepository(db, tablesSchema);
+  
+  const workoutSessionService = new WorkoutSessionService(); // 依存がなければこのままでOK
+  const startSessionHandler = new StartSessionHandler(
+    workoutSessionService,
+    workoutSessionRepository // 実際のRepositoryに置き換え
+  );
+
+  c.set("startSessionHandler", startSessionHandler);
+  await next();
+});
+
+// --- 認証ミドルウェア (hono/jwt を使用) ---
+const jwtAuthMiddleware = (c: Context<AppEnv>, next: Next) => {
+  if (!c.env.JWT_SECRET) {
+    console.error("CRITICAL: Missing JWT_SECRET for token verification.");
+    throw new HTTPException(500, { message: "JWT secret not configured." });
+  }
+  // jwt() はミドルウェアファクトリなので、それを呼び出す
+  const middleware = jwt({ secret: c.env.JWT_SECRET });
+  return middleware(c, next); // 生成されたミドルウェアを実行
+};
+// --- 認証ミドルウェアここまで ---
 
 // Middleware
 app.use("*", logger());
@@ -164,6 +206,13 @@ app.get("/v1/exercises", async (c) => {
   const actualHandler = createSearchExercisesHandler(handler);
   return actualHandler(c);
 });
+
+// Routes for Sessions
+const sessionsRoutes = new Hono<AppEnv>();
+sessionsRoutes.use("*", jwtAuthMiddleware); // ★ 実際の認証ミドルウェアを使用
+sessionsRoutes.post("/", startSessionHttpHandler);
+
+app.route("/v1/sessions", sessionsRoutes);
 
 // Root path or health check (optional)
 app.get("/", (c) => {
