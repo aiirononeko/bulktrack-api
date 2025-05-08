@@ -1,0 +1,344 @@
+openapi: 3.0.3
+info:
+  title: Bulktrack API
+  version: 1.0.0
+  description: |
+    API definition for the BulkTrack application.
+servers:
+  - url: https://api.bulk-track.com/v1
+    description: Production server
+  - url: http://localhost:8787/v1
+    description: Local development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ---------------- Auth ---------------- #
+  /v1/auth/device:
+    post:
+      summary: Activate a new device (anonymous onboarding)
+      tags: [Auth]
+      parameters:
+        - name: X-Device-Id
+          in: header
+          required: true
+          description: UUID v7 of the device
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Device tokens issued, content: { application/json: { schema: { $ref: '#/components/schemas/TokenResponse' } } } }
+      security: []
+
+  /v1/auth/apple:
+    post:
+      summary: Link or sign-in with Apple
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identity_token]
+              properties:
+                identity_token: { type: string, description: Apple identity token (JWT) }
+      responses:
+        '200': { description: User tokens, content: { application/json: { schema: { $ref: '#/components/schemas/TokenResponse' } } } }
+      security: []
+
+  /v1/auth/refresh:
+    post:
+      summary: Refresh access token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshTokenRequest' }
+      responses:
+        '200': { description: Tokens refreshed, content: { application/json: { schema: { $ref: '#/components/schemas/TokenResponse' } } } }
+      security: []
+
+  /v1/auth/logout:
+    post:
+      summary: Log out (revoke refresh token)
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshTokenRequest' }
+      responses:
+        '204': { description: Logged out }
+      security: []
+
+  # ---------------- Users & Devices ---------------- #
+  /v1/users:
+    post:
+      summary: Create user manually (debug / admin)
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserCreate' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+  
+  /v1/devices:
+    post:
+      summary: Register device to user (post-Apple link)
+      tags: [Devices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeviceCreate' }
+      responses:
+        '201': { description: Device registered, content: { application/json: { schema: { $ref: '#/components/schemas/Device' } } } }
+
+  # ---------------- Exercises ---------------- #
+  /v1/exercises:
+    get:
+      summary: Search or list recent exercises
+      tags: [Exercises]
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+          description: Prefix search string
+        - in: query
+          name: locale
+          schema: { type: string, default: ja }
+      responses:
+        '200': { description: List, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Exercise' } } } } }
+    post:
+      summary: Create custom exercise
+      tags: [Exercises]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExerciseCreate' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Exercise' } } } }
+
+  # ---------------- Sessions & Sets ---------------- #
+  /v1/sessions:
+    post:
+      summary: Start workout session
+      tags: [Sessions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionStart' }
+      responses:
+        '201': { description: Started, content: { application/json: { schema: { $ref: '#/components/schemas/WorkoutSession' } } } }
+    get:
+      summary: List recent sessions
+      tags: [Sessions]
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+      responses:
+        '200': { description: List, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/WorkoutSession' } } } } }
+
+  /v1/sessions/{sessionId}:
+    get:
+      summary: Get session detail
+      tags: [Sessions]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200': { description: Detail, content: { application/json: { schema: { $ref: '#/components/schemas/SessionDetail' } } } }
+
+  /v1/sessions/{sessionId}/finish:
+    post:
+      summary: Finish session
+      tags: [Sessions]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                finished_at: { type: string, format: date-time }
+      responses:
+        '200': { description: Finished, content: { application/json: { schema: { $ref: '#/components/schemas/WorkoutSession' } } } }
+
+  /v1/sessions/{sessionId}/sets:
+    post:
+      summary: Add set
+      tags: [Sets]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetCreate' }
+      responses:
+        '201': { description: Recorded, content: { application/json: { schema: { $ref: '#/components/schemas/WorkoutSet' } } } }
+    get:
+      summary: List sets in session
+      tags: [Sets]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200': { description: List, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/WorkoutSet' } } } } }
+
+  # ---------------- Dashboard ---------------- #
+  /v1/dashboard:
+    get:
+      summary: Aggregated volume stats
+      tags: [Dashboard]
+      parameters:
+        - in: query
+          name: range
+          schema: { type: string, enum: [7d, 30d], default: 7d }
+      responses:
+        '200': { description: Stats, content: { application/json: { schema: { $ref: '#/components/schemas/DashboardStats' } } } }
+
+  # ---------------- Utility ---------------- #
+  /v1/ping:
+    get:
+      summary: Health check
+      tags: [Utility]
+      responses:
+        '200':
+          description: pong
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: pong }
+      security: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Global Bearer auth
+
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  # ---- Schemas (same as previous version, trimmed) ---- #
+  schemas:
+    TokenResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        expires_in: { type: integer }
+      required: [access_token, refresh_token, expires_in]
+    RefreshTokenRequest:
+      type: object
+      properties:
+        refresh_token: { type: string }
+      required: [refresh_token]
+    UserCreate:
+      type: object
+      required: [display_name]
+      properties:
+        display_name: { type: string }
+    User:
+      allOf:
+        - $ref: '#/components/schemas/UserCreate'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            created_at: { type: string, format: date-time }
+    DeviceCreate:
+      type: object
+      required: [user_id]
+      properties:
+        user_id: { type: string, format: uuid }
+        platform: { type: string }
+    Device:
+      allOf:
+        - $ref: '#/components/schemas/DeviceCreate'
+        - type: object
+          properties:
+            device_id: { type: string, format: uuid }
+            linked_at: { type: string, format: date-time }
+    ExerciseCreate:
+      type: object
+      required: [canonical_name]
+      properties:
+        canonical_name: { type: string }
+        locale: { type: string }
+        name: { type: string }
+        aliases: { type: string }
+    Exercise:
+      allOf:
+        - $ref: '#/components/schemas/ExerciseCreate'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            is_official: { type: boolean }
+            last_used_at: { type: string, format: date-time }
+    SessionStart:
+      type: object
+      required: [user_id, started_at]
+      properties:
+        user_id: { type: string, format: uuid }
+        menu_id: { type: string, format: uuid }
+        started_at: { type: string, format: date-time }
+    WorkoutSession:
+      allOf:
+        - $ref: '#/components/schemas/SessionStart'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            finished_at: { type: string, format: date-time }
+            created_at: { type: string, format: date-time }
+    SessionDetail:
+      type: object
+      properties:
+        session: { $ref: '#/components/schemas/WorkoutSession' }
+        sets:
+          type: array
+          items: { $ref: '#/components/schemas/WorkoutSet' }
+    SetCreate:
+      type: object
+      required: [exercise_id, weight, reps]
+      properties:
+        exercise_id: { type: string, format: uuid }
+        weight: { type: number, format: float }
+        reps: { type: integer }
+        rpe: { type: number, format: float }
+        tempo: { type: string }
+        rest_sec: { type: integer }
+    WorkoutSet:
+      allOf:
+        - $ref: '#/components/schemas/SetCreate'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            set_no: { type: integer }
+            volume: { type: number, format: float }
+            created_at: { type: string, format: date-time }
+    DashboardStats:
+      type: object
+      properties:
+        total_volume: { type: number, format: float }
+        muscle_breakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              muscle_id: { type: integer }
+              volume: { type: number, format: float }
+        recent_sessions: { type: integer }

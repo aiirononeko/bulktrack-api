@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bulktrack-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-05-08",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bulktrack-db",
+      "database_id": "f8547348-c11a-426a-82da-b3d3591bd183"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "REFRESH_TOKENS_KV",
+      "id": "60a8548f69b244c094d2f86d5ca6e504"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}
