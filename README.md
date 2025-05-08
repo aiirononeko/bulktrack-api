@@ -32,7 +32,7 @@ flowchart TD
 
 * **Hono** – 3 kB router/middleware stack perfect for Workers.
 * **Drizzle** – SQL‑first, type‑safe ORM + migrations.
-* **JWT device tokens** verified with `@tsndr/cloudflare-jwt`; refresh & revocation list in KV.
+* **JWT device tokens** generated and verified using `hono/jwt`; refresh & revocation list in KV.
 * **OpenAPI 3.0** (`api/openapi.yaml`) drives typed SDK via `openapi-typescript`.
 
 ---
@@ -128,12 +128,12 @@ Schema matches Go build; see [`schema.sql`](schema.sql). Drizzle models reside i
 ```
 </details>
 
-### Layer Rules
+### Layer Rules
 
 1. **Domain** imports nothing outside `src/domain`. Pure functions & entities.
 2. **Application** orchestrates domain objects via commands/queries; depends only on domain ports.
-3. **Interface** owns HTTP concerns (Hono handlers), maps HTTP ↔ DTO.
-4. **Infrastructure** provides concrete adapters (D1, KV, JWT, Apple verify).
+3. **Interface** owns HTTP concerns (Hono handlers), maps HTTP ↔ DTO.
+4. **Infrastructure** provides concrete adapters (D1, KV, JWT, Apple verify).
 
 ### AI‑Agent Guardrails
 
@@ -143,7 +143,7 @@ Schema matches Go build; see [`schema.sql`](schema.sql). Drizzle models reside i
 
 ---
 
-## 🛠️ Local Development
+## 🛠️ Local Development
 
 ```bash
 pnpm i                # install deps
@@ -154,7 +154,7 @@ pnpm dev              # = wrangler dev --local --experimental-json-config
 
 ---
 
-## 🧪 Testing & CI
+## 🧪 Testing & CI
 
 | Layer    | Tool                                           |
 | -------- | ---------------------------------------------- |
@@ -162,4 +162,4 @@ pnpm dev              # = wrangler dev --local --experimental-json-config
 | Contract | **Prism** mock server vs `openapi.yaml`        |
 | E2E      | **k6** / **Playwright** hitting `wrangler dev` |
 
-GitHub Actions matrix runs `vitest`, `tsc --noEmit`, ESLint, Drizzle migrations, and contract tests.
+GitHub Actions matrix runs `vitest`, `tsc --noEmit`, ESLint, Drizzle migrations, and contract tests.
