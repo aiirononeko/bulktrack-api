@@ -53,6 +53,29 @@ export const exercises = sqliteTable("exercises", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const exerciseMuscles = sqliteTable(
+  "exercise_muscles",
+  {
+    exerciseId: text("exercise_id")
+      .notNull()
+      .references(() => exercises.id, { onDelete: "cascade" }),
+    muscleId: integer("muscle_id")
+      .notNull()
+      .references(() => muscles.id),
+    // CHECK constraint (tension_ratio BETWEEN 0 AND 1) should be handled by DB migration or application validation.
+    // Drizzle ORM schema definition doesn't directly support CHECK constraints in a portable way for all DBs,
+    // though SQLite itself does. For now, we define the column and its type.
+    // Application logic or a database trigger would be responsible for enforcing the 0-1 range.
+    tensionRatio: real("tension_ratio").notNull(), 
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.exerciseId, table.muscleId] }),
+    // Optional: Index for querying by exercise_id or muscle_id if needed frequently
+    // exerciseIdx: index("idx_exercise_muscles_exercise").on(table.exerciseId),
+    // muscleIdx: index("idx_exercise_muscles_muscle").on(table.muscleId),
+  }),
+);
+
 export const exerciseTranslations = sqliteTable(
   "exercise_translations",
   {

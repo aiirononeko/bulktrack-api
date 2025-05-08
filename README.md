@@ -56,6 +56,33 @@ Schema matches Go build; see [`schema.sql`](schema.sql). Drizzle models reside i
 
 ---
 
+## 🎚️ Effective Volume Model (Stimulus × Fatigue)
+
+### Why two coefficients?
+
+| Column                               | Level               | Meaning                                                                                                                                                    |
+| ------------------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`muscles.tension_factor`**         | *muscle*            | Recovery / fatigue multiplier (default **1.0**). Lower for fatigue-heavy muscles (e.g., lower back 0.7), higher for fatigue-light ones (e.g., calves 1.2). |
+| **`exercise_muscles.tension_ratio`** | *exercise → muscle* | Share of a set’s tension that reaches each muscle.<br>Bench Press → Chest 1.0, Triceps 0.5, Shoulders 0.3                                                  |
+
+### 7-day effective-volume query
+
+```sql
+SELECT
+  em.muscle_id,
+  SUM(ws.volume * em.tension_ratio * m.tension_factor) AS effective_volume
+FROM workout_sets      ws
+JOIN exercise_muscles  em USING (exercise_id)
+JOIN muscles           m  ON m.id = em.muscle_id
+WHERE ws.user_id = :uid
+  AND ws.created_at >= date('now','-7 day')
+GROUP BY em.muscle_id;
+```
+
+The Aggregator Worker runs this nightly to update `muscle_volumes_day`, feeding the dashboard heat-map and future AI recommendations.
+
+---
+
 ## 📂 Repo Layout — Clean Architecture / DDD
 
 <details>
