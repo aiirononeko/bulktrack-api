@@ -3,6 +3,7 @@ import { ValiError, parse, object, string, minLength, pipe, type InferOutput } f
 import type { DeviceId, RefreshTokenPayload } from '../../../domain/auth/entity';
 import { AuthService, type IJwtService } from '../../../domain/auth/service';
 import type { ITokenRepository } from '../../../domain/auth/repository';
+import { TokenError, InvalidTokenError, TokenExpiredError, StorageError } from '../../../domain/auth/errors'; // Import domain errors
 import type { AuthTokensDTO } from '../../dto/auth-tokens-dto';
 import { ApplicationError, ValidationError, AuthorizationError } from '../../errors';
 
@@ -37,7 +38,7 @@ export class RefreshTokenCommand {
         if (error instanceof ValiError) {
           throw new ValidationError('Invalid refresh token input.', error.issues);
         }
-        throw error; // Rethrow other errors
+        throw error; 
       }
     })();
 
@@ -45,52 +46,66 @@ export class RefreshTokenCommand {
 
     const verifiedTokenPayload: RefreshTokenPayload = await (async () => {
       try {
-        // verifyRefreshToken from jwtService is expected to return a valid RefreshTokenPayload
-        // or throw an AuthorizationError if verification fails (e.g., invalid signature, expired, malformed).
         return await this.jwtService.verifyRefreshToken(refreshToken);
       } catch (error) {
-        // Assuming jwtService.verifyRefreshToken wraps its errors into AuthorizationError
-        // or throws errors that should be treated as such at this stage.
-        console.error('Refresh token verification failed:', error);
-        if (error instanceof AuthorizationError) {
-          throw error; // Rethrow if it's already the correct type
+        console.error('Refresh token verification failed in command:', error);
+        if (error instanceof TokenExpiredError) {
+          throw new AuthorizationError('Refresh token has expired.', { cause: error });
         }
-        // Fallback for unexpected error types from verifyRefreshToken
-        throw new AuthorizationError('Refresh token is invalid or expired due to an unexpected issue.');
+        if (error instanceof InvalidTokenError) {
+          throw new AuthorizationError('Refresh token is invalid or malformed.', { cause: error });
+        }
+        if (error instanceof TokenError) {
+          throw new AuthorizationError('Refresh token verification failed.', { cause: error });
+        }
+        throw new AuthorizationError('Failed to verify refresh token due to an unexpected issue.', { cause: error instanceof Error ? error : new Error(String(error)) });
       }
     })();
 
     const deviceId = verifiedTokenPayload.sub as DeviceId;
 
-    // 2. Retrieve stored refresh token from KV
-    const storedRefreshToken = await this.tokenRepository.findRefreshTokenByDeviceId(deviceId);
+    const storedRefreshToken = await (async () => {
+      try {
+        return await this.tokenRepository.findRefreshTokenByDeviceId(deviceId);
+      } catch (error) {
+        console.error(`Failed to find refresh token for device ${deviceId}:`, error);
+        if (error instanceof StorageError) {
+          throw new ApplicationError('Storage error when retrieving refresh token.', 500, 'STORAGE_ERROR', error);
+        }
+        throw new ApplicationError('Failed to retrieve refresh token due to an unexpected storage issue.', 500, 'UNEXPECTED_STORAGE_ERROR', error instanceof Error ? error : undefined);
+      }
+    })();
+    
     if (!storedRefreshToken) {
       throw new AuthorizationError('No refresh token found for this device. Please activate device again.');
     }
 
-    // 3. Compare the incoming token with the stored one
     if (refreshToken !== storedRefreshToken) {
-      // Security measure: If a compromised refresh token is used, invalidate all tokens for the device.
-      await this.tokenRepository.deleteRefreshTokenByDeviceId(deviceId);
+      try {
+        await this.tokenRepository.deleteRefreshTokenByDeviceId(deviceId);
+      } catch (error) {
+        console.warn(`Failed to delete mismatched refresh token for device ${deviceId} as a security measure:`, error);
+      }
       throw new AuthorizationError('Refresh token mismatch. Please activate device again.');
     }
 
-    // 4. Issue new set of tokens
     const newAuthTokens: AuthTokensDTO = await (async () => {
       try {
         return await this.authService.issueAuthTokens(deviceId);
       } catch (error) {
         console.error('Failed to issue new tokens during refresh:', error);
+        if (error instanceof TokenError) { // Assuming issueAuthTokens might throw TokenError via jwtService
+            throw new ApplicationError('Failed to generate new tokens.', 500, 'TOKEN_GENERATION_ERROR', error);
+        }
         throw new ApplicationError(
-          'Failed to issue new tokens.',
+          'Failed to issue new tokens due to an unexpected error.',
           500,
-          'TOKEN_GENERATION_ERROR',
-          error instanceof Error ? { cause: error.message } : { cause: 'Unknown error' }
+          'UNEXPECTED_TOKEN_ERROR',
+          error instanceof Error ? error : undefined
         );
       }
     })();
     
-    // 5. Store the new refresh token
     try {
       await this.tokenRepository.saveRefreshToken(
         deviceId,
@@ -99,10 +114,13 @@ export class RefreshTokenCommand {
       );
     } catch (error) {
       console.error('Failed to save new refresh token:', error);
-      // Potentially roll back or log, but the client already has the new tokens.
-      // This could lead to an inconsistent state if saving fails.
-      // For now, we'll let the error propagate.
-      throw new ApplicationError('Failed to save new refresh token.');
+      if (error instanceof StorageError) {
+        throw new ApplicationError('Storage error when saving new refresh token.', 500, 'STORAGE_ERROR', error);
+      }
+      // Even if saving the new refresh token fails, the client has received the tokens.
+      // This is a critical state. For now, rethrow as a generic ApplicationError.
+      // More sophisticated retry or cleanup might be needed depending on requirements.
+      throw new ApplicationError('Failed to save new refresh token after generation.', 500, 'POST_GENERATION_STORAGE_ERROR', error instanceof Error ? error : undefined);
     }
 
     return newAuthTokens;

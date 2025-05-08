@@ -31,8 +31,8 @@ export class AuthenticationError extends ApplicationError {
 }
 
 export class AuthorizationError extends ApplicationError {
-  constructor(message = 'Authorization Failed') {
-    super(message, 403, 'AUTHORIZATION_ERROR');
+  constructor(message = 'Authorization Failed', details?: unknown) {
+    super(message, 403, 'AUTHORIZATION_ERROR', details);
   }
 }
 

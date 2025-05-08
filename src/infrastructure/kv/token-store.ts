@@ -1,6 +1,7 @@
 import type { KVNamespace } from '@cloudflare/workers-types';
 import type { ITokenRepository } from '../../domain/auth/repository';
 import type { DeviceId } from '../../domain/auth/entity';
+import { StorageError } from '../../domain/auth/errors';
 
 interface KvTokenStoreConstructorParams {
   kv: KVNamespace;
@@ -28,16 +29,34 @@ export class KvTokenStoreImpl implements ITokenRepository {
 
   async saveRefreshToken(deviceId: DeviceId, refreshToken: string, expiresInSeconds: number): Promise<void> {
     const key = this.getKey(deviceId);
-    await this.kv.put(key, refreshToken, { expirationTtl: expiresInSeconds });
+    try {
+      await this.kv.put(key, refreshToken, { expirationTtl: expiresInSeconds });
+    } catch (e: unknown) {
+      const underlyingError = e instanceof Error ? e : new Error(String(e));
+      console.error(`KV Error (saveRefreshToken for device ${deviceId}):`, underlyingError);
+      throw new StorageError('Failed to save refresh token to KV store', 'saveRefreshToken', underlyingError);
+    }
   }
 
   async findRefreshTokenByDeviceId(deviceId: DeviceId): Promise<string | null> {
     const key = this.getKey(deviceId);
-    return this.kv.get(key);
+    try {
+      return await this.kv.get(key);
+    } catch (e: unknown) {
+      const underlyingError = e instanceof Error ? e : new Error(String(e));
+      console.error(`KV Error (findRefreshTokenByDeviceId for device ${deviceId}):`, underlyingError);
+      throw new StorageError('Failed to find refresh token in KV store', 'findRefreshTokenByDeviceId', underlyingError);
+    }
   }
 
   async deleteRefreshTokenByDeviceId(deviceId: DeviceId): Promise<void> {
     const key = this.getKey(deviceId);
-    await this.kv.delete(key);
+    try {
+      await this.kv.delete(key);
+    } catch (e: unknown) {
+      const underlyingError = e instanceof Error ? e : new Error(String(e));
+      console.error(`KV Error (deleteRefreshTokenByDeviceId for device ${deviceId}):`, underlyingError);
+      throw new StorageError('Failed to delete refresh token from KV store', 'deleteRefreshTokenByDeviceId', underlyingError);
+    }
   }
 }
