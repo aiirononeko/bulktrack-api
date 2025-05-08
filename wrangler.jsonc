@@ -10,7 +10,8 @@
     {
       "binding": "DB",
       "database_name": "bulktrack-db",
-      "database_id": "f8547348-c11a-426a-82da-b3d3591bd183"
+      "database_id": "ee8bade8-cb40-4049-9760-b88b603d2bd8",
+      "migrations_dir": "drizzle"
     }
   ],
   "kv_namespaces": [

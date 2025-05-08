@@ -105,10 +105,11 @@ Schema matches Go build; see [`schema.sql`](schema.sql). Drizzle models reside i
 │   └── infrastructure/
 │       ├── db/
 │       │   ├── drizzle.ts          # D1 connector + Drizzle client
-│       │   └── schema/             # drizzle‑kit generated SQL models
+│       │   └── schema.ts
 │       ├── kv/tokenStore.ts
 │       ├── auth/jwtService.ts
 │       └── logging/logger.ts
+├── drizzle/                        # Migration files
 ├── api/
 │   └── openapi.yaml
 ├── docs/
@@ -119,7 +120,6 @@ Schema matches Go build; see [`schema.sql`](schema.sql). Drizzle models reside i
 │   ├── integration/
 │   └── e2e/
 ├── scripts/
-│   ├── migrate.ts                  # Drizzle migrations runner
 │   └── gen-openapi-types.sh
 ├── wrangler.toml
 ├── tsconfig.json
