@@ -8,16 +8,14 @@ import {
   string,
 } from "valibot";
 
-import type {
-  DeviceId,
-  RefreshTokenPayload,
-} from "../../../domain/auth/entity";
+import type { RefreshTokenPayload } from "../../../domain/auth/entity";
+import { UserIdVO } from "../../../domain/shared/vo/identifier"; // UserIdVOをインポート
 import {
   InvalidTokenError,
   StorageError,
   TokenError,
   TokenExpiredError,
-} from "../../../domain/auth/errors"; // Import domain errors
+} from "../../../domain/auth/errors";
 import type { ITokenRepository } from "../../../domain/auth/repository";
 import { AuthService, type IJwtService } from "../../../domain/auth/service";
 import type { AuthTokensDTO } from "../../dto/auth-tokens-dto";
@@ -67,11 +65,11 @@ export class RefreshTokenCommand {
       }
     })();
 
-    const refreshToken = validatedInput.refresh_token;
+    const refreshTokenString = validatedInput.refresh_token;
 
     const verifiedTokenPayload: RefreshTokenPayload = await (async () => {
       try {
-        return await this.jwtService.verifyRefreshToken(refreshToken);
+        return await this.jwtService.verifyRefreshToken(refreshTokenString);
       } catch (error) {
         console.error("Refresh token verification failed in command:", error);
         if (error instanceof TokenExpiredError) {
@@ -97,14 +95,14 @@ export class RefreshTokenCommand {
       }
     })();
 
-    const deviceId = verifiedTokenPayload.sub as DeviceId;
+    const userIdVO = new UserIdVO(verifiedTokenPayload.sub);
 
     const storedRefreshToken = await (async () => {
       try {
-        return await this.tokenRepository.findRefreshTokenByDeviceId(deviceId);
+        return await this.tokenRepository.findRefreshTokenByUserId(userIdVO);
       } catch (error) {
         console.error(
-          `Failed to find refresh token for device ${deviceId}:`,
+          `Failed to find refresh token for user ${userIdVO.value}:`,
           error,
         );
         if (error instanceof StorageError) {
@@ -126,31 +124,30 @@ export class RefreshTokenCommand {
 
     if (!storedRefreshToken) {
       throw new AuthorizationError(
-        "No refresh token found for this device. Please activate device again.",
+        "No refresh token found for this user. Please authenticate again.",
       );
     }
 
-    if (refreshToken !== storedRefreshToken) {
+    if (refreshTokenString !== storedRefreshToken) {
       try {
-        await this.tokenRepository.deleteRefreshTokenByDeviceId(deviceId);
+        await this.tokenRepository.deleteRefreshTokenByUserId(userIdVO);
       } catch (error) {
         console.warn(
-          `Failed to delete mismatched refresh token for device ${deviceId} as a security measure:`,
+          `Failed to delete mismatched refresh token for user ${userIdVO.value} as a security measure:`,
           error,
         );
       }
       throw new AuthorizationError(
-        "Refresh token mismatch. Please activate device again.",
+        "Refresh token mismatch. Please authenticate again.",
       );
     }
 
     const newAuthTokens: AuthTokensDTO = await (async () => {
       try {
-        return await this.authService.issueAuthTokens(deviceId);
+        return await this.authService.issueAuthTokens(userIdVO);
       } catch (error) {
         console.error("Failed to issue new tokens during refresh:", error);
         if (error instanceof TokenError) {
-          // Assuming issueAuthTokens might throw TokenError via jwtService
           throw new ApplicationError(
             "Failed to generate new tokens.",
             500,
@@ -169,7 +166,7 @@ export class RefreshTokenCommand {
 
     try {
       await this.tokenRepository.saveRefreshToken(
-        deviceId,
+        userIdVO,
         newAuthTokens.refreshToken,
         AuthService.REFRESH_TOKEN_TTL_SECONDS,
       );
@@ -183,9 +180,6 @@ export class RefreshTokenCommand {
           error,
         );
       }
-      // Even if saving the new refresh token fails, the client has received the tokens.
-      // This is a critical state. For now, rethrow as a generic ApplicationError.
-      // More sophisticated retry or cleanup might be needed depending on requirements.
       throw new ApplicationError(
         "Failed to save new refresh token after generation.",
         500,

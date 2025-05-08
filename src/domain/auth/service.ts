@@ -1,14 +1,15 @@
-import type { AuthToken, DeviceId, RefreshTokenPayload } from "./entity";
+import type { AuthToken, RefreshTokenPayload } from "./entity";
+import type { UserIdVO } from "../shared/vo/identifier";
 
 // JWTサービスへのインターフェース (Port)
 // このインターフェースは Infrastructure 層で実装されます。
 export interface IJwtService {
   generateAccessToken(
-    deviceId: DeviceId,
+    userId: UserIdVO,
     expiresInSeconds: number,
   ): Promise<string>;
   generateRefreshToken(
-    deviceId: DeviceId,
+    userId: UserIdVO,
     expiresInSeconds: number,
   ): Promise<string>;
   verifyRefreshToken(token: string): Promise<RefreshTokenPayload>;
@@ -28,18 +29,18 @@ export class AuthService {
   }
 
   /**
-   * 指定されたデバイスIDに対して新しい認証トークンを発行します。
-   * @param deviceId デバイスID
+   * 指定されたユーザーIDに対して新しい認証トークンを発行します。
+   * @param userId ユーザーID
    * @returns 発行されたアクセストークン、リフレッシュトークン、およびアクセストークンの有効期限を含むAuthTokenオブジェクト
    */
-  public async issueAuthTokens(deviceId: DeviceId): Promise<AuthToken> {
+  public async issueAuthTokens(userId: UserIdVO): Promise<AuthToken> {
     const accessToken = await this.jwtService.generateAccessToken(
-      deviceId,
+      userId,
       AuthService.ACCESS_TOKEN_TTL_SECONDS,
     );
 
     const refreshToken = await this.jwtService.generateRefreshToken(
-      deviceId,
+      userId,
       AuthService.REFRESH_TOKEN_TTL_SECONDS,
     );
 

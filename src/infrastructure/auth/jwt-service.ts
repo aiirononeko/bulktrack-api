@@ -1,5 +1,6 @@
 import { sign, verify } from "hono/jwt";
-import type { DeviceId, RefreshTokenPayload } from "../../domain/auth/entity";
+import type { RefreshTokenPayload } from "../../domain/auth/entity";
+import type { UserIdVO } from "../../domain/shared/vo/identifier";
 import {
   InvalidTokenError,
   TokenError,
@@ -29,13 +30,13 @@ export class JwtServiceImpl implements IJwtService {
   }
 
   async generateAccessToken(
-    deviceId: DeviceId,
+    userId: UserIdVO,
     expiresInSeconds: number,
   ): Promise<string> {
     const now = Math.floor(Date.now() / 1000);
     const payload = {
-      sub: deviceId,
-      type: "device_access",
+      sub: userId.value,
+      type: "user_access",
       iat: now,
       exp: now + expiresInSeconds,
     };
@@ -48,13 +49,13 @@ export class JwtServiceImpl implements IJwtService {
   }
 
   async generateRefreshToken(
-    deviceId: DeviceId,
+    userId: UserIdVO,
     expiresInSeconds: number,
   ): Promise<string> {
     const now = Math.floor(Date.now() / 1000);
     const payload = {
-      sub: deviceId,
-      type: "device_refresh",
+      sub: userId.value,
+      type: "user_refresh",
       iat: now,
       exp: now + expiresInSeconds,
     };
@@ -72,7 +73,7 @@ export class JwtServiceImpl implements IJwtService {
       if (
         payload &&
         typeof payload.sub === "string" &&
-        payload.type === "device_refresh" &&
+        payload.type === "user_refresh" &&
         typeof payload.exp === "number" &&
         typeof payload.iat === "number"
       ) {

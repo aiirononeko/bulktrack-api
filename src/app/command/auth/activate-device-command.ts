@@ -2,6 +2,7 @@ import { ValiError, parse } from "valibot";
 
 import type { DeviceId, User, UserDevice } from "../../../domain/auth/entity";
 import { DeviceIdSchema } from "../../../domain/auth/entity";
+import { UserIdVO } from "../../../domain/shared/vo/identifier";
 import { StorageError, TokenError } from "../../../domain/auth/errors";
 import type {
   IDeviceRepository,
@@ -53,50 +54,75 @@ export class ActivateDeviceCommand {
       }
     })();
 
-    const user: User = await (async () => {
+    const userIdVO: UserIdVO = await (async (): Promise<UserIdVO> => {
+      const existingDevice: UserDevice | null = await (async () => {
+        try {
+          return await this.deviceRepository.findByDeviceId(validatedDeviceId);
+        } catch (dbError) {
+          console.error(`Error finding device by ID ${validatedDeviceId}:`, dbError);
+          throw new RepositoryError(
+            "Failed to query device information.",
+            dbError instanceof Error ? dbError : undefined,
+          );
+        }
+      })();
+
+      if (existingDevice) {
+        console.log(`Existing device found for deviceId ${validatedDeviceId}, using userId ${existingDevice.userId}`);
+        return new UserIdVO(existingDevice.userId); 
+      }
+
+      console.log(`No existing device found for deviceId ${validatedDeviceId}. Creating new user and device.`);
+      const newUser: User = await (async () => {
+        try {
+          return await this.userRepository.createAnonymousUser("anonymous");
+        } catch (dbError) {
+          if (dbError instanceof StorageError) {
+            throw new RepositoryError(
+              `User creation failed: ${dbError.message}`,
+              dbError,
+            );
+          }
+          throw new RepositoryError(
+            "Failed to initialize user profile.",
+            dbError instanceof Error ? dbError : undefined,
+          );
+        }
+      })();
+      
+      const newUserId = newUser.id;
+
+      const newUserDeviceData: UserDevice = {
+        deviceId: validatedDeviceId,
+        userId: newUserId,
+        platform: input.platform || "unknown",
+        linkedAt: new Date().toISOString(),
+      };
       try {
-        return await this.userRepository.createAnonymousUser("anonymous");
+        await this.deviceRepository.save(newUserDeviceData);
       } catch (dbError) {
         if (dbError instanceof StorageError) {
           throw new RepositoryError(
-            `User creation failed: ${dbError.message}`,
+            `Device registration failed: ${dbError.message}`,
             dbError,
           );
         }
         throw new RepositoryError(
-          "Failed to initialize user profile.",
+          "Failed to register device.",
           dbError instanceof Error ? dbError : undefined,
         );
       }
+      console.log(`New user created with userId ${newUserId} and device ${validatedDeviceId} registered.`);
+      return new UserIdVO(newUserId);
     })();
-
-    const userDeviceData: UserDevice = {
-      deviceId: validatedDeviceId,
-      userId: user.id,
-      platform: input.platform || "unknown",
-      linkedAt: new Date().toISOString(),
-    };
-    try {
-      await this.deviceRepository.save(userDeviceData);
-    } catch (dbError) {
-      if (dbError instanceof StorageError) {
-        throw new RepositoryError(
-          `Device registration failed: ${dbError.message}`,
-          dbError,
-        );
-      }
-      throw new RepositoryError(
-        "Failed to register device.",
-        dbError instanceof Error ? dbError : undefined,
-      );
-    }
 
     const finalAuthTokens: AuthTokensDTO = await (async () => {
       try {
         const newAuthTokens =
-          await this.authService.issueAuthTokens(validatedDeviceId);
+          await this.authService.issueAuthTokens(userIdVO);
+        
         await this.tokenRepository.saveRefreshToken(
-          validatedDeviceId,
+          userIdVO, 
           newAuthTokens.refreshToken,
           AuthService.REFRESH_TOKEN_TTL_SECONDS,
         );
@@ -107,7 +133,7 @@ export class ActivateDeviceCommand {
         };
       } catch (error) {
         console.error(
-          "Token issuance or saving failed during device activation:",
+          `Token issuance or saving failed for user ${userIdVO.value}:`,
           error,
         );
         if (error instanceof TokenError) {
