@@ -34,6 +34,7 @@ flowchart TD
 * **Drizzle** – SQL‑first, type‑safe ORM + migrations.
 * **JWT device tokens** generated and verified using `hono/jwt`; refresh & revocation list in KV.
 * **OpenAPI 3.0** (`api/openapi.yaml`) drives typed SDK via `openapi-typescript`.
+* **Valibot** – Lightweight, schema-first validation library for data integrity.
 
 ---
 
@@ -140,6 +141,7 @@ Schema matches Go build; see [`schema.sql`](schema.sql). Drizzle models reside i
 * Create files **only in directories above**.
 * Tests live beside source as `*.test.ts`.
 * Generated artifacts (`dist/`, `.d.ts`) are ignored by git — do **not** commit.
+* Use `const` for all variable declarations; avoid `let`.
 
 ---
 

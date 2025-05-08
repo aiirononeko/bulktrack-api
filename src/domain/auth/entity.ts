@@ -1,4 +1,4 @@
-import { object, string, number, nonEmpty, type InferOutput, pipe, minLength } from 'valibot';
+import { object, string, number, nonEmpty, type InferOutput, pipe, minLength, literal } from 'valibot';
 
 // DeviceId
 export const DeviceIdSchema = pipe(
@@ -27,14 +27,15 @@ export type AuthToken = InferOutput<typeof AuthTokenSchema>;
 // });
 // export type AccessTokenPayload = InferOutput<typeof AccessTokenPayloadSchema>;
 
-// リフレッシュトークンペイロードの例 (必要に応じて定義)
-// export const RefreshTokenPayloadSchema = object({
-//   sub: string(), // Subject (e.g., device_id)
-//   type: string(), // Token type (e.g., 'device_refresh')
-//   exp: number(), // Expiration time (Unix timestamp)
-//   // 他のクレーム
-// });
-// export type RefreshTokenPayload = InferOutput<typeof RefreshTokenPayloadSchema>;
+// リフレッシュトークンペイロード
+export const RefreshTokenPayloadSchema = object({
+  sub: string(), // Subject (e.g., device_id) - Should ideally be DeviceId, but schema is string
+  type: literal('device_refresh'), // Token type
+  exp: number(), // Expiration time (Unix timestamp)
+  iat: number(), // Issued at (Unix timestamp)
+  // 他のクレーム
+});
+export type RefreshTokenPayload = InferOutput<typeof RefreshTokenPayloadSchema>;
 
 // User ID (UUID v7想定)
 export const UserIdSchema = pipe(

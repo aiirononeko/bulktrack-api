@@ -3,9 +3,10 @@ import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import type { StatusCode } from 'hono/utils/http-status';
-import { ApplicationError, ValidationError, NotFoundError, AuthenticationError, AuthorizationError, RepositoryError } from '../../app/errors'; // カスタムエラーをインポート
 
+import { ApplicationError } from '../../app/errors';
 import deviceAuthRoutes from './handlers/auth/device';
+import refreshAuthRoutes from './handlers/auth/refresh';
 
 const app = new Hono<{ Bindings: CloudflareBindings }>();
 
@@ -48,6 +49,7 @@ app.onError((err, c) => {
 
 // Route modules
 app.route('/v1/auth', deviceAuthRoutes);
+app.route('/v1/auth', refreshAuthRoutes);
 // app.route('/v1/users', userRoutes);
 // app.route('/v1/posts', postRoutes);
 

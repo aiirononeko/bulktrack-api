@@ -1,10 +1,11 @@
-import type { DeviceId, AuthToken } from './entity';
+import type { DeviceId, AuthToken, RefreshTokenPayload } from './entity';
 
 // JWTサービスへのインターフェース (Port)
 // このインターフェースは Infrastructure 層で実装されます。
 export interface IJwtService {
   generateAccessToken(deviceId: DeviceId, expiresInSeconds: number): Promise<string>;
   generateRefreshToken(deviceId: DeviceId, expiresInSeconds: number): Promise<string>;
+  verifyRefreshToken(token: string): Promise<RefreshTokenPayload>;
   // 必要に応じてトークン検証メソッドなども追加できます
   // verifyToken(token: string): Promise<any>; 
 }

@@ -1,6 +1,7 @@
-import { sign } from 'hono/jwt';
+import { sign, verify } from 'hono/jwt';
 import type { IJwtService } from '../../domain/auth/service';
-import type { DeviceId } from '../../domain/auth/entity';
+import type { DeviceId, RefreshTokenPayload } from '../../domain/auth/entity';
+import { AuthorizationError } from '../../app/errors';
 
 interface JwtServiceConstructorParams {
   jwtSecret: string; 
@@ -49,6 +50,41 @@ export class JwtServiceImpl implements IJwtService {
     };
     // リフレッシュトークンにはより長い有効期限や、異なるクレームセットを持たせることが一般的
     return sign(payload, this.jwtSecret);
+  }
+
+  async verifyRefreshToken(token: string): Promise<RefreshTokenPayload> {
+    try {
+      const payload = await verify(token, this.jwtSecret);
+      // ここでpayloadの型をRefreshTokenPayloadSchemaでバリデーションするのがより堅牢
+      // Valibotのparseを使うなど
+      if (payload && typeof payload.sub === 'string' && payload.type === 'device_refresh' && typeof payload.exp === 'number' && typeof payload.iat === 'number') {
+        return payload as RefreshTokenPayload;
+      }
+      // If condition not met, throw error (else is redundant due to early return/throw)
+      throw new AuthorizationError('Invalid refresh token payload structure.');
+    } catch (e: unknown) {
+      const error = e as Error;
+      // Hono/jwtのverifyはエラー時に型情報が限定的な場合があるためanyで受ける
+      // エラーの種類に応じてログを詳細化したり、異なるエラーをスローしたりできる
+      console.error('Refresh Token verification failed:', error.message || 'Unknown error');
+
+      let errorMessage = 'Failed to verify refresh token due to an unexpected error.';
+      let errorName = '';
+      if (error && typeof error.name === 'string') {
+        errorName = error.name;
+      }
+      if (error && typeof error.message === 'string') {
+        // Try to get more specific error messages
+        if (errorName === 'JwtTokenInvalid' || error.message.includes('invalid') || error.message.includes('malformed')) {
+          errorMessage = 'Refresh token is invalid or malformed.';
+        } else if (errorName === 'JwtTokenExpired' || error.message.includes('expired')) {
+          errorMessage = 'Refresh token has expired.';
+        } else if (error.message.toLowerCase().includes('jwt')) {
+          errorMessage = 'Refresh token verification failed due to a JWT processing error.';
+        }
+      }
+      throw new AuthorizationError(errorMessage);
+    }
   }
 
   // トークン検証メソッド (必要になったら実装)
