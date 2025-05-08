@@ -9,7 +9,14 @@ export const AddSetRequestSchema = v.objectAsync({
   // distance: v.optional(v.nullable(v.pipe(v.number(), v.minValue(0)))), // 削除
   // duration: v.optional(v.nullable(v.pipe(v.number(), v.integer(), v.minValue(0)))), // 削除
   notes: v.optional(v.nullable(v.string())),
-  performedAt: v.optional(v.nullable(v.pipe(v.string(), v.isoDateTime("PerformedAt must be a valid ISO 8601 date-time string.")))),
+  performedAt: v.optional(v.nullable(v.pipe(
+    v.string(),
+    v.isoTimestamp("PerformedAt must be a valid ISO 8601 timestamp string.")
+  ))),
+  setNo: v.optional(v.nullable(v.pipe(v.number(), v.integer(), v.minValue(1)))),
+  rpe: v.optional(v.nullable(v.pipe(v.number(), v.minValue(0), v.maxValue(10)))),
+  restSec: v.optional(v.nullable(v.pipe(v.number(), v.integer(), v.minValue(0)))),
+  deviceId: v.optional(v.nullable(v.string())),
 });
 
 export type AddSetRequestDto = v.InferInput<typeof AddSetRequestSchema>;

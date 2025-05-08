@@ -313,23 +313,91 @@ components:
           items: { $ref: '#/components/schemas/WorkoutSet' }
     SetCreate:
       type: object
-      required: [exercise_id, weight, reps]
+      required: [exercise_id]
       properties:
         exercise_id: { type: string, format: uuid }
-        weight: { type: number, format: float }
-        reps: { type: integer }
-        rpe: { type: number, format: float }
-        tempo: { type: string }
-        rest_sec: { type: integer }
+        setNo:
+          type: integer
+          description: The number of the set within the exercise for the current session.
+          nullable: true
+          example: 1
+        reps:
+          type: integer
+          description: Number of repetitions performed.
+          nullable: true
+          example: 10
+        weight:
+          type: number
+          format: float
+          description: Weight used for the set (e.g., in kg).
+          nullable: true
+          example: 60.5
+        notes:
+          type: string
+          description: Optional notes for the set.
+          nullable: true
+          example: "Felt strong today."
+        performedAt:
+          type: string
+          format: date-time
+          description: |
+            The time the set was performed, in ISO 8601 format (UTC).
+            Expected format: YYYY-MM-DDTHH:mm:ss.sssZ (e.g., "2025-05-08T14:01:15.000Z").
+            Milliseconds are optional but recommended.
+          nullable: true
+          example: "2025-05-08T14:01:15.123Z"
+        rpe:
+          type: number
+          format: float
+          description: Rate of Perceived Exertion (e.g., 1-10).
+          nullable: true
+          example: 7.5
+        restSec:
+          type: integer
+          description: Rest time in seconds after this set.
+          nullable: true
+          example: 90
+        deviceId:
+          type: string
+          description: ID of the device used to record the set.
+          nullable: true
+          example: "device-uuid-123"
     WorkoutSet:
       allOf:
         - $ref: '#/components/schemas/SetCreate'
         - type: object
+          required:
+            - id
+            - exercise_id
+            - set_no
+            - performedAt
+            - created_at
           properties:
             id: { type: string, format: uuid }
-            set_no: { type: integer }
-            volume: { type: number, format: float }
-            created_at: { type: string, format: date-time }
+            exercise_id: { type: string, format: uuid }
+            set_no:
+              type: integer
+              description: The number of the set.
+              example: 1
+            performedAt:
+              type: string
+              format: date-time
+              description: |
+                The time the set was performed, in ISO 8601 format (UTC).
+                Format: YYYY-MM-DDTHH:mm:ss.sssZ (e.g., "2025-05-08T14:01:15.000Z").
+              example: "2025-05-08T14:01:15.000Z"
+            volume:
+              type: number
+              format: float
+              description: Calculated volume for the set (e.g., weight * reps).
+              readOnly: true
+              example: 605
+            created_at:
+              type: string
+              format: date-time
+              description: Timestamp of when the set record was created.
+              readOnly: true
+              example: "2025-05-08T14:02:00.000Z"
     DashboardStats:
       type: object
       properties:
