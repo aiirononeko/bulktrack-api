@@ -1,4 +1,4 @@
-import { WorkoutSession } from "./entity";
+import { WorkoutSession } from "./entities/workout-session.entity";
 import type { UserIdVO, MenuIdVO } from "../shared/vo/identifier";
 import { WorkoutSessionIdVO } from "../shared/vo/identifier";
 import { v7 as uuidv7 } from "uuid";

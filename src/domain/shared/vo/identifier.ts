@@ -25,3 +25,5 @@ export class UserIdVO extends EntityId {}
 export class WorkoutSessionIdVO extends EntityId {}
 export class MenuIdVO extends EntityId {}
 export class ExerciseIdVO extends EntityId {}
+export class WorkoutSetIdVO extends EntityId {}
+ 

@@ -1,4 +1,4 @@
-import type { WorkoutSession } from "./entity";
+import type { WorkoutSession } from "./entities/workout-session.entity";
 import type { WorkoutSessionIdVO, UserIdVO } from "../shared/vo/identifier";
 
 export interface IWorkoutSessionRepository {
@@ -7,3 +7,4 @@ export interface IWorkoutSessionRepository {
   save(session: WorkoutSession): Promise<void>;
   // delete(id: WorkoutSessionIdVO): Promise<void>; // 必要に応じて追加
 }
+ 

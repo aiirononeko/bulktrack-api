@@ -12,3 +12,4 @@ export interface FinishSessionResponseDto {
   sessionId: string;
   finishedAt: string; // ISO 8601形式の文字列
 }
+ 

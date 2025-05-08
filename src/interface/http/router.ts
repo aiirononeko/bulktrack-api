@@ -5,6 +5,7 @@ import { logger } from "hono/logger";
 import type { StatusCode } from "hono/utils/http-status";
 import { drizzle } from 'drizzle-orm/d1';
 import { jwt } from 'hono/jwt';
+import * as v from 'valibot'; // valibot をインポート
 
 import { ApplicationError } from "../../app/errors";
 
@@ -18,13 +19,12 @@ import { AuthService as DomainAuthService } from "../../domain/auth/service";
 // --- DI Setup ---
 // Import services and commands
 import { JwtServiceImpl } from "../../infrastructure/auth/jwt-service";
-import { DeviceRepositoryImpl } from "../../infrastructure/db/repository/device-repository"; // For ActivateDeviceCommand
-import { UserRepositoryImpl } from "../../infrastructure/db/repository/user-repository"; // For ActivateDeviceCommand
+import { DeviceRepositoryImpl } from "../../infrastructure/db/repository/device-repository";
+import { UserRepositoryImpl } from "../../infrastructure/db/repository/user-repository";
 import { KvTokenStoreImpl } from "../../infrastructure/kv/token-store";
 
-// Import services and handlers for Exercises
 import { DrizzleExerciseRepository } from "../../infrastructure/db/repository/exercise-repository";
-import * as tablesSchema from "../../infrastructure/db/schema"; // Import schema object
+import * as tablesSchema from "../../infrastructure/db/schema";
 import { ExerciseService } from "../../domain/exercise/service";
 import { SearchExercisesHandler } from "../../app/query/exercise/search-exercise";
 import { createSearchExercisesHandler } from "./handlers/exercise/search";
@@ -32,9 +32,11 @@ import { createSearchExercisesHandler } from "./handlers/exercise/search";
 import { startSessionHttpHandler } from "./handlers/session/start";
 import { StartSessionHandler } from "../../app/command/session/start-session";
 import { FinishSessionCommand, FinishSessionHandler } from "../../app/command/session/finish-session";
+import { AddSetToSessionCommand, AddSetToSessionHandler } from "../../app/command/session/add-set-to-session"; // AddSetToSession をインポート
 import { WorkoutSessionService } from "../../domain/workout/service";
 import { DrizzleWorkoutSessionRepository } from "../../infrastructure/db/repository/workout-session-repository";
-import { UserIdVO, WorkoutSessionIdVO } from "../../domain/shared/vo/identifier";
+import { UserIdVO, WorkoutSessionIdVO, ExerciseIdVO } from "../../domain/shared/vo/identifier"; // ExerciseIdVO をインポート
+import { AddSetRequestSchema, type AddSetResponseDto } from "../../app/dto/set.dto"; // DTO とスキーマをインポート
 
 // Define types for c.var
 type AppEnv = {
@@ -44,7 +46,7 @@ type AppEnv = {
     searchExercisesHandler: SearchExercisesHandler;
     startSessionHandler: StartSessionHandler;
     finishSessionHandler: FinishSessionHandler;
-    // jwtPayload is automatically added by hono/jwt if needed here, or can be accessed via c.get('jwtPayload')
+    addSetToSessionHandler: AddSetToSessionHandler; // addSetToSessionHandler を追加
   };
   // Define CloudflareBindings if not already globally defined
   // This usually comes from a .d.ts file (e.g. hono/bindings or custom)
@@ -147,8 +149,13 @@ app.use("/v1/sessions/*", async (c, next) => {
     workoutSessionService   // 正しく初期化された WorkoutSessionService を使用
   );
 
+  const addSetToSessionHandler = new AddSetToSessionHandler( // AddSetToSessionHandler をインスタンス化
+    workoutSessionRepository
+  );
+
   c.set("startSessionHandler", startSessionHandler);
   c.set("finishSessionHandler", finishSessionHandler); // c.var にセット
+  c.set("addSetToSessionHandler", addSetToSessionHandler); // c.var にセット
   await next();
 });
 
@@ -260,6 +267,69 @@ sessionsRoutes.post("/:sessionId/finish", async (c) => {
     }
     // その他の予期せぬエラーはグローバルエラーハンドラに任せる
     throw error;
+  }
+});
+
+// POST /v1/sessions/:sessionId/sets ルートを追加
+sessionsRoutes.post("/:sessionId/sets", async (c) => {
+  const handler = c.var.addSetToSessionHandler;
+  if (!handler) {
+    console.error("AddSetToSessionHandler not found for /:sessionId/sets");
+    throw new HTTPException(500, { message: "Handler not configured" });
+  }
+
+  const sessionIdParam = c.req.param("sessionId");
+  const jwtPayload = c.get("jwtPayload");
+  if (!jwtPayload || !jwtPayload.sub) {
+    throw new HTTPException(401, { message: "Unauthorized" });
+  }
+
+  try {
+    const body = await c.req.json();
+    const validatedBody = await v.parseAsync(AddSetRequestSchema, body);
+
+    const command = new AddSetToSessionCommand(
+      new WorkoutSessionIdVO(sessionIdParam),
+      new UserIdVO(jwtPayload.sub),
+      new ExerciseIdVO(validatedBody.exerciseId),
+      validatedBody.reps,
+      validatedBody.weight,
+      validatedBody.notes,
+      validatedBody.performedAt ? new Date(validatedBody.performedAt) : undefined
+    );
+
+    const resultDto = await handler.execute(command);
+    return c.json(resultDto, 201);
+
+  } catch (error) {
+    if (error instanceof v.ValiError) {
+      c.status(400);
+      return c.json({
+        error: {
+          message: 'Validation failed',
+          code: 'VALIDATION_ERROR',
+          details: error.issues.map(issue => ({ path: issue.path?.map((p: { key: string | number | symbol }) => p.key).join('.'), message: issue.message })),
+        }
+      });
+    }
+    if (error instanceof ApplicationError) {
+      c.status(error.statusCode as StatusCode);
+      return c.json({
+        error: {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+        },
+      });
+    }
+    console.error("Error in POST /:sessionId/sets:", error);
+    c.status(500);
+    return c.json({
+      error: {
+        message: "Internal server error while adding set.",
+        code: "INTERNAL_SERVER_ERROR",
+      },
+    });
   }
 });
 

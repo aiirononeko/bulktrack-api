@@ -7,7 +7,7 @@ import type { StartSessionResult } from '../../../../app/command/session/start-s
 import { WorkoutSessionService } from '../../../../domain/workout/service';
 import type { IWorkoutSessionRepository } from '../../../../domain/workout/repository';
 import { UserIdVO, MenuIdVO } from '../../../../domain/shared/vo/identifier';
-import type { WorkoutSession } from '../../../../domain/workout/entity';
+import type { WorkoutSession } from '../../../../domain/workout/entities/workout-session.entity';
 
 // AppEnvから StartSessionHandler の型をインポートまたは定義する必要がある
 // ここでは仮に any としておくが、router.tsのAppEnvと合わせるべき

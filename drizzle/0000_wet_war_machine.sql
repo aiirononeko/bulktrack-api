@@ -11,6 +11,15 @@ CREATE TABLE `ai_recommendations` (
 );
 --> statement-breakpoint
 CREATE INDEX `idx_ai_rec_user_gen` ON `ai_recommendations` (`user_id`,`generated_at`);--> statement-breakpoint
+CREATE TABLE `exercise_muscles` (
+	`exercise_id` text NOT NULL,
+	`muscle_id` integer NOT NULL,
+	`tension_ratio` real NOT NULL,
+	PRIMARY KEY(`exercise_id`, `muscle_id`),
+	FOREIGN KEY (`exercise_id`) REFERENCES `exercises`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`muscle_id`) REFERENCES `muscles`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
 CREATE TABLE `exercise_translations` (
 	`exercise_id` text NOT NULL,
 	`locale` text NOT NULL,
@@ -105,15 +114,17 @@ CREATE TABLE `workout_sets` (
 	`session_id` text NOT NULL,
 	`exercise_id` text NOT NULL,
 	`set_no` integer NOT NULL,
-	`weight` real NOT NULL,
-	`reps` integer NOT NULL,
+	`reps` integer,
+	`weight` real,
+	`notes` text,
+	`performed_at` text NOT NULL,
 	`rpe` real,
-	`tempo` text,
 	`rest_sec` integer,
 	`volume` real GENERATED ALWAYS AS ((weight * reps)) VIRTUAL,
 	`device_id` text NOT NULL,
 	`created_offline` integer DEFAULT false NOT NULL,
 	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`updated_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`session_id`) REFERENCES `workout_sessions`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`exercise_id`) REFERENCES `exercises`(`id`) ON UPDATE no action ON DELETE no action

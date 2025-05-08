@@ -1,7 +1,7 @@
 import type { UserIdVO, MenuIdVO, WorkoutSessionIdVO } from "../../../domain/shared/vo/identifier";
 import type { IWorkoutSessionRepository } from "../../../domain/workout/repository";
 import type { WorkoutSessionService } from "../../../domain/workout/service";
-import type { WorkoutSession } from "../../../domain/workout/entity";
+import type { WorkoutSession } from "../../../domain/workout/entities/workout-session.entity";
 
 export class StartSessionCommand {
   constructor(

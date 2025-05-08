@@ -74,44 +74,44 @@ export class ActivateDeviceCommand {
 
       console.log(`No existing device found for deviceId ${validatedDeviceId}. Creating new user and device.`);
       const newUser: User = await (async () => {
-        try {
-          return await this.userRepository.createAnonymousUser("anonymous");
-        } catch (dbError) {
-          if (dbError instanceof StorageError) {
-            throw new RepositoryError(
-              `User creation failed: ${dbError.message}`,
-              dbError,
-            );
-          }
-          throw new RepositoryError(
-            "Failed to initialize user profile.",
-            dbError instanceof Error ? dbError : undefined,
-          );
-        }
-      })();
-      
-      const newUserId = newUser.id;
-
-      const newUserDeviceData: UserDevice = {
-        deviceId: validatedDeviceId,
-        userId: newUserId,
-        platform: input.platform || "unknown",
-        linkedAt: new Date().toISOString(),
-      };
       try {
-        await this.deviceRepository.save(newUserDeviceData);
+        return await this.userRepository.createAnonymousUser("anonymous");
       } catch (dbError) {
         if (dbError instanceof StorageError) {
           throw new RepositoryError(
-            `Device registration failed: ${dbError.message}`,
+            `User creation failed: ${dbError.message}`,
             dbError,
           );
         }
         throw new RepositoryError(
-          "Failed to register device.",
+          "Failed to initialize user profile.",
           dbError instanceof Error ? dbError : undefined,
         );
       }
+    })();
+
+      const newUserId = newUser.id;
+
+      const newUserDeviceData: UserDevice = {
+      deviceId: validatedDeviceId,
+        userId: newUserId,
+      platform: input.platform || "unknown",
+      linkedAt: new Date().toISOString(),
+    };
+    try {
+        await this.deviceRepository.save(newUserDeviceData);
+    } catch (dbError) {
+      if (dbError instanceof StorageError) {
+        throw new RepositoryError(
+          `Device registration failed: ${dbError.message}`,
+          dbError,
+        );
+      }
+      throw new RepositoryError(
+        "Failed to register device.",
+        dbError instanceof Error ? dbError : undefined,
+      );
+    }
       console.log(`New user created with userId ${newUserId} and device ${validatedDeviceId} registered.`);
       return new UserIdVO(newUserId);
     })();

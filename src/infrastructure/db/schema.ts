@@ -153,38 +153,34 @@ export const workoutSets = sqliteTable(
   "workout_sets",
   {
     id: text("id").primaryKey(),
-    // Added user_id directly to workout_sets as it's used in an index and trigger in SQL
-    // and makes sense for direct querying without joining session first.
-    // If this wasn't in the original SQL for workout_sets, it might be an oversight there or an assumption here.
-    // The original SQL trigger `trg_usage_after_insert` uses `new.user_id` which implies workout_sets has user_id.
-    // Let's assume it should be here, based on the SQL trigger. If not, it should be fetched via session_id.
-    // It IS present in the idx_sets_exercise_rec.
     userId: text("user_id")
       .notNull()
-      .references(() => users.id), // Assuming this is intended based on idx_sets_exercise_rec and trg_usage_after_insert
+      .references(() => users.id),
     sessionId: text("session_id")
       .notNull()
       .references(() => workoutSessions.id, { onDelete: "cascade" }),
     exerciseId: text("exercise_id")
       .notNull()
       .references(() => exercises.id),
-    setNo: integer("set_no").notNull(), // 1,2,3… inside session
-    weight: real("weight").notNull(),
-    reps: integer("reps").notNull(),
-    rpe: real("rpe"), // nullable
-    tempo: text("tempo"), // e.g. "3-1-2"
-    restSec: integer("rest_sec"), // seconds actually rested
-    volume: real("volume").generatedAlwaysAs(sql`(weight * reps)`), // SQLite generated column. Corrected to use sql tagged template literal.
-    deviceId: text("device_id").notNull(), // Should this reference userDevices.deviceId? The SQL doesn't specify a FK.
+    setNo: integer("set_no").notNull(),
+    reps: integer("reps"),
+    weight: real("weight"),
+    notes: text("notes"),
+    performed_at: text("performed_at").notNull(),
+    rpe: real("rpe"),
+    restSec: integer("rest_sec"),
+    volume: real("volume").generatedAlwaysAs(sql`(weight * reps)`),
+    deviceId: text("device_id").notNull(),
     createdOffline: integer("created_offline", { mode: "boolean" })
       .notNull()
       .default(false),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
     sessionSetIdx: index("idx_sets_session").on(table.sessionId, table.setNo),
     exerciseRecIdx: index("idx_sets_exercise_rec").on(
-      table.userId, // Assumed to exist from SQL index
+      table.userId,
       table.exerciseId,
       table.createdAt,
     ),

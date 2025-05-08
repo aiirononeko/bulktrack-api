@@ -1,21 +1,23 @@
-import { UserIdVO, WorkoutSessionIdVO, MenuIdVO } from "../shared/vo/identifier";
+import { UserIdVO, WorkoutSessionIdVO, MenuIdVO } from "../../shared/vo/identifier";
+import type { WorkoutSetIdVO, ExerciseIdVO } from "../../shared/vo/identifier";
+import { WorkoutSet, type WorkoutSetProps, type WorkoutSetRawData } from "./workout-set.entity";
 
 export interface WorkoutSessionProps {
   id: WorkoutSessionIdVO;
   userId: UserIdVO;
-  menuId?: MenuIdVO | null; // メニューに基づかないセッションも許可
+  menuId?: MenuIdVO | null;
   startedAt: Date;
   finishedAt?: Date | null;
+  sets?: WorkoutSet[];
 }
 
-// Interface for raw data from persistence layer
 export interface WorkoutSessionRawData {
   id: string;
   userId: string;
   menuId?: string | null;
-  startedAt: string; // Typically ISO string from DB
-  finishedAt?: string | null; // Typically ISO string from DB
-  // createdAt, etc., if needed for rehydration logic, though usually handled by DB
+  startedAt: string;
+  finishedAt?: string | null;
+  sets?: WorkoutSetRawData[];
 }
 
 export class WorkoutSession {
@@ -24,6 +26,7 @@ export class WorkoutSession {
   private _menuId?: MenuIdVO | null;
   private _startedAt: Date;
   private _finishedAt?: Date | null;
+  private _sets: WorkoutSet[];
 
   private constructor(props: WorkoutSessionProps) {
     this.id = props.id;
@@ -31,6 +34,7 @@ export class WorkoutSession {
     this._menuId = props.menuId;
     this._startedAt = props.startedAt;
     this._finishedAt = props.finishedAt;
+    this._sets = props.sets || [];
   }
 
   public static create(props: {
@@ -38,24 +42,26 @@ export class WorkoutSession {
     userId: UserIdVO;
     menuId?: MenuIdVO | null;
     startedAt: Date;
+    sets?: WorkoutSet[];
   }): WorkoutSession {
-    // ここで基本的なバリデーションを行うことも可能
-    // 例: userId が空でないか、startedAt が未来の日付でないかなど
     return new WorkoutSession({
       id: props.id,
       userId: props.userId,
       menuId: props.menuId,
       startedAt: props.startedAt,
+      sets: props.sets || [],
     });
   }
 
   public static fromPersistence(data: WorkoutSessionRawData): WorkoutSession {
+    const sets = data.sets ? data.sets.map(WorkoutSet.fromPersistence) : [];
     const props: WorkoutSessionProps = {
       id: new WorkoutSessionIdVO(data.id),
       userId: new UserIdVO(data.userId),
       menuId: data.menuId ? new MenuIdVO(data.menuId) : null,
       startedAt: new Date(data.startedAt),
       finishedAt: data.finishedAt ? new Date(data.finishedAt) : null,
+      sets: sets,
     };
     return new WorkoutSession(props);
   }
@@ -72,6 +78,10 @@ export class WorkoutSession {
     return this._finishedAt;
   }
 
+  get sets(): readonly WorkoutSet[] {
+    return [...this._sets];
+  }
+
   public finish(finishedAt: Date): void {
     if (this._finishedAt) {
       throw new Error("Session has already been finished.");
@@ -82,12 +92,30 @@ export class WorkoutSession {
     this._finishedAt = finishedAt;
   }
 
+  public addSet(setCreationProps: Omit<WorkoutSetProps, 'id' | 'sessionId' | 'performedAt' | 'setNumber'> & { exerciseId: ExerciseIdVO, id?: WorkoutSetIdVO, performedAt?: Date }): WorkoutSet {
+    if (this._finishedAt) {
+      throw new Error("Cannot add sets to a finished session.");
+    }
+
+    const exerciseSets = this._sets.filter(s => s.exerciseId.equals(setCreationProps.exerciseId));
+    const nextSetNumber = exerciseSets.length + 1;
+
+    const newSet = WorkoutSet.create({
+      ...setCreationProps,
+      sessionId: this.id,
+      setNumber: nextSetNumber,
+    });
+    this._sets.push(newSet);
+    return newSet;
+  }
+
   public toPrimitives(): {
     id: string;
     userId: string;
     menuId?: string | null;
     startedAt: Date;
     finishedAt?: Date | null;
+    sets: WorkoutSetRawData[];
   } {
     return {
       id: this.id.value,
@@ -95,6 +123,7 @@ export class WorkoutSession {
       menuId: this._menuId?.value,
       startedAt: this._startedAt,
       finishedAt: this._finishedAt,
+      sets: this._sets.map(s => s.toPrimitives()),
     };
   }
 }
