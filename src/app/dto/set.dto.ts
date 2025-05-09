@@ -25,17 +25,14 @@ export type AddSetRequestDto = v.InferInput<typeof AddSetRequestSchema>;
 export interface WorkoutSetDto {
   id: string; // WorkoutSetIdVO
   exerciseId: string; // ExerciseIdVO
-  setNumber: number;
+  setNo: number;
   reps?: number | null;
   weight?: number | null;
-  // distance?: number | null; // 削除
-  // duration?: number | null; // 削除
   notes?: string | null;
   performedAt: string; // ISO 8601 date-time string
-}
-
-export interface AddSetResponseDto {
-  addedSet: WorkoutSetDto;
-  // sessionId: string; // 必要であればセッションIDも返す
-  // totalSetsInSessionForExercise?: number; // このエクササイズの総セット数など、追加情報も検討可能
+  volume?: number;
+  createdAt?: string;
+  rpe?: number | null;
+  restSec?: number | null;
+  deviceId?: string | null;
 }

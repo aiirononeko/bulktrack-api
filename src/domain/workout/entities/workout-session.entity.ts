@@ -92,18 +92,27 @@ export class WorkoutSession {
     this._finishedAt = finishedAt;
   }
 
-  public addSet(setCreationProps: Omit<WorkoutSetProps, 'id' | 'sessionId' | 'performedAt' | 'setNumber'> & { exerciseId: ExerciseIdVO, id?: WorkoutSetIdVO, performedAt?: Date }): WorkoutSet {
+  public addSet(setCreationProps: Omit<WorkoutSetProps, 'id' | 'sessionId' | 'performedAt' | 'createdAt'> & { exerciseId: ExerciseIdVO, id?: WorkoutSetIdVO, performedAt?: Date, setNumber?: number | null }): WorkoutSet {
     if (this._finishedAt) {
       throw new Error("Cannot add sets to a finished session.");
     }
 
-    const exerciseSets = this._sets.filter(s => s.exerciseId.equals(setCreationProps.exerciseId));
-    const nextSetNumber = exerciseSets.length + 1;
+    let setNumberToUse: number;
+    if (setCreationProps.setNumber != null && setCreationProps.setNumber > 0) {
+      setNumberToUse = setCreationProps.setNumber;
+    } else {
+      const exerciseSets = this._sets.filter(s => s.exerciseId.equals(setCreationProps.exerciseId));
+      if (exerciseSets.length > 0) {
+        setNumberToUse = Math.max(...exerciseSets.map(s => s.setNumber)) + 1;
+      } else {
+        setNumberToUse = 1;
+      }
+    }
 
     const newSet = WorkoutSet.create({
       ...setCreationProps,
       sessionId: this.id,
-      setNumber: nextSetNumber,
+      setNumber: setNumberToUse,
     });
     this._sets.push(newSet);
     return newSet;

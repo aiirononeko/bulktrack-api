@@ -338,6 +338,17 @@ sessionsRoutes.post("/:sessionId/sets", async (c) => {
     const body = await c.req.json();
     const validatedBody = await v.parseAsync(AddSetRequestSchema, body);
 
+    const performedAtString = validatedBody.performedAt;
+    let performedAtDate: Date | undefined = undefined;
+    if (performedAtString) {
+      performedAtDate = new Date(performedAtString);
+      if (Number.isNaN(performedAtDate.getTime())) {
+        console.warn(`Invalid performedAt string received: ${performedAtString}. Setting to undefined.`);
+        performedAtDate = undefined;
+        // Consider throwing HTTPException(400, { message: `Invalid performedAt date format: ${performedAtString}` });
+      }
+    }
+
     const command = new AddSetToSessionCommand(
       new WorkoutSessionIdVO(sessionIdParam),
       new UserIdVO(jwtPayload.sub),
@@ -345,7 +356,12 @@ sessionsRoutes.post("/:sessionId/sets", async (c) => {
       validatedBody.reps,
       validatedBody.weight,
       validatedBody.notes,
-      validatedBody.performedAt ? new Date(validatedBody.performedAt) : undefined
+      performedAtDate, // Use the validated and possibly corrected performedAtDate
+      undefined, // customSetId is undefined or a specific value
+      validatedBody.rpe, // rpe
+      validatedBody.restSec, // restSec
+      validatedBody.deviceId, // deviceId
+      validatedBody.setNo // ★ validatedBody から setNo を渡す
     );
 
     const resultDto = await handler.execute(command);

@@ -39,9 +39,9 @@ paths:
           application/json:
             schema:
               type: object
-              required: [identity_token]
+              required: [identityToken]
               properties:
-                identity_token: { type: string, description: Apple identity token (JWT) }
+                identityToken: { type: string, description: Apple identity token (JWT) }
       responses:
         '200': { description: User tokens, content: { application/json: { schema: { $ref: '#/components/schemas/TokenResponse' } } } }
       security: []
@@ -166,7 +166,7 @@ paths:
             schema:
               type: object
               properties:
-                finished_at: { type: string, format: date-time }
+                finishedAt: { type: string, format: date-time }
       responses:
         '200': { description: Finished, content: { application/json: { schema: { $ref: '#/components/schemas/WorkoutSession' } } } }
 
@@ -248,45 +248,45 @@ components:
     TokenResponse:
       type: object
       properties:
-        access_token: { type: string }
-        refresh_token: { type: string }
-        expires_in: { type: integer }
-      required: [access_token, refresh_token, expires_in]
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer }
+      required: [accessToken, refreshToken, expiresIn]
     RefreshTokenRequest:
       type: object
       properties:
-        refresh_token: { type: string }
-      required: [refresh_token]
+        refreshToken: { type: string }
+      required: [refreshToken]
     UserCreate:
       type: object
-      required: [display_name]
+      required: [displayName]
       properties:
-        display_name: { type: string }
+        displayName: { type: string }
     User:
       allOf:
         - $ref: '#/components/schemas/UserCreate'
         - type: object
           properties:
             id: { type: string, format: uuid }
-            created_at: { type: string, format: date-time }
+            createdAt: { type: string, format: date-time }
     DeviceCreate:
       type: object
-      required: [user_id]
+      required: [userId]
       properties:
-        user_id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
         platform: { type: string }
     Device:
       allOf:
         - $ref: '#/components/schemas/DeviceCreate'
         - type: object
           properties:
-            device_id: { type: string, format: uuid }
-            linked_at: { type: string, format: date-time }
+            deviceId: { type: string, format: uuid }
+            linkedAt: { type: string, format: date-time }
     ExerciseCreate:
       type: object
-      required: [canonical_name]
+      required: [canonicalName]
       properties:
-        canonical_name: { type: string }
+        canonicalName: { type: string }
         locale: { type: string }
         name: { type: string }
         aliases: { type: string }
@@ -296,23 +296,20 @@ components:
         - type: object
           properties:
             id: { type: string, format: uuid }
-            is_official: { type: boolean }
-            last_used_at: { type: string, format: date-time }
+            isOfficial: { type: boolean }
+            lastUsedAt: { type: string, format: date-time }
     SessionStart:
       type: object
-      required: [user_id, started_at]
       properties:
-        user_id: { type: string, format: uuid }
-        menu_id: { type: string, format: uuid }
-        started_at: { type: string, format: date-time }
+        menuId: { type: string, format: uuid, nullable: true, description: "Optional menu ID for the session. Can be null." }
     WorkoutSession:
       allOf:
         - $ref: '#/components/schemas/SessionStart'
         - type: object
           properties:
             id: { type: string, format: uuid }
-            finished_at: { type: string, format: date-time }
-            created_at: { type: string, format: date-time }
+            finishedAt: { type: string, format: date-time }
+            createdAt: { type: string, format: date-time }
     SessionDetail:
       type: object
       properties:
@@ -322,9 +319,9 @@ components:
           items: { $ref: '#/components/schemas/WorkoutSet' }
     SetCreate:
       type: object
-      required: [exercise_id]
+      required: [exerciseId]
       properties:
-        exercise_id: { type: string, format: uuid }
+        exerciseId: { type: string, format: uuid }
         setNo:
           type: integer
           description: The number of the set within the exercise for the current session.
@@ -377,14 +374,14 @@ components:
         - type: object
           required:
             - id
-            - exercise_id
-            - set_no
+            - exerciseId
+            - setNo
             - performedAt
-            - created_at
+            - createdAt
           properties:
             id: { type: string, format: uuid }
-            exercise_id: { type: string, format: uuid }
-            set_no:
+            exerciseId: { type: string, format: uuid }
+            setNo:
               type: integer
               description: The number of the set.
               example: 1
@@ -401,7 +398,7 @@ components:
               description: Calculated volume for the set (e.g., weight * reps).
               readOnly: true
               example: 605
-            created_at:
+            createdAt:
               type: string
               format: date-time
               description: Timestamp of when the set record was created.

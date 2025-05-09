@@ -6,7 +6,7 @@ import type {
   WorkoutSetIdVO,
 } from "../../../domain/shared/vo/identifier"; // 型としてインポートするよう修正
 import type { WorkoutSet } from "../../../domain/workout/entities/workout-set.entity"; // 修正後のパス
-import type { AddSetResponseDto, WorkoutSetDto } from "../../dto/set.dto";
+import type { WorkoutSetDto } from "../../dto/set.dto"; // AddSetResponseDto を削除
 import { ApplicationError } from "../../errors"; // ApplicationError をインポート
 
 export class AddSetToSessionCommand {
@@ -21,6 +21,10 @@ export class AddSetToSessionCommand {
     public readonly notes?: string | null,
     public readonly performedAt?: Date | null, // 指定されなければハンドラで設定
     public readonly customSetId?: WorkoutSetIdVO, // テスト用など、特定のIDでセットを作成したい場合
+    public readonly rpe?: number | null, // 追加
+    public readonly restSec?: number | null, // 追加
+    public readonly deviceId?: string | null, // 追加
+    public readonly setNo?: number | null // ★クライアントから渡されるセットナンバー
   ) {}
 }
 
@@ -30,7 +34,7 @@ export class AddSetToSessionHandler {
     // private readonly workoutSessionService: WorkoutSessionService, // 必要に応じて追加
   ) {}
 
-  async execute(command: AddSetToSessionCommand): Promise<AddSetResponseDto> {
+  async execute(command: AddSetToSessionCommand): Promise<WorkoutSetDto> {
     const session = await this.workoutSessionRepository.findById(command.sessionId);
 
     if (!session) {
@@ -54,7 +58,10 @@ export class AddSetToSessionHandler {
         notes: command.notes,
         performedAt: command.performedAt === null ? undefined : command.performedAt, // null の場合は undefined に変換
         id: command.customSetId, // 指定があればそれを使用
-        // setNumber は session.addSet内で自動採番
+        rpe: command.rpe,
+        restSec: command.restSec,
+        deviceId: command.deviceId,
+        setNumber: command.setNo ?? 1 // ★ コマンドからセットナンバーを渡す
       });
     } catch (error) {
       if (error instanceof Error) { // error の型を Error に指定
@@ -69,15 +76,19 @@ export class AddSetToSessionHandler {
     const addedSetDto: WorkoutSetDto = {
       id: addedSet.id.value,
       exerciseId: addedSet.exerciseId.value,
-      setNumber: addedSet.setNumber,
+      setNo: addedSet.setNumber, // エンティティのゲッターは setNumber, DTOのプロパティは setNo
       reps: addedSet.reps,
       weight: addedSet.weight,
-      // distance: addedSet.distance, // 削除
       notes: addedSet.notes,
       performedAt: addedSet.performedAt.toISOString(),
+      volume: addedSet.volume === null ? undefined : addedSet.volume, // nullの場合はundefinedに
+      createdAt: addedSet.createdAt.toISOString(), // エンティティにcreatedAtが追加されたので ?. は不要
+      rpe: addedSet.rpe,
+      restSec: addedSet.restSec,
+      deviceId: addedSet.deviceId
     };
 
-    return { addedSet: addedSetDto };
+    return addedSetDto;
   }
 }
  
