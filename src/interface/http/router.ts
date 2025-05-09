@@ -37,6 +37,7 @@ import { WorkoutSessionService } from "../../domain/workout/service";
 import { DrizzleWorkoutSessionRepository } from "../../infrastructure/db/repository/workout-session-repository";
 import { UserIdVO, WorkoutSessionIdVO, ExerciseIdVO } from "../../domain/shared/vo/identifier"; // ExerciseIdVO をインポート
 import { AddSetRequestSchema } from "../../app/dto/set.dto";
+import { AggregationService } from "../../app/services/aggregation-service"; // 追加
 
 // Import Dashboard specific classes
 import { DrizzleDashboardRepository } from "../../infrastructure/db/repository/dashboard-repository";
@@ -136,33 +137,31 @@ app.use("/v1/sessions/*", async (c, next) => {
       message: "Internal Server Configuration Error for Sessions",
     });
   }
-  // Drizzleインスタンスの準備
   const db = drizzle(c.env.DB, { schema: tablesSchema });
 
-  // WorkoutSessionRepositoryの実装をインスタンス化
   const workoutSessionRepository = new DrizzleWorkoutSessionRepository(db, tablesSchema);
-  
-  // WorkoutSessionService にリポジトリを注入
   const workoutSessionService = new WorkoutSessionService(workoutSessionRepository); 
   
+  const aggregationService = new AggregationService(db); // AggregationService をインスタンス化
+
   const startSessionHandler = new StartSessionHandler(
     workoutSessionService,
     workoutSessionRepository
   );
 
-  // FinishSessionHandler をインスタンス化してセット
   const finishSessionHandler = new FinishSessionHandler(
-    workoutSessionRepository, // DrizzleWorkoutSessionRepository を使用
-    workoutSessionService   // 正しく初期化された WorkoutSessionService を使用
+    workoutSessionRepository,
+    workoutSessionService,
+    aggregationService // aggregationService を注入
   );
 
-  const addSetToSessionHandler = new AddSetToSessionHandler( // AddSetToSessionHandler をインスタンス化
+  const addSetToSessionHandler = new AddSetToSessionHandler(
     workoutSessionRepository
   );
 
   c.set("startSessionHandler", startSessionHandler);
-  c.set("finishSessionHandler", finishSessionHandler); // c.var にセット
-  c.set("addSetToSessionHandler", addSetToSessionHandler); // c.var にセット
+  c.set("finishSessionHandler", finishSessionHandler);
+  c.set("addSetToSessionHandler", addSetToSessionHandler);
   await next();
 });
 
@@ -274,26 +273,54 @@ sessionsRoutes.post("/:sessionId/finish", async (c) => {
       new WorkoutSessionIdVO(sessionIdParam),
       new UserIdVO(jwtPayload.sub)
     );
-    const resultDto = await handler.execute(command);
-    return c.json(resultDto);
+    const { responseDto, backgroundTask } = await handler.execute(command);
+
+    if (backgroundTask) {
+      c.executionCtx.waitUntil(backgroundTask.then(result => {
+        if (result.success) {
+          console.log(`Background aggregation for user ${command.userId.value} completed successfully: ${result.message}`);
+        } else {
+          console.error(`Background aggregation for user ${command.userId.value} failed: ${result.message}`);
+        }
+      }).catch(err => {
+        console.error(`Unhandled error in background aggregation task for user ${command.userId.value}:`, err);
+      }));
+    }
+
+    return c.json(responseDto);
   } catch (error) {
-    // ドメインやアプリケーション層からのエラーを適切に処理
-    if (error instanceof Error && (error.message.includes("not found") || error.message.includes("Forbidden"))) {
-      // 例: セッションが見つからない、または権限がない場合
-      throw new HTTPException(404, { message: error.message });
+    if (error instanceof v.ValiError) {
+      c.status(400);
+      return c.json({
+        error: {
+          message: 'Validation failed',
+          code: 'VALIDATION_ERROR',
+          details: error.issues.map(issue => ({ path: issue.path?.map((p: { key: string | number | symbol }) => p.key).join('.'), message: issue.message })),
+        }
+      });
     }
-    if (error instanceof Error && error.message.includes("already been finished")) {
-      throw new HTTPException(400, { message: error.message }); // Bad Request
+    if (error instanceof ApplicationError) {
+      c.status(error.statusCode as StatusCode);
+      return c.json({
+        error: {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+        },
+      });
     }
-    if (error instanceof Error && error.message.includes("earlier than start time")) {
-      throw new HTTPException(400, { message: error.message }); // Bad Request
-    }
-    // その他の予期せぬエラーはグローバルエラーハンドラに任せる
-    throw error;
+    console.error("Error in POST /:sessionId/sets:", error);
+    c.status(500);
+    return c.json({
+      error: {
+        message: "Internal server error while adding set.",
+        code: "INTERNAL_SERVER_ERROR",
+      },
+    });
   }
 });
 
-// POST /v1/sessions/:sessionId/sets ルートを追加
+// POST /v1/sessions/:sessionId/sets ルートを追加 (ここからが復元するコード)
 sessionsRoutes.post("/:sessionId/sets", async (c) => {
   const handler = c.var.addSetToSessionHandler;
   if (!handler) {
@@ -345,6 +372,7 @@ sessionsRoutes.post("/:sessionId/sets", async (c) => {
         },
       });
     }
+    // エラーログのパスを修正
     console.error("Error in POST /:sessionId/sets:", error);
     c.status(500);
     return c.json({

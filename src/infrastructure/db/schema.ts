@@ -251,6 +251,7 @@ export const weeklyUserActivity = sqliteTable("weekly_user_activity", {
   calculatedAt: text("calculated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => ({
   pk: primaryKey({ columns: [table.userId, table.weekIdentifier] }),
+  userWeekActivityIdx: index("idx_weekly_user_activity_user_week").on(table.userId, table.weekIdentifier),
 }));
 
 // ------------------------------------------------
@@ -269,19 +270,14 @@ export const userUnderstimulatedMuscles = sqliteTable("user_understimulated_musc
 
 export const userProgressMetrics = sqliteTable("user_progress_metrics", {
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  // Key for the metric, e.g., "overall_progress_percentage", "squat_1rm_estimate"
   metricKey: text("metric_key").notNull(),
-  // Value of the metric. Stored as text to accommodate various data types (numbers, strings, simple JSON).
-  // Application layer will be responsible for parsing.
-  metricValue: text("metric_value"),
-  // Optional: Type of the metric to help with parsing/display, e.g., "percentage", "kg", "boolean", "json"
-  metricType: text("metric_type"),
-  // Identifies the period or context of the metric, e.g., "latest", "2023-W40", "monthly_average"
   periodIdentifier: text("period_identifier").notNull(),
+  metricValue: text("metric_value").notNull(),
+  metricType: text("metric_type"),
   calculatedAt: text("calculated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => ({
   pk: primaryKey({ columns: [table.userId, table.metricKey, table.periodIdentifier] }),
-  userMetricPeriodIdx: index("idx_progress_metric_user_period").on(table.userId, table.metricKey, table.periodIdentifier),
+  userMetricPeriodIdx: index("idx_user_progress_metrics_user_period").on(table.userId, table.metricKey, table.periodIdentifier),
 }));
 
 // ------------------------------------------------
