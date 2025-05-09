@@ -16,8 +16,6 @@ export class AddSetToSessionCommand {
     public readonly exerciseId: ExerciseIdVO,
     public readonly reps?: number | null,
     public readonly weight?: number | null,
-    // public readonly distance?: number | null, // 削除
-    // public readonly duration?: number | null, // 削除
     public readonly notes?: string | null,
     public readonly performedAt?: Date | null, // 指定されなければハンドラで設定
     public readonly customSetId?: WorkoutSetIdVO, // テスト用など、特定のIDでセットを作成したい場合

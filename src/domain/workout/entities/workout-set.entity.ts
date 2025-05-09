@@ -155,10 +155,6 @@ export class WorkoutSet {
   }
 
   public toPrimitives(): WorkoutSetRawData {
-    console.log('[WorkoutSet.toPrimitives] Debugging dates for WorkoutSet ID:', this.id.value);
-    console.log('[WorkoutSet.toPrimitives] _performedAt:', this._performedAt, 'isValid:', this._performedAt && !Number.isNaN(this._performedAt.getTime()));
-    console.log('[WorkoutSet.toPrimitives] createdAt:', this.createdAt, 'isValid:', this.createdAt && !Number.isNaN(this.createdAt.getTime()));
-
     let performedAtISO: string;
     if (this._performedAt && !Number.isNaN(this._performedAt.getTime())) {
       performedAtISO = this._performedAt.toISOString();
