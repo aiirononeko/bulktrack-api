@@ -3,6 +3,7 @@ import type { SQLiteSelect } from 'drizzle-orm/sqlite-core';
 import type { DrizzleD1Database } from 'drizzle-orm/d1';
 import type { IExerciseRepository } from '../../../domain/exercise/repository';
 import { Exercise, type ExerciseId, type ExerciseTranslation } from '../../../domain/exercise/entity';
+import { ExerciseIdVO } from '../../../domain/shared/vo/identifier';
 import type * as schema from '../schema';
 
 type AllTables = typeof schema;
@@ -34,7 +35,7 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
       return [];
     }
 
-    const exercisesMap = new Map<ExerciseId, {
+    const exercisesMap = new Map<string, {
       exerciseData: Omit<DbExerciseRow, 'translationLocale' | 'translationName' | 'translationAliases'>;
       translations: ExerciseTranslation[];
     }>();
@@ -68,7 +69,7 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
     }
     
     return Array.from(exercisesMap.values()).map(entry => new Exercise(
-      entry.exerciseData.id,
+      new ExerciseIdVO(entry.exerciseData.id),
       entry.exerciseData.canonicalName,
       entry.exerciseData.defaultMuscleId,
       Boolean(entry.exerciseData.isCompound), // Converts null to false, boolean to boolean
@@ -101,7 +102,7 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
         this.tables.exerciseTranslations,
         eq(this.tables.exercises.id, this.tables.exerciseTranslations.exerciseId),
       )
-      .where(eq(this.tables.exercises.id, id))
+      .where(eq(this.tables.exercises.id, id.value))
       .all();
 
     const mappedExercises = this.mapDbRowsToExerciseEntities(results);
@@ -178,7 +179,11 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
     
     const mappedExercises = this.mapDbRowsToExerciseEntities(fullExerciseDataRows);
     
-    return mappedExercises.sort((a, b) => exerciseIds.indexOf(a.id) - exerciseIds.indexOf(b.id));
+    return mappedExercises.sort((a, b) => {
+      const aIndex = exerciseIds.indexOf(a.id.value); 
+      const bIndex = exerciseIds.indexOf(b.id.value);
+      return aIndex - bIndex;
+    });
   }
 
   async create(exerciseData: Exercise): Promise<void> {
