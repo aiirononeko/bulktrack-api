@@ -1,91 +1,65 @@
-import type { UserIdVO, WorkoutSessionIdVO, ExerciseIdVO, MuscleIdVO } from "../shared/vo/identifier";
-import type { MuscleName } from "../muscle/vo";
-import type { ExerciseNameVO } from "../exercise/vo";
-import type { DashboardPeriod } from "./vo";
+import type {
+  WeeklyUserVolume,
+  WeeklyUserMuscleVolume,
+  WeeklyUserMetric,
+} from "./entity";
+import type { UserIdVO } from "../shared/vo/identifier";
 
-// APIレスポンスの DashboardResponse.currentWeekSummary.volumeByMuscle の要素
-export interface CurrentWeekMuscleVolume {
-  muscleId: MuscleIdVO;
-  muscleName: MuscleName;
-  volume: number;
-}
-
-// APIレスポンスの DashboardResponse.periodSummary.volumeByMuscleOverTime.weeks の要素
-export interface WeeklyVolumeDataPoint {
-  week: string; // 例: "2023-W40"
-  volume: number;
-}
-
-// APIレスポンスの DashboardResponse.periodSummary.volumeByMuscleOverTime の要素
-export interface MuscleVolumeOverTime {
-  muscleId: MuscleIdVO;
-  muscleName: MuscleName;
-  weeks: WeeklyVolumeDataPoint[];
-}
-
-// APIレスポンスの DashboardResponse.periodSummary.topExercisesByVolume の要素
-export interface ExerciseTotalVolume {
-  exerciseId: ExerciseIdVO;
-  exerciseName: ExerciseNameVO;
-  totalVolume: number;
-}
-
-// APIレスポンスの DashboardResponse.progressMetrics の要素
-export interface UserProgressMetric {
-  metricKey: string;
-  value: string;
-  unit?: string | null;
-  recordedAt: Date;
-}
-
-// APIレスポンスの DashboardResponse.understimulatedMuscles の要素
-export interface UnderstimulatedMuscle {
-  muscleId: MuscleIdVO;
-  muscleName: MuscleName;
-  lastTrained?: Date | null;
-}
-
-// userDashboardStats テーブルの基本情報
-export interface UserDashboardBaseStats {
-  lastSessionId: WorkoutSessionIdVO | null;
-  deloadWarningSignal: boolean;
-  lastCalculatedAt: Date;
-}
-
-// weeklyUserActivity テーブルの情報
-export interface CurrentWeekUserActivity {
-  totalWorkouts: number;
-  currentStreak: number;
-}
-
+export type DashboardFilters = {
+  userId: UserIdVO;
+  /** ISO 8601形式の週の開始日 (YYYY-MM-DD) */
+  startDate?: string; 
+  /** ISO 8601形式の週の終了日 (YYYY-MM-DD) */
+  endDate?: string;
+  /** 特定のメトリクスキューの配列 (例: ['body_weight', 'sleep_hours']) */
+  metricKeys?: string[];
+  /** 現在の週の開始日 (YYYY-MM-DD) */
+  currentWeekStart?: string;
+};
 
 export interface IDashboardRepository {
-  findBaseStats(userId: UserIdVO): Promise<UserDashboardBaseStats | null>;
+  /**
+   * 指定されたユーザーと期間の週ごとの総ボリュームを取得します。
+   * @param filters ユーザーIDと期間フィルター
+   * @returns WeeklyUserVolume の配列
+   */
+  findWeeklyUserVolumes(filters: DashboardFilters): Promise<WeeklyUserVolume[]>;
 
-  findCurrentWeekActivity(userId: UserIdVO, currentWeekIdentifier: string): Promise<CurrentWeekUserActivity | null>;
-  
-  findCurrentWeekMuscleVolumes(
-    userId: UserIdVO,
-    currentWeekIdentifier: string
-  ): Promise<CurrentWeekMuscleVolume[]>;
+  /**
+   * 指定されたユーザーと期間の週ごとの部位別ボリュームを取得します。
+   * @param filters ユーザーIDと期間フィルター
+   * @returns WeeklyUserMuscleVolume の配列
+   */
+  findWeeklyUserMuscleVolumes(
+    filters: DashboardFilters,
+  ): Promise<WeeklyUserMuscleVolume[]>;
 
-  findPeriodMuscleVolumesOverTime(
-    userId: UserIdVO,
-    period: DashboardPeriod
-  ): Promise<MuscleVolumeOverTime[]>;
+  /**
+   * 指定されたユーザーと期間の週ごとの汎用メトリクスを取得します。
+   * @param filters ユーザーID、期間、メトリックキーフィルター
+   * @returns WeeklyUserMetric の配列
+   */
+  findWeeklyUserMetrics(filters: DashboardFilters): Promise<WeeklyUserMetric[]>;
 
-  findPeriodTopExercisesByVolume(
+  /**
+   * 指定されたユーザーの現在の週の総ボリュームを取得します。
+   * @param userId ユーザーID
+   * @param currentWeekStart 現在の週の開始日 (YYYY-MM-DD)
+   * @returns WeeklyUserVolume または null (データが存在しない場合)
+   */
+  findCurrentWeeklyUserVolume(
     userId: UserIdVO,
-    period: DashboardPeriod
-  ): Promise<ExerciseTotalVolume[]>;
-  
-  findUserProgressMetrics(
-    userId: UserIdVO,
-    period: DashboardPeriod // 期間に関連するメトリクスを取得する想定
-  ): Promise<UserProgressMetric[]>;
+    currentWeekStart: string,
+  ): Promise<WeeklyUserVolume | null>;
 
-  findUnderstimulatedMuscles(
+  /**
+   * 指定されたユーザーの現在の週の部位別ボリュームを取得します。
+   * @param userId ユーザーID
+   * @param currentWeekStart 現在の週の開始日 (YYYY-MM-DD)
+   * @returns WeeklyUserMuscleVolume の配列
+   */
+  findCurrentWeeklyUserMuscleVolumes(
     userId: UserIdVO,
-    periodIdentifier: string // 例: "current_week"
-  ): Promise<UnderstimulatedMuscle[]>;
+    currentWeekStart: string,
+  ): Promise<WeeklyUserMuscleVolume[]>;
 }

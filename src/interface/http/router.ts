@@ -3,8 +3,9 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import type { StatusCode } from "hono/utils/http-status";
-import { drizzle } from 'drizzle-orm/d1';
+import { drizzle, type DrizzleD1Database } from 'drizzle-orm/d1';
 import { jwt } from 'hono/jwt';
+import type { JWTPayload } from 'hono/utils/jwt/types';
 import * as v from 'valibot'; // valibot をインポート
 
 import { ApplicationError } from "../../app/errors";
@@ -37,16 +38,15 @@ import { WorkoutSessionService } from "../../domain/workout/service";
 import { DrizzleWorkoutSessionRepository } from "../../infrastructure/db/repository/workout-session-repository";
 import { UserIdVO, WorkoutSessionIdVO, ExerciseIdVO } from "../../domain/shared/vo/identifier"; // ExerciseIdVO をインポート
 import { AddSetRequestSchema } from "../../app/dto/set.dto";
-import { AggregationService } from "../../app/services/aggregation-service"; // 追加
+import { AggregationService } from "../../app/services/aggregation-service";
 
-// Import Dashboard specific classes
-import { DrizzleDashboardRepository } from "../../infrastructure/db/repository/dashboard-repository";
-import { GetDashboardHandler } from "../../app/query/dashboard/get-dashboard";
-import type { DashboardResponseDto } from "../../app/dto/dashboard.dto.ts"; // For response typing
-import { DashboardPeriod } from "../../domain/dashboard/vo"; // Import DashboardPeriod VO
+// Import Dashboard specific items
+import dashboardStatsApp from "./handlers/dashboard/stats";
+import { GetDashboardDataQueryHandler } from "../../app/query/dashboard/get-dashboard-data";
+import { DashboardRepository } from "../../infrastructure/db/repository/dashboard-repository";
 
 // Define types for c.var
-type AppEnv = {
+export type AppEnv = {
   Variables: {
     activateDeviceCommand: ActivateDeviceCommand;
     refreshTokenCommand: RefreshTokenCommand;
@@ -54,7 +54,10 @@ type AppEnv = {
     startSessionHandler: StartSessionHandler;
     finishSessionHandler: FinishSessionHandler;
     addSetToSessionHandler: AddSetToSessionHandler;
-    getDashboardHandler: GetDashboardHandler; // Add GetDashboardHandler to c.var
+    db?: DrizzleD1Database<typeof tablesSchema>; // For general DB access if needed by handlers
+    dashboardQueryHandler?: GetDashboardDataQueryHandler; // Specifically for dashboard
+    jwtPayload?: JWTPayload; // Added jwtPayload for JWT middleware
+    // userId?: string; // Removed direct userId if jwtPayload is used as source
   };
   // Define CloudflareBindings if not already globally defined
   // This usually comes from a .d.ts file (e.g. hono/bindings or custom)
@@ -165,19 +168,27 @@ app.use("/v1/sessions/*", async (c, next) => {
   await next();
 });
 
-// Middleware for Dependency Injection for Dashboard route
-app.use("/v1/dashboard", async (c, next) => {
+// Middleware for Dependency Injection for Dashboard routes
+app.use("/v1/dashboard/*", async (c, next) => {
   if (!c.env.DB) {
     console.error("CRITICAL: Missing DB environment binding for dashboard services.");
     throw new HTTPException(500, {
       message: "Internal Server Configuration Error for Dashboard",
     });
   }
+  // Ensure db instance is created if not already (e.g. by a more generic middleware)
+  // For this specific path, we'll create it.
   const db = drizzle(c.env.DB, { schema: tablesSchema });
-  const dashboardRepository = new DrizzleDashboardRepository(db);
-  const getDashboardHandler = new GetDashboardHandler(dashboardRepository);
+  
+  // This assumes DashboardRepository can accept DrizzleD1Database.
+  // If DashboardRepository strictly expects LibSQLDatabase, this will be a type error
+  // and DashboardRepository's constructor or this instantiation will need adjustment.
+  const dashboardRepository = new DashboardRepository(db); 
+  const dashboardQueryHandler = new GetDashboardDataQueryHandler(dashboardRepository);
 
-  c.set("getDashboardHandler", getDashboardHandler);
+  c.set("db", db); // Make db available in context, useful for dashboardStatsApp internal DI
+  c.set("dashboardQueryHandler", dashboardQueryHandler);
+
   await next();
 });
 
@@ -264,14 +275,16 @@ sessionsRoutes.post("/:sessionId/finish", async (c) => {
   const sessionIdParam = c.req.param("sessionId");
   const jwtPayload = c.get("jwtPayload");
 
-  if (!jwtPayload || !jwtPayload.sub) {
-    throw new HTTPException(401, { message: "Unauthorized: Missing or invalid token payload" });
+  // Ensure jwtPayload and its sub property (user id) exist and sub is a string
+  if (!jwtPayload || typeof jwtPayload.sub !== 'string') {
+    throw new HTTPException(401, { message: "Unauthorized: Missing or invalid user identifier in token" });
   }
+  const userId = jwtPayload.sub; // userId is now definitely a string
 
   try {
     const command = new FinishSessionCommand(
       new WorkoutSessionIdVO(sessionIdParam),
-      new UserIdVO(jwtPayload.sub)
+      new UserIdVO(userId)
     );
     const { responseDto, backgroundTask } = await handler.execute(command);
 
@@ -330,9 +343,12 @@ sessionsRoutes.post("/:sessionId/sets", async (c) => {
 
   const sessionIdParam = c.req.param("sessionId");
   const jwtPayload = c.get("jwtPayload");
-  if (!jwtPayload || !jwtPayload.sub) {
-    throw new HTTPException(401, { message: "Unauthorized" });
+  
+  // Ensure jwtPayload and its sub property (user id) exist and sub is a string
+  if (!jwtPayload || typeof jwtPayload.sub !== 'string') {
+    throw new HTTPException(401, { message: "Unauthorized: Missing or invalid user identifier in token" });
   }
+  const userId = jwtPayload.sub; // userId is now definitely a string
 
   try {
     const body = await c.req.json();
@@ -351,7 +367,7 @@ sessionsRoutes.post("/:sessionId/sets", async (c) => {
 
     const command = new AddSetToSessionCommand(
       new WorkoutSessionIdVO(sessionIdParam),
-      new UserIdVO(jwtPayload.sub),
+      new UserIdVO(userId),
       new ExerciseIdVO(validatedBody.exerciseId),
       validatedBody.reps,
       validatedBody.weight,
@@ -402,66 +418,12 @@ sessionsRoutes.post("/:sessionId/sets", async (c) => {
 
 app.route("/v1/sessions", sessionsRoutes);
 
-// Route for Dashboard
-app.get("/v1/dashboard", jwtAuthMiddleware, async (c) => {
-  const handler = c.var.getDashboardHandler;
-  if (!handler) {
-    console.error("GetDashboardHandler not found in c.var for /v1/dashboard route.");
-    throw new HTTPException(500, { message: "Internal Configuration Error - Handler not set" });
-  }
+// Routes for Dashboard
+const dashboardRoutes = new Hono<AppEnv>();
+dashboardRoutes.use("*", jwtAuthMiddleware); // Apply JWT auth to all dashboard routes
+dashboardRoutes.route("/", dashboardStatsApp); // Mounts the stats handler at /v1/dashboard/stats
 
-  const jwtPayload = c.get("jwtPayload");
-  if (!jwtPayload || !jwtPayload.sub) {
-    throw new HTTPException(401, { message: "Unauthorized: Missing or invalid user ID in token" });
-  }
-  
-  const userId: UserIdVO = (() => {
-    try {
-      return new UserIdVO(jwtPayload.sub);
-    } catch (e: unknown) {
-      let errorMessage = "Unauthorized: Invalid user ID format in token";
-      if (e instanceof Error) {
-          errorMessage = `Unauthorized: Invalid user ID format in token - ${e.message}`;
-      }
-      console.error("Failed to create UserIdVO from token sub:", jwtPayload.sub, e);
-      throw new HTTPException(401, { message: errorMessage });
-    }
-  })();
-
-  const periodParam = c.req.query("period") ?? '1w';
-  const periodVO: DashboardPeriod = (() => {
-    try {
-      return DashboardPeriod.create(periodParam);
-    } catch (e: unknown) { 
-      let errorMessage = "Invalid period parameter.";
-      if (e instanceof Error) {
-        errorMessage = `Invalid period parameter: ${e.message}`;
-      }
-      throw new HTTPException(400, { message: errorMessage });
-    }
-  })();
-
-  try {
-    const dashboardData: DashboardResponseDto = await handler.execute({ userId, period: periodVO });
-    return c.json(dashboardData);
-  } catch (error: unknown) { 
-    console.error("Error fetching dashboard data:", error);
-    if (error instanceof ApplicationError) {
-      if (error instanceof ApplicationError) {
-        c.status(error.statusCode as StatusCode);
-        return c.json({
-          error: {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-          },
-        });
-      }
-    }
-    const message = (error instanceof Error) ? error.message : "Failed to fetch dashboard data";
-    throw new HTTPException(500, { message });
-  }
-});
+app.route("/v1/dashboard", dashboardRoutes);
 
 // Root path or health check (optional)
 app.get("/", (c) => {

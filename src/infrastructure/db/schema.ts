@@ -213,75 +213,110 @@ export const exerciseUsage = sqliteTable(
 // This logic needs to be handled by database triggers (migrations) or application logic.
 
 // ------------------------------------------------
-// 6.  User Dashboard Stats (Real-time Aggregation)
+// 6.  Dashboard Aggregates (Revised 2025‑05‑10)
 // ------------------------------------------------
-export const userDashboardStats = sqliteTable("user_dashboard_stats", {
-  userId: text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
-  lastSessionId: text("last_session_id").references(() => workoutSessions.id, { onDelete: "set null" }),
-  // Boolean or date indicating a deload might be needed
-  deloadWarningSignal: integer("deload_warning_signal", { mode: "boolean" }).default(false),
-  lastCalculatedAt: text("last_calculated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-}, (table) => ({
-  userTimestampIdx: index("idx_user_dashboard_stats_updated").on(table.userId, table.lastCalculatedAt),
-}));
+// After dropping the legacy tables (userDashboardStats, weeklyMuscleVolumes,
+// weeklyUserActivity), add the following three tables. They cover:
+//   • user‑level weekly totals & intensity (weeklyUserVolumes)
+//   • muscle‑level weekly volumes for UI drill‑down (weeklyUserMuscleVolumes)
+//   • generic key‑value metrics to overlay on graphs (weeklyUserMetrics)
+//
+// The week boundary is ISO‑8601 Monday. Store it as TEXT `yyyy‑mm‑dd` so
+// SQLite/D1 can index & range‑query efficiently.
+
+// --------------------------------------------------
+// 6.1  Weekly total volume per user
+// --------------------------------------------------
+export const weeklyUserVolumes = sqliteTable(
+  "weekly_user_volumes",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    // ISO Monday of the target week (e.g. '2025-05-05')
+    weekStart: text("week_start").notNull(),
+
+    // Σ(weight × reps) for all sets that week
+    totalVolume: real("total_volume").notNull(),
+
+    // mean set volume – motivational context when total drops but intensity rises
+    avgSetVolume: real("avg_set_volume").notNull(),
+
+    // mean estimated 1RM of key lifts (optional, nullable)
+    e1rmAvg: real("e1rm_avg"),
+
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.weekStart] }),
+    idxUserWeek: index("idx_weekly_uv_user_week").on(table.userId, table.weekStart),
+  }),
+);
+
+// --------------------------------------------------
+// 6.2  Weekly volume per muscle (for drill‑down charts)
+// --------------------------------------------------
+export const weeklyUserMuscleVolumes = sqliteTable(
+  "weekly_user_muscle_volumes",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    weekStart: text("week_start").notNull(),
+
+    muscleId: integer("muscle_id")
+      .notNull()
+      .references(() => muscles.id, { onDelete: "cascade" }),
+
+    // Σ(weight × reps × tension_ratio) for that muscle
+    volume: real("volume").notNull(),
+
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.weekStart, table.muscleId] }),
+    idxMuscleWeek: index("idx_weekly_umv").on(table.userId, table.weekStart),
+  }),
+);
+
+// --------------------------------------------------
+// 6.3  Weekly user metrics (generic key‑value overlay)
+// --------------------------------------------------
+export const weeklyUserMetrics = sqliteTable(
+  "weekly_user_metrics",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    weekStart: text("week_start").notNull(),
+
+    metricKey: text("metric_key").notNull(),  // e.g. 'body_weight', 'sleep_h', 'avg_RPE'
+    metricValue: real("metric_value").notNull(),
+    metricUnit: text("metric_unit"),           // 'kg', 'h', etc.
+
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.weekStart, table.metricKey] }),
+    idxMetric: index("idx_wum_user_week_metric").on(table.userId, table.weekStart),
+  }),
+);
+
+// --------------------------------------------------
+//  End of dashboard aggregates
+// --------------------------------------------------
 
 // ------------------------------------------------
-// 7.  User Weekly Stats (Normalized from Dashboard)
-// ------------------------------------------------
-export const weeklyMuscleVolumes = sqliteTable("weekly_muscle_volumes", {
-  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  muscleId: integer("muscle_id").notNull().references(() => muscles.id, { onDelete: "cascade" }),
-  volume: real("volume").notNull(),
-  // Identifies the week, e.g., "2023-W52-current", "2023-W51-previous" or a simple "current"/"previous"
-  // For simplicity in this example, using a flexible text field.
-  // A more structured approach might involve separate year/week_number/type fields.
-  weekIdentifier: text("week_identifier").notNull(), 
-  calculatedAt: text("calculated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-}, (table) => ({
-  pk: primaryKey({ columns: [table.userId, table.muscleId, table.weekIdentifier] }),
-  userWeekIdx: index("idx_weekly_muscle_volume_user_week").on(table.userId, table.weekIdentifier),
-}));
-
-export const weeklyUserActivity = sqliteTable("weekly_user_activity", {
-  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  // Identifies the week, similar to weeklyMuscleVolumes.weekIdentifier
-  weekIdentifier: text("week_identifier").notNull(),
-  totalWorkouts: integer("total_workouts").notNull().default(0),
-  currentStreak: integer("current_streak").notNull().default(0), // Represents the streak at the time of calculation for this week
-  calculatedAt: text("calculated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-}, (table) => ({
-  pk: primaryKey({ columns: [table.userId, table.weekIdentifier] }),
-  userWeekActivityIdx: index("idx_weekly_user_activity_user_week").on(table.userId, table.weekIdentifier),
-}));
-
-// ------------------------------------------------
-// 8. User Progress and Stimulation Stats
-// ------------------------------------------------
-export const userUnderstimulatedMuscles = sqliteTable("user_understimulated_muscles", {
-  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  muscleId: integer("muscle_id").notNull().references(() => muscles.id, { onDelete: "cascade" }),
-  // Identifies the period for which this muscle was deemed under-stimulated, e.g., "current_week", "2023-07"
-  periodIdentifier: text("period_identifier").notNull(),
-  calculatedAt: text("calculated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-}, (table) => ({
-  pk: primaryKey({ columns: [table.userId, table.muscleId, table.periodIdentifier] }),
-  userPeriodIdx: index("idx_understimulated_user_period").on(table.userId, table.periodIdentifier),
-}));
-
-export const userProgressMetrics = sqliteTable("user_progress_metrics", {
-  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  metricKey: text("metric_key").notNull(),
-  periodIdentifier: text("period_identifier").notNull(),
-  metricValue: text("metric_value").notNull(),
-  metricType: text("metric_type"),
-  calculatedAt: text("calculated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-}, (table) => ({
-  pk: primaryKey({ columns: [table.userId, table.metricKey, table.periodIdentifier] }),
-  userMetricPeriodIdx: index("idx_user_progress_metrics_user_period").on(table.userId, table.metricKey, table.periodIdentifier),
-}));
-
-// ------------------------------------------------
-// 9. End of schema
+// 7. End of schema
 // ------------------------------------------------
 
 // Migration helper notes (like pragma user_version) are for migration files, not the schema.ts itself.

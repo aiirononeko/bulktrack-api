@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1746723088565,
-      "tag": "0000_stiff_guardian",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1746757839558,
-      "tag": "0001_curvy_cerise",
+      "when": 1746854658283,
+      "tag": "0000_famous_blade",
       "breakpoints": true
     }
   ]

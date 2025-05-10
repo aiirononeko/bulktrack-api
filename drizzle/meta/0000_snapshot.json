@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "971d4908-15a9-49ac-af1b-a2268216ef41",
+  "id": "88d700af-2341-4d92-95a5-d45d6f2bdb71",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "exercise_muscles": {
@@ -498,82 +498,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "user_dashboard_stats": {
-      "name": "user_dashboard_stats",
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "last_session_id": {
-          "name": "last_session_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "deload_warning_signal": {
-          "name": "deload_warning_signal",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": false
-        },
-        "last_calculated_at": {
-          "name": "last_calculated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "CURRENT_TIMESTAMP"
-        }
-      },
-      "indexes": {
-        "idx_user_dashboard_stats_updated": {
-          "name": "idx_user_dashboard_stats_updated",
-          "columns": [
-            "user_id",
-            "last_calculated_at"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "user_dashboard_stats_user_id_users_id_fk": {
-          "name": "user_dashboard_stats_user_id_users_id_fk",
-          "tableFrom": "user_dashboard_stats",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "user_dashboard_stats_last_session_id_workout_sessions_id_fk": {
-          "name": "user_dashboard_stats_last_session_id_workout_sessions_id_fk",
-          "tableFrom": "user_dashboard_stats",
-          "tableTo": "workout_sessions",
-          "columnsFrom": [
-            "last_session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "user_devices": {
       "name": "user_devices",
       "columns": {
@@ -627,176 +551,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "user_progress_metrics": {
-      "name": "user_progress_metrics",
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "metric_key": {
-          "name": "metric_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "metric_value": {
-          "name": "metric_value",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "metric_type": {
-          "name": "metric_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "period_identifier": {
-          "name": "period_identifier",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "calculated_at": {
-          "name": "calculated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "CURRENT_TIMESTAMP"
-        }
-      },
-      "indexes": {
-        "idx_progress_metric_user_period": {
-          "name": "idx_progress_metric_user_period",
-          "columns": [
-            "user_id",
-            "metric_key",
-            "period_identifier"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "user_progress_metrics_user_id_users_id_fk": {
-          "name": "user_progress_metrics_user_id_users_id_fk",
-          "tableFrom": "user_progress_metrics",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "user_progress_metrics_user_id_metric_key_period_identifier_pk": {
-          "columns": [
-            "user_id",
-            "metric_key",
-            "period_identifier"
-          ],
-          "name": "user_progress_metrics_user_id_metric_key_period_identifier_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "user_understimulated_muscles": {
-      "name": "user_understimulated_muscles",
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "muscle_id": {
-          "name": "muscle_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "period_identifier": {
-          "name": "period_identifier",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "calculated_at": {
-          "name": "calculated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "CURRENT_TIMESTAMP"
-        }
-      },
-      "indexes": {
-        "idx_understimulated_user_period": {
-          "name": "idx_understimulated_user_period",
-          "columns": [
-            "user_id",
-            "period_identifier"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "user_understimulated_muscles_user_id_users_id_fk": {
-          "name": "user_understimulated_muscles_user_id_users_id_fk",
-          "tableFrom": "user_understimulated_muscles",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "user_understimulated_muscles_muscle_id_muscles_id_fk": {
-          "name": "user_understimulated_muscles_muscle_id_muscles_id_fk",
-          "tableFrom": "user_understimulated_muscles",
-          "tableTo": "muscles",
-          "columnsFrom": [
-            "muscle_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "user_understimulated_muscles_user_id_muscle_id_period_identifier_pk": {
-          "columns": [
-            "user_id",
-            "muscle_id",
-            "period_identifier"
-          ],
-          "name": "user_understimulated_muscles_user_id_muscle_id_period_identifier_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "users": {
       "name": "users",
       "columns": {
@@ -836,11 +590,103 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "weekly_muscle_volumes": {
-      "name": "weekly_muscle_volumes",
+    "weekly_user_metrics": {
+      "name": "weekly_user_metrics",
       "columns": {
         "user_id": {
           "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "week_start": {
+          "name": "week_start",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "metric_key": {
+          "name": "metric_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "metric_value": {
+          "name": "metric_value",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "metric_unit": {
+          "name": "metric_unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "idx_wum_user_week_metric": {
+          "name": "idx_wum_user_week_metric",
+          "columns": [
+            "user_id",
+            "week_start"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "weekly_user_metrics_user_id_users_id_fk": {
+          "name": "weekly_user_metrics_user_id_users_id_fk",
+          "tableFrom": "weekly_user_metrics",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "weekly_user_metrics_user_id_week_start_metric_key_pk": {
+          "columns": [
+            "user_id",
+            "week_start",
+            "metric_key"
+          ],
+          "name": "weekly_user_metrics_user_id_week_start_metric_key_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "weekly_user_muscle_volumes": {
+      "name": "weekly_user_muscle_volumes",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "week_start": {
+          "name": "week_start",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -860,15 +706,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "week_identifier": {
-          "name": "week_identifier",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "calculated_at": {
-          "name": "calculated_at",
+        "updated_at": {
+          "name": "updated_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -877,19 +716,19 @@
         }
       },
       "indexes": {
-        "idx_weekly_muscle_volume_user_week": {
-          "name": "idx_weekly_muscle_volume_user_week",
+        "idx_weekly_umv": {
+          "name": "idx_weekly_umv",
           "columns": [
             "user_id",
-            "week_identifier"
+            "week_start"
           ],
           "isUnique": false
         }
       },
       "foreignKeys": {
-        "weekly_muscle_volumes_user_id_users_id_fk": {
-          "name": "weekly_muscle_volumes_user_id_users_id_fk",
-          "tableFrom": "weekly_muscle_volumes",
+        "weekly_user_muscle_volumes_user_id_users_id_fk": {
+          "name": "weekly_user_muscle_volumes_user_id_users_id_fk",
+          "tableFrom": "weekly_user_muscle_volumes",
           "tableTo": "users",
           "columnsFrom": [
             "user_id"
@@ -900,9 +739,9 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "weekly_muscle_volumes_muscle_id_muscles_id_fk": {
-          "name": "weekly_muscle_volumes_muscle_id_muscles_id_fk",
-          "tableFrom": "weekly_muscle_volumes",
+        "weekly_user_muscle_volumes_muscle_id_muscles_id_fk": {
+          "name": "weekly_user_muscle_volumes_muscle_id_muscles_id_fk",
+          "tableFrom": "weekly_user_muscle_volumes",
           "tableTo": "muscles",
           "columnsFrom": [
             "muscle_id"
@@ -915,20 +754,20 @@
         }
       },
       "compositePrimaryKeys": {
-        "weekly_muscle_volumes_user_id_muscle_id_week_identifier_pk": {
+        "weekly_user_muscle_volumes_user_id_week_start_muscle_id_pk": {
           "columns": [
             "user_id",
-            "muscle_id",
-            "week_identifier"
+            "week_start",
+            "muscle_id"
           ],
-          "name": "weekly_muscle_volumes_user_id_muscle_id_week_identifier_pk"
+          "name": "weekly_user_muscle_volumes_user_id_week_start_muscle_id_pk"
         }
       },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "weekly_user_activity": {
-      "name": "weekly_user_activity",
+    "weekly_user_volumes": {
+      "name": "weekly_user_volumes",
       "columns": {
         "user_id": {
           "name": "user_id",
@@ -937,31 +776,36 @@
           "notNull": true,
           "autoincrement": false
         },
-        "week_identifier": {
-          "name": "week_identifier",
+        "week_start": {
+          "name": "week_start",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "total_workouts": {
-          "name": "total_workouts",
-          "type": "integer",
+        "total_volume": {
+          "name": "total_volume",
+          "type": "real",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
-          "default": 0
+          "autoincrement": false
         },
-        "current_streak": {
-          "name": "current_streak",
-          "type": "integer",
+        "avg_set_volume": {
+          "name": "avg_set_volume",
+          "type": "real",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
-          "default": 0
+          "autoincrement": false
         },
-        "calculated_at": {
-          "name": "calculated_at",
+        "e1rm_avg": {
+          "name": "e1rm_avg",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -969,11 +813,20 @@
           "default": "CURRENT_TIMESTAMP"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_weekly_uv_user_week": {
+          "name": "idx_weekly_uv_user_week",
+          "columns": [
+            "user_id",
+            "week_start"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
-        "weekly_user_activity_user_id_users_id_fk": {
-          "name": "weekly_user_activity_user_id_users_id_fk",
-          "tableFrom": "weekly_user_activity",
+        "weekly_user_volumes_user_id_users_id_fk": {
+          "name": "weekly_user_volumes_user_id_users_id_fk",
+          "tableFrom": "weekly_user_volumes",
           "tableTo": "users",
           "columnsFrom": [
             "user_id"
@@ -986,12 +839,12 @@
         }
       },
       "compositePrimaryKeys": {
-        "weekly_user_activity_user_id_week_identifier_pk": {
+        "weekly_user_volumes_user_id_week_start_pk": {
           "columns": [
             "user_id",
-            "week_identifier"
+            "week_start"
           ],
-          "name": "weekly_user_activity_user_id_week_identifier_pk"
+          "name": "weekly_user_volumes_user_id_week_start_pk"
         }
       },
       "uniqueConstraints": {},

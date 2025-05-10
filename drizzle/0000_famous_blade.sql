@@ -68,16 +68,6 @@ CREATE TABLE `muscles` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `muscles_name_unique` ON `muscles` (`name`);--> statement-breakpoint
-CREATE TABLE `user_dashboard_stats` (
-	`user_id` text PRIMARY KEY NOT NULL,
-	`last_session_id` text,
-	`deload_warning_signal` integer DEFAULT false,
-	`last_calculated_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`last_session_id`) REFERENCES `workout_sessions`(`id`) ON UPDATE no action ON DELETE set null
-);
---> statement-breakpoint
-CREATE INDEX `idx_user_dashboard_stats_updated` ON `user_dashboard_stats` (`user_id`,`last_calculated_at`);--> statement-breakpoint
 CREATE TABLE `user_devices` (
 	`device_id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -86,29 +76,6 @@ CREATE TABLE `user_devices` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `user_progress_metrics` (
-	`user_id` text NOT NULL,
-	`metric_key` text NOT NULL,
-	`metric_value` text,
-	`metric_type` text,
-	`period_identifier` text NOT NULL,
-	`calculated_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	PRIMARY KEY(`user_id`, `metric_key`, `period_identifier`),
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
-CREATE INDEX `idx_progress_metric_user_period` ON `user_progress_metrics` (`user_id`,`metric_key`,`period_identifier`);--> statement-breakpoint
-CREATE TABLE `user_understimulated_muscles` (
-	`user_id` text NOT NULL,
-	`muscle_id` integer NOT NULL,
-	`period_identifier` text NOT NULL,
-	`calculated_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	PRIMARY KEY(`user_id`, `muscle_id`, `period_identifier`),
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`muscle_id`) REFERENCES `muscles`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
-CREATE INDEX `idx_understimulated_user_period` ON `user_understimulated_muscles` (`user_id`,`period_identifier`);--> statement-breakpoint
 CREATE TABLE `users` (
 	`id` text PRIMARY KEY NOT NULL,
 	`display_name` text NOT NULL,
@@ -116,28 +83,42 @@ CREATE TABLE `users` (
 	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `weekly_muscle_volumes` (
+CREATE TABLE `weekly_user_metrics` (
 	`user_id` text NOT NULL,
+	`week_start` text NOT NULL,
+	`metric_key` text NOT NULL,
+	`metric_value` real NOT NULL,
+	`metric_unit` text,
+	`updated_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	PRIMARY KEY(`user_id`, `week_start`, `metric_key`),
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `idx_wum_user_week_metric` ON `weekly_user_metrics` (`user_id`,`week_start`);--> statement-breakpoint
+CREATE TABLE `weekly_user_muscle_volumes` (
+	`user_id` text NOT NULL,
+	`week_start` text NOT NULL,
 	`muscle_id` integer NOT NULL,
 	`volume` real NOT NULL,
-	`week_identifier` text NOT NULL,
-	`calculated_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	PRIMARY KEY(`user_id`, `muscle_id`, `week_identifier`),
+	`updated_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	PRIMARY KEY(`user_id`, `week_start`, `muscle_id`),
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`muscle_id`) REFERENCES `muscles`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE INDEX `idx_weekly_muscle_volume_user_week` ON `weekly_muscle_volumes` (`user_id`,`week_identifier`);--> statement-breakpoint
-CREATE TABLE `weekly_user_activity` (
+CREATE INDEX `idx_weekly_umv` ON `weekly_user_muscle_volumes` (`user_id`,`week_start`);--> statement-breakpoint
+CREATE TABLE `weekly_user_volumes` (
 	`user_id` text NOT NULL,
-	`week_identifier` text NOT NULL,
-	`total_workouts` integer DEFAULT 0 NOT NULL,
-	`current_streak` integer DEFAULT 0 NOT NULL,
-	`calculated_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	PRIMARY KEY(`user_id`, `week_identifier`),
+	`week_start` text NOT NULL,
+	`total_volume` real NOT NULL,
+	`avg_set_volume` real NOT NULL,
+	`e1rm_avg` real,
+	`updated_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	PRIMARY KEY(`user_id`, `week_start`),
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE INDEX `idx_weekly_uv_user_week` ON `weekly_user_volumes` (`user_id`,`week_start`);--> statement-breakpoint
 CREATE TABLE `workout_sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,

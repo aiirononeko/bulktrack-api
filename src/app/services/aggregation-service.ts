@@ -7,7 +7,7 @@ import type { UserIdVO } from "../../domain/shared/vo/identifier"; // UserIdVO �
 import { WeeklyMuscleVolume } from "../../domain/aggregation/entities/weekly-muscle-volume";
 import { UserProgressMetric } from "../../domain/aggregation/entities/user-progress-metric";
 import { calculateEpley1RM } from "../../domain/formulas/strength-formulas";
-import { getISOWeekIdentifier } from "../utils/date-utils"; // getISOWeekIdentifierをインポート
+import { getISOWeekIdentifier, getISOWeekMondayString } from "../utils/date-utils"; // getISOWeekIdentifier, getISOWeekMondayString をインポート
 // 他に必要なドメインエンティティやバリューオブジェクトがあれば適宜インポート
 
 export class AggregationService implements IAggregationService {
@@ -64,188 +64,209 @@ export class AggregationService implements IAggregationService {
         exerciseDetailsMap.set(mapping.exerciseId, details);
       }
 
-      const weeklyVolumeByMuscle = new Map<string, Map<number, number>>();
-      for (const set of userSets) {
-        if (!set.performed_at || set.volume === null || !set.exerciseId) continue;
+      const weeklyVolumeByMuscle = new Map<string, Map<number, number>>(); // Key is weekStart (YYYY-MM-DD)
+      const weeklyTotalVolumeByUser = new Map<string, { totalVolume: number, setCount: number, e1rmSum: number, e1rmCount: number }>(); // For weeklyUserVolumes
+      const weeklyWorkoutSessions = new Map<string, Set<string>>(); // weekStart -> Set of sessionIds, to count workouts
 
-        const weekIdentifier = getISOWeekIdentifier(set.performed_at);
+      for (const set of userSets) {
+        if (!set.performed_at || set.volume === null || !set.exerciseId || !set.sessionId) continue;
+
+        const weekStart = getISOWeekMondayString(set.performed_at);
         const exerciseDetails = exerciseDetailsMap.get(set.exerciseId);
 
+        // For weeklyUserMuscleVolumes
         if (exerciseDetails) {
           for (const detail of exerciseDetails) {
-            // set.volume が null でないことは上でチェック済み
             const effectiveVolume = set.volume * detail.tensionRatio * detail.tensionFactor;
-
-            const weeklyMap = weeklyVolumeByMuscle.get(weekIdentifier) || new Map<number, number>();
-            const currentMuscleVolume = weeklyMap.get(detail.muscleId) || 0;
-            weeklyMap.set(detail.muscleId, currentMuscleVolume + effectiveVolume);
-            weeklyVolumeByMuscle.set(weekIdentifier, weeklyMap);
+            const weeklyMuscleMap = weeklyVolumeByMuscle.get(weekStart) || new Map<number, number>();
+            const currentMuscleVolume = weeklyMuscleMap.get(detail.muscleId) || 0;
+            weeklyMuscleMap.set(detail.muscleId, currentMuscleVolume + effectiveVolume);
+            weeklyVolumeByMuscle.set(weekStart, weeklyMuscleMap);
           }
         }
+
+        // For weeklyUserVolumes accumulation
+        let userWeeklyTotals = weeklyTotalVolumeByUser.get(weekStart);
+        if (!userWeeklyTotals) {
+          userWeeklyTotals = { totalVolume: 0, setCount: 0, e1rmSum: 0, e1rmCount: 0 };
+        }
+        userWeeklyTotals.totalVolume += set.volume; // Raw volume for weeklyUserVolumes.totalVolume
+        userWeeklyTotals.setCount += 1;
+        if (set.weight !== null && set.reps !== null && set.weight > 0 && set.reps > 0) {
+            const estimated1RM = calculateEpley1RM(set.weight, set.reps);
+            userWeeklyTotals.e1rmSum += estimated1RM;
+            userWeeklyTotals.e1rmCount +=1;
+        }
+        weeklyTotalVolumeByUser.set(weekStart, userWeeklyTotals);
+
+        // For counting workouts per week
+        const sessionsInWeek = weeklyWorkoutSessions.get(weekStart) || new Set<string>();
+        sessionsInWeek.add(set.sessionId);
+        weeklyWorkoutSessions.set(weekStart, sessionsInWeek);
       }
       
-      console.log("Weekly muscle volumes calculated:", weeklyVolumeByMuscle);
+      console.log("Weekly muscle volumes calculated (for weeklyUserMuscleVolumes):", weeklyVolumeByMuscle);
+      console.log("Weekly user total volumes calculated (for weeklyUserVolumes):", weeklyTotalVolumeByUser);
 
+      // 1. Upsert into weeklyUserMuscleVolumes
       if (weeklyVolumeByMuscle.size > 0) {
-        const newWeeklyVolumesData = [];
+        const newWeeklyUserMuscleVolumesData = [];
         const now = new Date(); 
-        for (const [weekIdentifier, muscleMap] of weeklyVolumeByMuscle) {
+        for (const [weekStart, muscleMap] of weeklyVolumeByMuscle) {
           for (const [muscleIdNum, volume] of muscleMap) {
-            // MuscleIdVO はドメインエンティティのコンストラクタで使われるので、ここでは直接数値でよい場合もあるが、
-            // ドメインエンティティとの一貫性のためインスタンス化する
-            const muscleIdVo = new MuscleIdVO(muscleIdNum);
-
-            // ドメインエンティティ作成 (バリデーションなどを行う)
-            const weeklyVolumeEntity = new WeeklyMuscleVolume({
-              userId,
-              muscleId: muscleIdVo,
-              weekIdentifier,
-              volume,
-              calculatedAt: now, // 事前に取得した現在時刻を使用
-            });
-
-            newWeeklyVolumesData.push({
-              userId: weeklyVolumeEntity.userId.value,
-              muscleId: weeklyVolumeEntity.muscleId.toNumber(),
-              weekIdentifier: weeklyVolumeEntity.weekIdentifier,
-              volume: weeklyVolumeEntity.volume,
-              calculatedAt: weeklyVolumeEntity.calculatedAt.toISOString(),
+            // Domain entity creation removed for direct DTO construction for DB
+            newWeeklyUserMuscleVolumesData.push({
+              userId: userId.value,
+              muscleId: muscleIdNum,
+              weekStart: weekStart,
+              volume: volume,
+              updatedAt: now.toISOString(), // Use ISO string directly for DB
             });
           }
         }
 
-        if (newWeeklyVolumesData.length > 0) {
-          console.log(`Upserting ${newWeeklyVolumesData.length} weekly muscle volume records for user ${userId.value}.`);
-          await this.db.insert(schema.weeklyMuscleVolumes) // tx から this.db
-            .values(newWeeklyVolumesData)
+        if (newWeeklyUserMuscleVolumesData.length > 0) {
+          console.log(`Upserting ${newWeeklyUserMuscleVolumesData.length} weekly user muscle volume records for user ${userId.value}.`);
+          await this.db.insert(schema.weeklyUserMuscleVolumes) // Changed table name
+            .values(newWeeklyUserMuscleVolumesData)
             .onConflictDoUpdate({
               target: [
-                schema.weeklyMuscleVolumes.userId,
-                schema.weeklyMuscleVolumes.muscleId,
-                schema.weeklyMuscleVolumes.weekIdentifier
+                schema.weeklyUserMuscleVolumes.userId,
+                schema.weeklyUserMuscleVolumes.muscleId,
+                schema.weeklyUserMuscleVolumes.weekStart // Changed field name
               ],
               set: {
                 volume: sql`excluded.volume`,
-                calculatedAt: sql`excluded.calculated_at`,
+                updatedAt: sql`excluded.updated_at`,
               }
             });
-          console.log("Weekly muscle volumes upserted successfully.");
-        } else {
-          console.log("No new weekly muscle volume data to upsert.");
+          console.log("Weekly user muscle volumes upserted successfully.");
         }
-      } else {
-        console.log("No weekly muscle volumes calculated to save.");
+      } 
+      // ... (else logs from original code) ...
+
+      // 2. Upsert into weeklyUserVolumes
+      if (weeklyTotalVolumeByUser.size > 0) {
+        const newWeeklyUserVolumesData = [];
+        const now = new Date();
+        for (const [weekStart, totals] of weeklyTotalVolumeByUser) {
+          const totalWorkouts = weeklyWorkoutSessions.get(weekStart)?.size || 0;
+          newWeeklyUserVolumesData.push({
+            userId: userId.value,
+            weekStart: weekStart,
+            totalVolume: totals.totalVolume,
+            avgSetVolume: totals.setCount > 0 ? totals.totalVolume / totals.setCount : 0,
+            e1rmAvg: totals.e1rmCount > 0 ? totals.e1rmSum / totals.e1rmCount : null, 
+            // totalWorkouts: totalWorkouts, // This column needs to be added to weeklyUserVolumes schema if desired
+            updatedAt: now.toISOString(),
+          });
+        }
+        if (newWeeklyUserVolumesData.length > 0) {
+          console.log(`Upserting ${newWeeklyUserVolumesData.length} weekly user volume records for user ${userId.value}.`);
+          // Assuming weeklyUserVolumes schema is defined and imported
+          await this.db.insert(schema.weeklyUserVolumes)
+            .values(newWeeklyUserVolumesData)
+            .onConflictDoUpdate({
+                target: [schema.weeklyUserVolumes.userId, schema.weeklyUserVolumes.weekStart],
+                set: {
+                    totalVolume: sql`excluded.total_volume`,
+                    avgSetVolume: sql`excluded.avg_set_volume`,
+                    e1rmAvg: sql`excluded.e1rm_avg`,
+                    // totalWorkouts: sql`excluded.total_workouts`, 
+                    updatedAt: sql`excluded.updated_at`,
+                }
+            });
+            console.log("Weekly user volumes upserted successfully.");
+        }
       }
 
-      // RM計算と保存
+      // RM計算と保存 (改修 -> weeklyUserMetrics)
       const newUserProgressMetricsData = [];
-      const nowForRM = new Date();
+      const nowForRM = new Date(); // Can reuse 'now' from previous blocks if scope allows
       for (const set of userSets) {
         if (set.weight === null || set.reps === null || set.weight <= 0 || set.reps <= 0 || !set.exerciseId || !set.performed_at) {
-          continue; // RM計算に必要なデータが不足しているか無効な場合はスキップ
+          continue; 
         }
 
         const estimated1RM = calculateEpley1RM(set.weight, set.reps);
-        const weekIdentifier = getISOWeekIdentifier(set.performed_at);
+        const weekStart = getISOWeekMondayString(set.performed_at); // Use weekStart
         
         const metricKey = `exercise_${set.exerciseId}_1rm_epley`; 
 
-        const progressMetricEntity = new UserProgressMetric({
-          userId,
-          metricKey,
-          periodIdentifier: weekIdentifier,
-          metricValue: estimated1RM.toFixed(2), 
-          metricType: "kg", 
-          calculatedAt: nowForRM,
-        });
-
+        // Domain entity creation removed for direct DTO construction for DB
         newUserProgressMetricsData.push({
-          userId: progressMetricEntity.userId.value,
-          metricKey: progressMetricEntity.metricKey,
-          periodIdentifier: progressMetricEntity.periodIdentifier,
-          metricValue: progressMetricEntity.metricValue,
-          metricType: progressMetricEntity.metricType,
-          calculatedAt: progressMetricEntity.calculatedAt.toISOString(),
+          userId: userId.value,
+          weekStart: weekStart, // Changed from periodIdentifier
+          metricKey: metricKey,
+          metricValue: Number.parseFloat(estimated1RM.toFixed(2)), // Ensure number type
+          metricUnit: "kg", // Changed from metricType
+          updatedAt: nowForRM.toISOString(),
         });
       }
 
       if (newUserProgressMetricsData.length > 0) {
-        console.log(`Upserting ${newUserProgressMetricsData.length} user progress metric records for user ${userId.value}.`);
-        await this.db.insert(schema.userProgressMetrics) // tx から this.db
+        console.log(`Upserting ${newUserProgressMetricsData.length} weekly user metric records (1RM) for user ${userId.value}.`);
+        await this.db.insert(schema.weeklyUserMetrics) // Changed table name
           .values(newUserProgressMetricsData)
           .onConflictDoUpdate({
             target: [
-              schema.userProgressMetrics.userId,
-              schema.userProgressMetrics.metricKey,
-              schema.userProgressMetrics.periodIdentifier
+              schema.weeklyUserMetrics.userId,
+              schema.weeklyUserMetrics.metricKey,
+              schema.weeklyUserMetrics.weekStart // Changed from periodIdentifier
             ],
             set: {
               metricValue: sql`excluded.metric_value`,
-              metricType: sql`excluded.metric_type`,
-              calculatedAt: sql`excluded.calculated_at`,
+              metricUnit: sql`excluded.metric_unit`, // Changed from metricType
+              updatedAt: sql`excluded.updated_at`,
             }
           });
-        console.log("User progress metrics upserted successfully.");
-      } else {
-        console.log("No new user progress metrics to upsert for this period/user.");
+        console.log("Weekly user metrics (1RM) upserted successfully.");
       }
+      // ... (else logs from original code) ...
       
-      // weeklyUserActivity の集計
-      console.log(`Starting weeklyUserActivity aggregation for user ${userId.value}.`);
-      const userSessions = await this.db // tx から this.db
-        .select({ finishedAt: schema.workoutSessions.finishedAt })
-        .from(schema.workoutSessions)
-        .where(and(eq(schema.workoutSessions.userId, userId.value), isNotNull(schema.workoutSessions.finishedAt)));
-      
-      const weeklyActivityCounter = new Map<string, number>();
-      const nowForActivity = new Date();
+      // weeklyUserActivity の集計 (改修 -> totalWorkouts は weeklyUserMetrics へ)
+      console.log(`Starting weekly total workouts aggregation for user ${userId.value} (to be stored in weeklyUserMetrics).`);
+      // weeklyWorkoutSessions Map (weekStart -> Set<sessionId>) is already populated from the set iteration loop
 
-      if (userSessions.length > 0) {
-        for (const session of userSessions) {
-          // finishedAt が null でないことはクエリで担保されているが、念のため型安全性を高める
-          if (!session.finishedAt) {
-            continue;
-          }
-          const weekIdentifier = getISOWeekIdentifier(session.finishedAt);
-          weeklyActivityCounter.set(weekIdentifier, (weeklyActivityCounter.get(weekIdentifier) || 0) + 1);
-        }
-      }
+      const newWeeklyTotalWorkoutsData = [];
+      const nowForActivity = new Date(); // Can reuse 'now' or nowForRM
 
-      const newWeeklyActivityData = [];
-      if (weeklyActivityCounter.size > 0) {
-        for (const [weekIdentifier, totalWorkouts] of weeklyActivityCounter) {
-          newWeeklyActivityData.push({
+      if (weeklyWorkoutSessions.size > 0) {
+        for (const [weekStart, sessionIdsInWeek] of weeklyWorkoutSessions) {
+          newWeeklyTotalWorkoutsData.push({
             userId: userId.value,
-            weekIdentifier,
-            totalWorkouts,
-            currentStreak: 0, // streak は暫定的に0を設定 (スキーマにデフォルトがあればそれでも良い)
-            calculatedAt: nowForActivity.toISOString(),
+            weekStart: weekStart,
+            metricKey: 'total_workouts_weekly', // New metric key for weekly workouts
+            metricValue: sessionIdsInWeek.size, // Number of unique sessions
+            metricUnit: 'count',
+            updatedAt: nowForActivity.toISOString(),
           });
         }
 
-        if (newWeeklyActivityData.length > 0) {
-          console.log(`Upserting ${newWeeklyActivityData.length} weekly user activity records for user ${userId.value}.`);
-          await this.db.insert(schema.weeklyUserActivity) // tx から this.db
-            .values(newWeeklyActivityData)
+        if (newWeeklyTotalWorkoutsData.length > 0) {
+          console.log(`Upserting ${newWeeklyTotalWorkoutsData.length} weekly total workout records for user ${userId.value} into weeklyUserMetrics.`);
+          await this.db.insert(schema.weeklyUserMetrics) // Insert into weeklyUserMetrics
+            .values(newWeeklyTotalWorkoutsData)
             .onConflictDoUpdate({
               target: [
-                schema.weeklyUserActivity.userId,
-                schema.weeklyUserActivity.weekIdentifier
+                schema.weeklyUserMetrics.userId,
+                schema.weeklyUserMetrics.metricKey, // metricKey for 'total_workouts_weekly'
+                schema.weeklyUserMetrics.weekStart
               ],
               set: {
-                totalWorkouts: sql`excluded.total_workouts`,
-                // currentStreak: sql`excluded.current_streak`, // streak は別途
-                calculatedAt: sql`excluded.calculated_at`,
+                metricValue: sql`excluded.metric_value`,
+                metricUnit: sql`excluded.metric_unit`,
+                updatedAt: sql`excluded.updated_at`,
               }
             });
-          console.log("Weekly user activity upserted successfully.");
+          console.log("Weekly total workouts (as metrics) upserted successfully.");
         }
       } else {
         console.log(`No weekly user activity data to process for user ${userId.value} based on sessions found.`);
       }
       
       console.log(`Aggregation fully finished for user: ${userId.value}`);
-      return { success: true, message: "Aggregation complete. Volumes, metrics, and activity processed." };
+      return { success: true, message: "Aggregation complete. Volumes and metrics processed." };
 
     } catch (error) {
       console.error(`Aggregation failed for user ${userId.value}:`, error);

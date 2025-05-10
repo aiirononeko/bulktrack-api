@@ -25,4 +25,26 @@ export function getISOWeekIdentifier(dateInput: Date | string): string {
 
     return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
 }
+
+/**
+ * Dateオブジェクトまたは日付文字列から、その日が含まれるISO週の月曜日の日付を
+ * 'YYYY-MM-DD' 形式の文字列で返します。
+ * @param dateInput Dateオブジェクトまたはパース可能な日付文字列
+ * @returns 'YYYY-MM-DD' 形式の月曜日の日付文字列
+ */
+export function getISOWeekMondayString(dateInput: Date | string): string {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : new Date(dateInput.getTime()); // Clone if Date object
+  const dayOfWeek = date.getUTCDay(); // Sunday = 0, Monday = 1, ..., Saturday = 6 (UTC to be consistent with ISO weeks)
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Number of days to subtract to get to Monday
+  
+  const monday = new Date(date.valueOf()); // Corrected: Use valueOf() or getTime() to get timestamp
+  monday.setUTCDate(date.getUTCDate() + diffToMonday);
+  
+  // Format to YYYY-MM-DD
+  const year = monday.getUTCFullYear();
+  const month = (monday.getUTCMonth() + 1).toString().padStart(2, '0');
+  const Mday = monday.getUTCDate().toString().padStart(2, '0');
+  
+  return `${year}-${month}-${Mday}`;
+}
   
