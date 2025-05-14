@@ -364,6 +364,11 @@ sessionsRoutes.post("/:sessionId/sets", async (c) => {
         // Consider throwing HTTPException(400, { message: `Invalid performedAt date format: ${performedAtString}` });
       }
     }
+    // If performedAtDate is still undefined (either not provided or invalid string), default to current date
+    if (!performedAtDate) {
+      console.warn('performedAt was not provided or invalid, defaulting to current Date.');
+      performedAtDate = new Date();
+    }
 
     const command = new AddSetToSessionCommand(
       new WorkoutSessionIdVO(sessionIdParam),

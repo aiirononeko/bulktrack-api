@@ -118,20 +118,13 @@ export class WorkoutSession {
     return newSet;
   }
 
-  public toPrimitives(): {
-    id: string;
-    userId: string;
-    menuId?: string | null;
-    startedAt: Date;
-    finishedAt?: Date | null;
-    sets: WorkoutSetRawData[];
-  } {
+  public toPrimitives(): WorkoutSessionRawData {
     return {
       id: this.id.value,
       userId: this.userId.value,
       menuId: this._menuId?.value,
-      startedAt: this._startedAt,
-      finishedAt: this._finishedAt,
+      startedAt: this._startedAt.toISOString(),
+      finishedAt: this._finishedAt ? this._finishedAt.toISOString() : this._finishedAt,
       sets: this._sets.map(s => s.toPrimitives()),
     };
   }

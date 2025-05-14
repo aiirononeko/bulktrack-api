@@ -17,30 +17,26 @@ export class DrizzleWorkoutSessionRepository implements IWorkoutSessionRepositor
   async save(session: WorkoutSession): Promise<void> {
     const sessionPrimitives = session.toPrimitives();
 
-    const operations = [];
+    const operations: unknown[] = [];
 
     // 1. Save WorkoutSession (Upsert)
+    const sessionDataForInsert: typeof this.schema.workoutSessions.$inferInsert = {
+      id: sessionPrimitives.id,
+      userId: sessionPrimitives.userId,
+      menuId: sessionPrimitives.menuId || undefined,
+      startedAt: sessionPrimitives.startedAt,
+      finishedAt: sessionPrimitives.finishedAt || undefined,
+    };
     operations.push(
       this.db
         .insert(this.schema.workoutSessions)
-        .values({
-          id: sessionPrimitives.id,
-          userId: sessionPrimitives.userId,
-          menuId: sessionPrimitives.menuId,
-          startedAt: sessionPrimitives.startedAt.toISOString(),
-          finishedAt: sessionPrimitives.finishedAt
-            ? sessionPrimitives.finishedAt.toISOString()
-            : null,
-        })
+        .values(sessionDataForInsert)
         .onConflictDoUpdate({
           target: this.schema.workoutSessions.id,
           set: {
-            menuId: sessionPrimitives.menuId,
-            userId: sessionPrimitives.userId,
-            startedAt: sessionPrimitives.startedAt.toISOString(),
-            finishedAt: sessionPrimitives.finishedAt
-              ? sessionPrimitives.finishedAt.toISOString()
-              : null,
+            menuId: sessionPrimitives.menuId || undefined,
+            startedAt: sessionPrimitives.startedAt,
+            finishedAt: sessionPrimitives.finishedAt || undefined,
           },
         }),
     );
@@ -54,28 +50,30 @@ export class DrizzleWorkoutSessionRepository implements IWorkoutSessionRepositor
 
     // 3. Insert new WorkoutSets if any
     if (sessionPrimitives.sets && sessionPrimitives.sets.length > 0) {
-      const setValuesToInsert = sessionPrimitives.sets.map(setPrimitive => ({
-        id: setPrimitive.id,
-        userId: session.userId.value,
-        sessionId: session.id.value,
-        exerciseId: setPrimitive.exerciseId,
-        setNo: setPrimitive.setNumber,
-        reps: setPrimitive.reps,
-        weight: setPrimitive.weight,
-        notes: setPrimitive.notes,
-        performed_at: setPrimitive.performedAt, 
-        deviceId: "unknown_device", // TODO: Consider how to get actual deviceId. Placeholder for now.
-        // rpe, restSec, volume, createdOffline などはスキーマ定義やアプリケーションロジックで処理
-      }));
-      // workoutSets の onConflictDoUpdate は現状不要なので、単純な insert
-      // .returning() をつけなければ、これも batch に含められるはず
-      operations.push(this.db.insert(this.schema.workoutSets).values(setValuesToInsert));
+      for (const setPrimitive of sessionPrimitives.sets) {
+        const setToInsert: typeof this.schema.workoutSets.$inferInsert = {
+            id: setPrimitive.id,
+            userId: session.userId.value, 
+            sessionId: session.id.value, 
+            exerciseId: setPrimitive.exerciseId,
+            setNo: setPrimitive.setNumber,
+            performed_at: setPrimitive.performedAt,
+            deviceId: setPrimitive.deviceId || "unknown_device",
+            reps: setPrimitive.reps ?? undefined,
+            weight: setPrimitive.weight ?? undefined,
+            notes: setPrimitive.notes ?? undefined,
+            rpe: setPrimitive.rpe ?? undefined,
+            restSec: setPrimitive.restSec ?? undefined,
+        };
+        operations.push(
+          this.db.insert(this.schema.workoutSets).values(setToInsert)
+        );
+      }
     }
     
     if (operations.length > 0) {
-      // @ts-expect-error もしくは @ts-ignore: Drizzle/D1のbatch型の厳格さにより、
-      // 動的に構築した配列の型と完全に一致させるのが困難なため。
-      // operationsの各要素はbatchで許容される型であり、空でないことも確認済み。
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await this.db.batch(operations);
     }
   }
@@ -94,7 +92,21 @@ export class DrizzleWorkoutSessionRepository implements IWorkoutSessionRepositor
 
     // Fetch related sets
     const setsResult = await this.db
-      .select()
+      .select({
+        id: this.schema.workoutSets.id,
+        sessionId: this.schema.workoutSets.sessionId,
+        exerciseId: this.schema.workoutSets.exerciseId,
+        setNo: this.schema.workoutSets.setNo,
+        reps: this.schema.workoutSets.reps,
+        weight: this.schema.workoutSets.weight,
+        notes: this.schema.workoutSets.notes,
+        performed_at: this.schema.workoutSets.performed_at,
+        created_at: this.schema.workoutSets.createdAt, // Select createdAt
+        rpe: this.schema.workoutSets.rpe,
+        restSec: this.schema.workoutSets.restSec,
+        deviceId: this.schema.workoutSets.deviceId,
+        // volume is generated, not selected directly if not needed for WorkoutSetRawData
+      })
       .from(this.schema.workoutSets)
       .where(eq(this.schema.workoutSets.sessionId, dbSession.id));
 
@@ -102,12 +114,16 @@ export class DrizzleWorkoutSessionRepository implements IWorkoutSessionRepositor
       id: dbSet.id,
       sessionId: dbSet.sessionId,
       exerciseId: dbSet.exerciseId,
-      setNumber: dbSet.setNo, // マッピング
+      setNumber: dbSet.setNo,
       reps: dbSet.reps,
       weight: dbSet.weight,
       notes: dbSet.notes,
-      performedAt: dbSet.performed_at,
-      // rpe, tempo などエンティティにないものは含めない
+      performedAt: dbSet.performed_at, // Map from db column name
+      createdAt: dbSet.created_at,   // Map from db column name
+      rpe: dbSet.rpe,
+      restSec: dbSet.restSec,
+      deviceId: dbSet.deviceId,
+      // volume can be calculated by entity or if WorkoutSetRawData requires it, select and map
     }));
 
     const sessionRawData: WorkoutSessionRawData = {
@@ -135,7 +151,20 @@ export class DrizzleWorkoutSessionRepository implements IWorkoutSessionRepositor
     const sessionsWithSets: WorkoutSession[] = [];
     for (const dbSession of dbSessions) {
       const setsResult = await this.db
-        .select()
+        .select({
+            id: this.schema.workoutSets.id,
+            sessionId: this.schema.workoutSets.sessionId,
+            exerciseId: this.schema.workoutSets.exerciseId,
+            setNo: this.schema.workoutSets.setNo,
+            reps: this.schema.workoutSets.reps,
+            weight: this.schema.workoutSets.weight,
+            notes: this.schema.workoutSets.notes,
+            performed_at: this.schema.workoutSets.performed_at,
+            created_at: this.schema.workoutSets.createdAt, // Select createdAt
+            rpe: this.schema.workoutSets.rpe,
+            restSec: this.schema.workoutSets.restSec,
+            deviceId: this.schema.workoutSets.deviceId,
+        })
         .from(this.schema.workoutSets)
         .where(eq(this.schema.workoutSets.sessionId, dbSession.id));
       
@@ -148,6 +177,10 @@ export class DrizzleWorkoutSessionRepository implements IWorkoutSessionRepositor
         weight: dbSet.weight,
         notes: dbSet.notes,
         performedAt: dbSet.performed_at,
+        createdAt: dbSet.created_at,
+        rpe: dbSet.rpe,
+        restSec: dbSet.restSec,
+        deviceId: dbSet.deviceId,
       }));
       
       const sessionRawData: WorkoutSessionRawData = {
