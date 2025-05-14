@@ -7,7 +7,7 @@ import { ExerciseIdVO } from '../../../domain/shared/vo/identifier';
 import type * as schema from '../schema';
 
 type AllTables = typeof schema;
-const DEFAULT_SEARCH_LIMIT = 20;
+const DEFAULT_SEARCH_LIMIT = 50;
 
 // Type for the raw database row returned by the common select query
 interface DbExerciseRow {
