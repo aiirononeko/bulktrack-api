@@ -195,4 +195,50 @@ export class DrizzleWorkoutSessionRepository implements IWorkoutSessionRepositor
     }
     return sessionsWithSets;
   }
+
+  async getSetsBySessionId(sessionId: WorkoutSessionIdVO): Promise<WorkoutSet[]> {
+    const setsResult = await this.db
+      .select({
+        id: this.schema.workoutSets.id,
+        sessionId: this.schema.workoutSets.sessionId,
+        exerciseId: this.schema.workoutSets.exerciseId,
+        setNo: this.schema.workoutSets.setNo,
+        reps: this.schema.workoutSets.reps,
+        weight: this.schema.workoutSets.weight,
+        notes: this.schema.workoutSets.notes,
+        performed_at: this.schema.workoutSets.performed_at, // DB column name
+        created_at: this.schema.workoutSets.createdAt,     // DB column name
+        rpe: this.schema.workoutSets.rpe,
+        restSec: this.schema.workoutSets.restSec,
+        deviceId: this.schema.workoutSets.deviceId,
+        // userId is part of WorkoutSession, not WorkoutSet directly in DB.
+        // WorkoutSet.fromPersistence reconstructs WorkoutSet which does not require userId in its constructor.
+      })
+      .from(this.schema.workoutSets)
+      .where(eq(this.schema.workoutSets.sessionId, sessionId.value))
+      .orderBy(this.schema.workoutSets.setNo); // Optional: order by set number
+
+    if (setsResult.length === 0) {
+      return [];
+    }
+
+    return setsResult.map(dbSet => {
+      const rawData: WorkoutSetRawData = {
+        id: dbSet.id,
+        sessionId: dbSet.sessionId, 
+        exerciseId: dbSet.exerciseId,
+        setNumber: dbSet.setNo,
+        reps: dbSet.reps,
+        weight: dbSet.weight,
+        notes: dbSet.notes,
+        performedAt: dbSet.performed_at,
+        createdAt: dbSet.created_at,
+        rpe: dbSet.rpe,
+        restSec: dbSet.restSec,
+        deviceId: dbSet.deviceId,
+        // volume is calculated by the entity itself if needed, not directly stored/fetched for raw data mapping here
+      };
+      return WorkoutSet.fromPersistence(rawData);
+    });
+  }
 }

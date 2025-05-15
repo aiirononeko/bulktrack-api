@@ -29,6 +29,8 @@ import * as tablesSchema from "../../infrastructure/db/schema";
 import { ExerciseService } from "../../domain/exercise/service";
 import { SearchExercisesHandler } from "../../app/query/exercise/search-exercise";
 import { createSearchExercisesHandler } from "./handlers/exercise/search";
+import { ListRecentExercisesHandler } from "../../app/query/exercise/list-recent-exercises";
+import { createListRecentExercisesHandler } from "./handlers/exercise/list-recent";
 
 import { startSessionHttpHandler } from "./handlers/session/start";
 import { StartSessionHandler } from "../../app/command/session/start-session";
@@ -51,6 +53,7 @@ export type AppEnv = {
     activateDeviceCommand: ActivateDeviceCommand;
     refreshTokenCommand: RefreshTokenCommand;
     searchExercisesHandler: SearchExercisesHandler;
+    listRecentExercisesHandler?: ListRecentExercisesHandler;
     startSessionHandler: StartSessionHandler;
     finishSessionHandler: FinishSessionHandler;
     addSetToSessionHandler: AddSetToSessionHandler;
@@ -145,7 +148,14 @@ app.use("/v1/sessions/*", async (c, next) => {
   const workoutSessionRepository = new DrizzleWorkoutSessionRepository(db, tablesSchema);
   const workoutSessionService = new WorkoutSessionService(workoutSessionRepository); 
   
-  const aggregationService = new AggregationService(db); // AggregationService をインスタンス化
+  const aggregationService = new AggregationService(db);
+
+  // ExerciseService is needed by FinishSessionHandler for recording exercise usage
+  // It might have been instantiated in a higher scope middleware (e.g., for /v1/me/* or /v1/exercises)
+  // For simplicity here, we ensure it's available. If already set in c.var, we could use that.
+  // However, creating it here ensures it uses the same DB instance as other session services.
+  const exerciseRepository = new DrizzleExerciseRepository(db, tablesSchema); // Ensure this is the correct repo
+  const exerciseService = new ExerciseService(exerciseRepository);
 
   const startSessionHandler = new StartSessionHandler(
     workoutSessionService,
@@ -155,7 +165,8 @@ app.use("/v1/sessions/*", async (c, next) => {
   const finishSessionHandler = new FinishSessionHandler(
     workoutSessionRepository,
     workoutSessionService,
-    aggregationService // aggregationService を注入
+    aggregationService,
+    exerciseService // Inject ExerciseService
   );
 
   const addSetToSessionHandler = new AddSetToSessionHandler(
@@ -188,6 +199,28 @@ app.use("/v1/dashboard/*", async (c, next) => {
 
   c.set("db", db); // Make db available in context, useful for dashboardStatsApp internal DI
   c.set("dashboardQueryHandler", dashboardQueryHandler);
+
+  await next();
+});
+
+// Middleware for Dependency Injection for /v1/me/* routes (including recent exercises)
+// This is a new middleware group for user-specific authenticated routes under /v1/me
+app.use("/v1/me/*", async (c, next) => {
+  if (!c.env.DB) {
+    console.error("CRITICAL: Missing DB environment binding for /v1/me services.");
+    throw new HTTPException(500, {
+      message: "Internal Server Configuration Error for User Services",
+    });
+  }
+  const db = drizzle(c.env.DB, { schema: tablesSchema });
+  const exerciseRepository = new DrizzleExerciseRepository(db, tablesSchema);
+  const exerciseService = new ExerciseService(exerciseRepository);
+
+  // Handler for recent exercises
+  const listRecentExercisesHandler = new ListRecentExercisesHandler(exerciseService);
+  c.set("listRecentExercisesHandler", listRecentExercisesHandler);
+  
+  // Add other handlers for /v1/me/* routes here if needed in the future
 
   await next();
 });
@@ -256,6 +289,18 @@ app.get("/v1/exercises", async (c) => {
     throw new HTTPException(500, { message: "Internal Configuration Error - Handler not set" });
   }
   const actualHandler = createSearchExercisesHandler(handler);
+  return actualHandler(c);
+});
+
+// Route for recently used exercises for the authenticated user
+app.get("/v1/me/exercises/recent", jwtAuthMiddleware, async (c) => {
+  const handler = c.var.listRecentExercisesHandler;
+  if (!handler) {
+    console.error("ListRecentExercisesHandler not found in c.var for /v1/me/exercises/recent route.");
+    throw new HTTPException(500, { message: "Internal Configuration Error - Handler not set" });
+  }
+  // Ensure createListRecentExercisesHandler is correctly imported and used
+  const actualHandler = createListRecentExercisesHandler(handler);
   return actualHandler(c);
 });
 

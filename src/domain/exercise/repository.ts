@@ -24,6 +24,28 @@ export interface IExerciseRepository {
    */
   create(exercise: Exercise): Promise<void>;
 
+  /**
+   * 認証されたユーザーが最近使用したエクササイズを取得します。
+   * @param userId ユーザーID
+   * @param locale ユーザーのロケール
+   * @param limit 取得する最大件数
+   * @param offset 結果のオフセット
+   * @returns 条件に一致するエクササイズの配列
+   */
+  findRecentByUserId(userId: string, locale: string, limit: number, offset: number): Promise<Exercise[]>;
+
+  /**
+   * Records or updates the usage of an exercise by a user.
+   * If a record for the given userId and exerciseId exists, it updates lastUsedAt and increments useCount.
+   * Otherwise, it creates a new record.
+   * @param userId The ID of the user.
+   * @param exerciseId The ID of the exercise used.
+   * @param usedAt The timestamp when the exercise was used (typically session end time).
+   * @param incrementUseCount Whether to increment the useCount (defaults to true).
+   * @returns Promise<void>
+   */
+  upsertExerciseUsage(userId: string, exerciseId: string, usedAt: Date, incrementUseCount?: boolean): Promise<void>;
+
   // 必要に応じて、更新 (update) や削除 (delete) メソッドも定義できますが、
   // 今回のGETエンドポイント実装には直接関係しないため、一旦含めません。
 } 

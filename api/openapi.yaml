@@ -123,6 +123,43 @@ paths:
       responses:
         '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Exercise' } } } }
 
+  /v1/me/exercises/recent:
+    get:
+      summary: List recently used exercises for the authenticated user
+      tags: [Exercises]
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+          description: Maximum number of exercises to return.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+          description: Offset for pagination.
+        - in: query
+          name: locale
+          schema:
+            type: string
+            default: ja
+          description: Locale for exercise names (e.g., 'en', 'ja').
+      responses:
+        '200':
+          description: A list of recently used exercises.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Exercise'
+        '401':
+          description: Unauthorized
+      security:
+        - BearerAuth: []
+
   # ---------------- Sessions & Sets ---------------- #
   /v1/sessions:
     post:
