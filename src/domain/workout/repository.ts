@@ -1,6 +1,7 @@
 import type { WorkoutSession } from "./entities/workout-session.entity";
 import type { WorkoutSessionIdVO, UserIdVO } from "../shared/vo/identifier";
 import type { WorkoutSet } from "./entities/workout-set.entity";
+import type { WorkoutSetIdVO } from "../shared/vo/identifier";
 
 export interface IWorkoutSessionRepository {
   findById(id: WorkoutSessionIdVO): Promise<WorkoutSession | null>;
@@ -14,5 +15,9 @@ export interface IWorkoutSessionRepository {
    * @returns ワークアウトセットの配列。見つからない場合は空配列。
    */
   getSetsBySessionId(sessionId: WorkoutSessionIdVO): Promise<WorkoutSet[]>;
+
+  findSetById(id: WorkoutSetIdVO): Promise<WorkoutSet | null>;
+  updateSet(set: WorkoutSet): Promise<void>;
+  deleteSet(id: WorkoutSetIdVO): Promise<void>;
 }
  

@@ -25,7 +25,7 @@ export type AddSetRequestDto = v.InferInput<typeof AddSetRequestSchema>;
 export interface WorkoutSetDto {
   id: string; // WorkoutSetIdVO
   exerciseId: string; // ExerciseIdVO
-  setNo: number;
+  setNumber: number;
   reps?: number | null;
   weight?: number | null;
   notes?: string | null;
@@ -36,3 +36,18 @@ export interface WorkoutSetDto {
   restSec?: number | null;
   deviceId?: string | null;
 }
+
+export const SetUpdateRequestSchema = v.objectAsync({
+  exerciseId: v.optional(v.nullable(v.pipe(v.string(), v.uuid("Exercise ID must be a valid UUID if provided.")))),
+  weight: v.optional(v.nullable(v.pipe(v.number(), v.minValue(0)))),
+  reps: v.optional(v.nullable(v.pipe(v.number(), v.integer(), v.minValue(0)))),
+  notes: v.optional(v.nullable(v.string())),
+  performedAt: v.optional(v.nullable(v.pipe(
+    v.string(),
+    v.isoTimestamp("PerformedAt must be a valid ISO 8601 timestamp string if provided.")
+  ))),
+  rpe: v.optional(v.nullable(v.pipe(v.number(), v.minValue(0), v.maxValue(10)))),
+  // distance と duration は OpenAPI 定義にはあるが、現時点ではエンティティにないため除外
+});
+
+export type SetUpdateRequestDto = v.InferInput<typeof SetUpdateRequestSchema>;

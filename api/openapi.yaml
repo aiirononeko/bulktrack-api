@@ -228,6 +228,66 @@ paths:
       responses:
         '200': { description: List, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/WorkoutSet' } } } } }
 
+  /v1/sessions/{sessionId}/sets/{setId}:
+    patch:
+      summary: Update a specific workout set
+      tags: [Sets]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: setId
+          in: path
+          required: true
+          description: ID of the set to update
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetUpdate'
+      responses:
+        '200':
+          description: Set updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutSet'
+        '400':
+          description: Invalid request body
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (e.g., trying to update a set not owned by the user)
+        '404':
+          description: Session or Set not found
+      security:
+        - BearerAuth: []
+    delete:
+      summary: Delete a specific workout set
+      tags: [Sets]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: setId
+          in: path
+          required: true
+          description: ID of the set to delete
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Set deleted successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (e.g., trying to delete a set not owned by the user)
+        '404':
+          description: Session or Set not found
+      security:
+        - BearerAuth: []
+
   # ---------------- Dashboard ---------------- #
   /v1/dashboard:
     get:
@@ -277,7 +337,10 @@ components:
       name: sessionId
       in: path
       required: true
-      schema: { type: string, format: uuid }
+      description: ID of the session
+      schema:
+        type: string
+        format: uuid
 
   # ---- Schemas (same as previous version, trimmed) ---- #
   schemas:
@@ -320,127 +383,138 @@ components:
             linkedAt: { type: string, format: date-time }
     ExerciseCreate:
       type: object
-      required: [canonicalName]
+      required: [name]
       properties:
-        canonicalName: { type: string }
-        locale: { type: string }
         name: { type: string }
-        aliases: { type: string }
     Exercise:
-      allOf:
-        - $ref: '#/components/schemas/ExerciseCreate'
-        - type: object
-          properties:
-            id: { type: string, format: uuid }
-            isOfficial: { type: boolean }
-            lastUsedAt: { type: string, format: date-time }
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        lastUsedAt: { type: string, format: date-time, nullable: true }
+        useCount: { type: integer, nullable: true }
     SessionStart:
       type: object
+      required: [startedAt]
       properties:
-        menuId: { type: string, format: uuid, nullable: true, description: "Optional menu ID for the session. Can be null." }
+        startedAt: { type: string, format: date-time }
+        notes: { type: string, nullable: true }
     WorkoutSession:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time, nullable: true }
+        notes: { type: string, nullable: true }
+    SessionDetail:
       allOf:
-        - $ref: '#/components/schemas/SessionStart'
+        - $ref: '#/components/schemas/WorkoutSession'
         - type: object
           properties:
-            id: { type: string, format: uuid }
-            finishedAt: { type: string, format: date-time }
-            createdAt: { type: string, format: date-time }
-    SessionDetail:
-      type: object
-      properties:
-        session: { $ref: '#/components/schemas/WorkoutSession' }
-        sets:
-          type: array
-          items: { $ref: '#/components/schemas/WorkoutSet' }
+            sets:
+              type: array
+              items: { $ref: '#/components/schemas/WorkoutSet' }
     SetCreate:
       type: object
-      required: [exerciseId]
+      required:
+        - exerciseId
+        - weight
+        - reps
+        - performedAt
       properties:
-        exerciseId: { type: string, format: uuid }
-        setNo:
-          type: integer
-          description: The number of the set within the exercise for the current session.
-          nullable: true
-          example: 1
-        reps:
-          type: integer
-          description: Number of repetitions performed.
-          nullable: true
-          example: 10
+        exerciseId:
+          type: string
+          format: uuid
+          description: ID of the exercise for this set.
         weight:
           type: number
           format: float
-          description: Weight used for the set (e.g., in kg).
-          nullable: true
-          example: 60.5
-        notes:
-          type: string
-          description: Optional notes for the set.
-          nullable: true
-          example: "Felt strong today."
-        performedAt:
-          type: string
-          format: date-time
-          description: |
-            The time the set was performed, in ISO 8601 format (UTC).
-            Expected format: YYYY-MM-DDTHH:mm:ss.sssZ (e.g., "2025-05-08T14:01:15.000Z").
-            Milliseconds are optional but recommended.
-          nullable: true
-          example: "2025-05-08T14:01:15.123Z"
+          description: Weight used for the set (e.g., in kg or lbs).
+        reps:
+          type: integer
+          description: Number of repetitions performed.
+        # distance:
+        #   type: number
+        #   format: float
+        #   nullable: true
+        #   description: Distance covered (e.g., for cardio exercises, in km or miles).
+        # duration:
+        #   type: integer
+        #   nullable: true
+        #   description: Duration of the set (e.g., for timed exercises, in seconds).
         rpe:
           type: number
           format: float
-          description: Rate of Perceived Exertion (e.g., 1-10).
           nullable: true
-          example: 7.5
-        restSec:
-          type: integer
-          description: Rest time in seconds after this set.
-          nullable: true
-          example: 90
-        deviceId:
+          minimum: 1
+          maximum: 10
+          description: Rating of Perceived Exertion (1-10).
+        notes:
           type: string
-          description: ID of the device used to record the set.
           nullable: true
-          example: "device-uuid-123"
+          description: Additional notes for the set.
+        performedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the set was performed.
     WorkoutSet:
-      allOf:
-        - $ref: '#/components/schemas/SetCreate'
-        - type: object
-          required:
-            - id
-            - exerciseId
-            - setNo
-            - performedAt
-            - createdAt
-          properties:
-            id: { type: string, format: uuid }
-            exerciseId: { type: string, format: uuid }
-            setNo:
-              type: integer
-              description: The number of the set.
-              example: 1
-            performedAt:
-              type: string
-              format: date-time
-              description: |
-                The time the set was performed, in ISO 8601 format (UTC).
-                Format: YYYY-MM-DDTHH:mm:ss.sssZ (e.g., "2025-05-08T14:01:15.000Z").
-              example: "2025-05-08T14:01:15.000Z"
-            volume:
-              type: number
-              format: float
-              description: Calculated volume for the set (e.g., weight * reps).
-              readOnly: true
-              example: 605
-            createdAt:
-              type: string
-              format: date-time
-              description: Timestamp of when the set record was created.
-              readOnly: true
-              example: "2025-05-08T14:02:00.000Z"
-    # ---- Dashboard Schemas ----
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        exerciseId: { type: string, format: uuid }
+        setNumber: { type: integer, description: "The order of the set in the session." }
+        exerciseName: { type: string, description: Name of the exercise, potentially translated }
+        weight: { type: number, format: float }
+        reps: { type: integer }
+        # distance: { type: number, format: float, nullable: true }
+        # duration: { type: integer, nullable: true }
+        rpe: { type: number, format: float, nullable: true, minimum: 1, maximum: 10 }
+        notes: { type: string, nullable: true }
+        performedAt: { type: string, format: date-time }
+    SetUpdate:
+      type: object
+      properties:
+        exerciseId:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the exercise for this set.
+        weight:
+          type: number
+          format: float
+          nullable: true
+          description: Weight used for the set (e.g., in kg or lbs).
+        reps:
+          type: integer
+          nullable: true
+          description: Number of repetitions performed.
+        # distance:
+        #   type: number
+        #   format: float
+        #   nullable: true
+        #   description: Distance covered (e.g., for cardio exercises, in km or miles).
+        # duration:
+        #   type: integer
+        #   nullable: true
+        #   description: Duration of the set (e.g., for timed exercises, in seconds).
+        rpe:
+          type: number
+          format: float
+          nullable: true
+          minimum: 1
+          maximum: 10
+          description: Rating of Perceived Exertion (1-10).
+        notes:
+          type: string
+          nullable: true
+          description: Additional notes for the set.
+        performedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp when the set was performed.
     WeekPoint:
       type: object
       required: [weekStart, totalVolume]
@@ -493,4 +567,3 @@ components:
         metrics:
           type: array
           items: { $ref: '#/components/schemas/MetricSeries' }
-    # ---- End Dashboard Schemas ----

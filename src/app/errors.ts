@@ -1,11 +1,13 @@
+import type { StatusCode } from "hono/utils/http-status";
+
 export class ApplicationError extends Error {
-  public readonly statusCode: number;
+  public readonly statusCode: StatusCode;
   public readonly code?: string;
   public readonly details?: unknown;
 
   constructor(
     message: string,
-    statusCode = 500,
+    statusCode: StatusCode = 500,
     code?: string,
     details?: unknown,
   ) {

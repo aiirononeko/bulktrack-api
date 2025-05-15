@@ -37,6 +37,7 @@ import { StartSessionHandler } from "../../app/command/session/start-session";
 import { FinishSessionCommand, FinishSessionHandler } from "../../app/command/session/finish-session";
 import { AddSetToSessionCommand, AddSetToSessionHandler } from "../../app/command/session/add-set-to-session"; // AddSetToSession をインポート
 import { WorkoutSessionService } from "../../domain/workout/service";
+import { WorkoutService as AppWorkoutService } from "../../application/services/workout.service"; // Renamed to avoid conflict
 import { DrizzleWorkoutSessionRepository } from "../../infrastructure/db/repository/workout-session-repository";
 import { UserIdVO, WorkoutSessionIdVO, ExerciseIdVO } from "../../domain/shared/vo/identifier"; // ExerciseIdVO をインポート
 import { AddSetRequestSchema } from "../../app/dto/set.dto";
@@ -46,6 +47,9 @@ import { AggregationService } from "../../app/services/aggregation-service";
 import dashboardStatsApp from "./handlers/dashboard/stats";
 import { GetDashboardDataQueryHandler } from "../../app/query/dashboard/get-dashboard-data";
 import { DashboardRepository } from "../../infrastructure/db/repository/dashboard-repository";
+
+import { updateSetHttpHandler } from "./handlers/session/update-set"; // Import the new handler
+import { deleteSetHttpHandler } from "./handlers/session/delete-set"; // deleteSetHttpHandler をインポート
 
 // Define types for c.var
 export type AppEnv = {
@@ -57,6 +61,7 @@ export type AppEnv = {
     startSessionHandler: StartSessionHandler;
     finishSessionHandler: FinishSessionHandler;
     addSetToSessionHandler: AddSetToSessionHandler;
+    workoutService?: AppWorkoutService; // Added workoutService
     db?: DrizzleD1Database<typeof tablesSchema>; // For general DB access if needed by handlers
     dashboardQueryHandler?: GetDashboardDataQueryHandler; // Specifically for dashboard
     jwtPayload?: JWTPayload; // Added jwtPayload for JWT middleware
@@ -147,6 +152,7 @@ app.use("/v1/sessions/*", async (c, next) => {
 
   const workoutSessionRepository = new DrizzleWorkoutSessionRepository(db, tablesSchema);
   const workoutSessionService = new WorkoutSessionService(workoutSessionRepository); 
+  const appWorkoutService = new AppWorkoutService(workoutSessionRepository); // Instantiate AppWorkoutService
   
   const aggregationService = new AggregationService(db);
 
@@ -176,6 +182,7 @@ app.use("/v1/sessions/*", async (c, next) => {
   c.set("startSessionHandler", startSessionHandler);
   c.set("finishSessionHandler", finishSessionHandler);
   c.set("addSetToSessionHandler", addSetToSessionHandler);
+  c.set("workoutService", appWorkoutService); // Set workoutService in context
   await next();
 });
 
@@ -465,6 +472,9 @@ sessionsRoutes.post("/:sessionId/sets", async (c) => {
     });
   }
 });
+
+sessionsRoutes.patch("/:sessionId/sets/:setId", updateSetHttpHandler); // Add the PATCH route
+sessionsRoutes.delete("/:sessionId/sets/:setId", deleteSetHttpHandler); // Add delete route
 
 app.route("/v1/sessions", sessionsRoutes);
 

@@ -74,7 +74,7 @@ export class AddSetToSessionHandler {
     const addedSetDto: WorkoutSetDto = {
       id: addedSet.id.value,
       exerciseId: addedSet.exerciseId.value,
-      setNo: addedSet.setNumber, // エンティティのゲッターは setNumber, DTOのプロパティは setNo
+      setNumber: addedSet.setNumber, // setNo から setNumber に変更
       reps: addedSet.reps,
       weight: addedSet.weight,
       notes: addedSet.notes,

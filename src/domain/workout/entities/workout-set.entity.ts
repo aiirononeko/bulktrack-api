@@ -32,6 +32,15 @@ export interface WorkoutSetRawData {
   deviceId?: string | null;
 }
 
+export interface WorkoutSetUpdateProps {
+  reps?: number | null;
+  weight?: number | null;
+  notes?: string | null;
+  performedAt?: Date;
+  rpe?: number | null;
+  restSec?: number | null;
+}
+
 export class WorkoutSet {
   readonly id: WorkoutSetIdVO;
   readonly sessionId: WorkoutSessionIdVO;
@@ -136,6 +145,30 @@ export class WorkoutSet {
       restSec: data.restSec,
       deviceId: data.deviceId,
     });
+  }
+
+  public update(props: WorkoutSetUpdateProps): void {
+    if (props.reps !== undefined) {
+      this._reps = props.reps;
+    }
+    if (props.weight !== undefined) {
+      this._weight = props.weight;
+    }
+    if (props.notes !== undefined) {
+      this._notes = props.notes;
+    }
+    if (props.performedAt !== undefined) {
+      // Consider adding validation for performedAt if necessary
+      this._performedAt = props.performedAt;
+    }
+    if (props.rpe !== undefined) {
+      // Ensure rpe is within valid range if applicable (e.g., 1-10)
+      // This might be better handled by a Value Object or in the constructor/setter
+      this._rpe = props.rpe;
+    }
+    if (props.restSec !== undefined) {
+      this._restSec = props.restSec;
+    }
   }
 
   get setNumber(): number { return this._setNumber; }

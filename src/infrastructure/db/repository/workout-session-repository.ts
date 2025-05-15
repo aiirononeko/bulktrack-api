@@ -5,8 +5,9 @@ import { WorkoutSession } from "../../../domain/workout/entities/workout-session
 import type { WorkoutSessionRawData } from "../../../domain/workout/entities/workout-session.entity";
 import { WorkoutSet } from "../../../domain/workout/entities/workout-set.entity";
 import type { WorkoutSetRawData } from "../../../domain/workout/entities/workout-set.entity";
-import type { WorkoutSessionIdVO, UserIdVO } from "../../../domain/shared/vo/identifier";
+import type { WorkoutSessionIdVO, UserIdVO, WorkoutSetIdVO } from "../../../domain/shared/vo/identifier";
 import type * as fullSchema from "../schema"; // Drizzle schema
+import { sql } from "drizzle-orm"; // Added for sql.now
 
 export class DrizzleWorkoutSessionRepository implements IWorkoutSessionRepository {
   constructor(
@@ -240,5 +241,68 @@ export class DrizzleWorkoutSessionRepository implements IWorkoutSessionRepositor
       };
       return WorkoutSet.fromPersistence(rawData);
     });
+  }
+
+  async findSetById(id: WorkoutSetIdVO): Promise<WorkoutSet | null> {
+    const result = await this.db
+      .select({
+        id: this.schema.workoutSets.id,
+        sessionId: this.schema.workoutSets.sessionId,
+        exerciseId: this.schema.workoutSets.exerciseId,
+        setNo: this.schema.workoutSets.setNo,
+        reps: this.schema.workoutSets.reps,
+        weight: this.schema.workoutSets.weight,
+        notes: this.schema.workoutSets.notes,
+        performed_at: this.schema.workoutSets.performed_at,
+        created_at: this.schema.workoutSets.createdAt,
+        rpe: this.schema.workoutSets.rpe,
+        restSec: this.schema.workoutSets.restSec,
+        deviceId: this.schema.workoutSets.deviceId,
+      })
+      .from(this.schema.workoutSets)
+      .where(eq(this.schema.workoutSets.id, id.value))
+      .limit(1);
+
+    if (result.length === 0) {
+      return null;
+    }
+    const dbSet = result[0];
+    const rawData: WorkoutSetRawData = {
+      id: dbSet.id,
+      sessionId: dbSet.sessionId,
+      exerciseId: dbSet.exerciseId,
+      setNumber: dbSet.setNo,
+      reps: dbSet.reps,
+      weight: dbSet.weight,
+      notes: dbSet.notes,
+      performedAt: dbSet.performed_at,
+      createdAt: dbSet.created_at,
+      rpe: dbSet.rpe,
+      restSec: dbSet.restSec,
+      deviceId: dbSet.deviceId,
+    };
+    return WorkoutSet.fromPersistence(rawData);
+  }
+
+  async updateSet(set: WorkoutSet): Promise<void> {
+    const setData = set.toPrimitives();
+    await this.db
+      .update(this.schema.workoutSets)
+      .set({
+        reps: setData.reps,
+        weight: setData.weight,
+        notes: setData.notes,
+        performed_at: setData.performedAt,
+        rpe: setData.rpe,
+        restSec: setData.restSec,
+        updatedAt: sql`CURRENT_TIMESTAMP`,
+      })
+      .where(eq(this.schema.workoutSets.id, setData.id));
+  }
+
+  async deleteSet(id: WorkoutSetIdVO): Promise<void> {
+    await this.db
+      .delete(this.schema.workoutSets)
+      .where(eq(this.schema.workoutSets.id, id.value));
   }
 }
