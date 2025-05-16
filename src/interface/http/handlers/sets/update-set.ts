@@ -72,6 +72,21 @@ export async function updateSetHttpHandler(
     };
 
     const updatedSetDto = await workoutService.updateWorkoutSet(command);
+
+    // 統計更新処理の呼び出し
+    const statsUpdater = c.var.statsUpdateService;
+    const currentUserId = new UserIdVO(userIdString);
+    if (statsUpdater) {
+      try {
+        await statsUpdater.updateStatsForUser(currentUserId);
+      } catch (statsError) {
+        console.error(`Error updating dashboard stats after updating set ${setIdParam}:`, statsError);
+        // ここでのエラーはメインのレスポンスに影響させない
+      }
+    } else {
+      // console.warn(`StatsUpdateService not found, skipping stats update for user ${userIdString} after updating set ${setIdParam}`);
+    }
+
     return c.json(updatedSetDto, 200);
 
   } catch (error: unknown) {

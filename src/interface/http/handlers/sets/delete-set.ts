@@ -3,6 +3,7 @@ import type { Context } from 'hono';
 import type { AppEnv } from "../../router";
 import type { DeleteWorkoutSetCommand } from "../../../../application/services/workout.service";
 import { NotFoundError, AuthorizationError } from "../../../../app/errors";
+import { UserIdVO } from "../../../../domain/shared/vo/identifier";
 
 export const deleteSetHttpHandler = async (c: Context<AppEnv>) => {
   const { setId } = c.req.param();
@@ -30,6 +31,17 @@ export const deleteSetHttpHandler = async (c: Context<AppEnv>) => {
 
   try {
     await workoutService.deleteWorkoutSet(command);
+
+    const statsUpdater = c.var.statsUpdateService;
+    const currentUserId = new UserIdVO(userId);
+    if (statsUpdater) {
+      try {
+        await statsUpdater.updateStatsForUser(currentUserId);
+      } catch (statsError) {
+        console.error(`Error updating dashboard stats after deleting set ${setId}:`, statsError);
+      }
+    }
+
     return c.body(null, 204);
   } catch (error) {
     if (error instanceof NotFoundError) {

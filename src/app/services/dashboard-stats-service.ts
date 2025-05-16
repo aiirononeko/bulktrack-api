@@ -4,17 +4,22 @@ import { eq, and, gte, inArray, sql, isNotNull } from "drizzle-orm"; // eq, and,
 import type { IAggregationService, AggregationResult } from "../../domain/aggregation/service";
 import { MuscleIdVO } from "../../domain/shared/vo/identifier"; // MuscleIdVO は値として使用
 import type { UserIdVO } from "../../domain/shared/vo/identifier"; // UserIdVO は型として使用
-import { WeeklyMuscleVolume } from "../../domain/aggregation/entities/weekly-muscle-volume";
-import { UserProgressMetric } from "../../domain/aggregation/entities/user-progress-metric";
+// WeeklyMuscleVolume, UserProgressMetric は直接使われなくなる可能性があるが、概念として残す場合はコメントアウト
+// import { WeeklyMuscleVolume } from "../../domain/aggregation/entities/weekly-muscle-volume";
+// import { UserProgressMetric } from "../../domain/aggregation/entities/user-progress-metric";
 import { calculateEpley1RM } from "../../domain/formulas/strength-formulas";
 import { getISOWeekIdentifier, getISOWeekMondayString } from "../utils/date-utils"; // getISOWeekIdentifier, getISOWeekMondayString をインポート
 // 他に必要なドメインエンティティやバリューオブジェクトがあれば適宜インポート
 
-export class AggregationService implements IAggregationService {
+// IAggregationService は router.ts で定義したインターフェースとは異なるため、
+// このクラスが router.ts の StatsUpdateService を実装するように変更する
+// export class AggregationService implements IAggregationService {
+export class DashboardStatsService { // クラス名変更
   constructor(private readonly db: DrizzleD1Database<typeof schema>) {}
 
-  async aggregateWorkoutDataForUser(userId: UserIdVO): Promise<AggregationResult> {
-    console.log(`Starting aggregation for user: ${userId.value} (no explicit transaction).`);
+  // async aggregateWorkoutDataForUser(userId: UserIdVO): Promise<AggregationResult> { // メソッド名と戻り値変更
+  async updateStatsForUser(userId: UserIdVO): Promise<void> {
+    console.log(`Starting dashboard stats update for user: ${userId.value}.`);
     try {
       // トランザクションのラップを解除。this.db を直接使用する。
       const sevenDaysAgo = new Date();
@@ -31,11 +36,12 @@ export class AggregationService implements IAggregationService {
             eq(schema.workoutSets.userId, userId.value),
           )
         )
-        .orderBy(schema.workoutSets.performed_at);
+        .orderBy(schema.workoutSets.performedAt);
 
       if (!userSets || userSets.length === 0) {
         console.log(`No workout sets found for user ${userId.value}.`);
-        return { success: true, message: "No workout data to aggregate for this user." };
+        // return { success: true, message: "No workout data to aggregate for this user." };
+        return; // voidなので何も返さない
       }
       console.log(`Found ${userSets.length} workout sets for user ${userId.value}`);
 
@@ -66,12 +72,15 @@ export class AggregationService implements IAggregationService {
 
       const weeklyVolumeByMuscle = new Map<string, Map<number, number>>(); // Key is weekStart (YYYY-MM-DD)
       const weeklyTotalVolumeByUser = new Map<string, { totalVolume: number, setCount: number, e1rmSum: number, e1rmCount: number }>(); // For weeklyUserVolumes
-      const weeklyWorkoutSessions = new Map<string, Set<string>>(); // weekStart -> Set of sessionIds, to count workouts
+      // weeklyWorkoutSessions: weekStart -> Set of performed dates (YYYY-MM-DD) to count active days
+      const weeklyActiveDays = new Map<string, Set<string>>(); 
 
       for (const set of userSets) {
-        if (!set.performed_at || set.volume === null || !set.exerciseId || !set.sessionId) continue;
+        // if (!set.performed_at || set.volume === null || !set.exerciseId || !set.sessionId) continue; // sessionId チェック削除
+        if (!set.performedAt || set.volume === null || !set.exerciseId) continue; // performed_at -> performedAt
 
-        const weekStart = getISOWeekMondayString(set.performed_at);
+        // const weekStart = getISOWeekMondayString(set.performed_at);
+        const weekStart = getISOWeekMondayString(set.performedAt); // performed_at -> performedAt
         const exerciseDetails = exerciseDetailsMap.get(set.exerciseId);
 
         // For weeklyUserMuscleVolumes
@@ -99,10 +108,11 @@ export class AggregationService implements IAggregationService {
         }
         weeklyTotalVolumeByUser.set(weekStart, userWeeklyTotals);
 
-        // For counting workouts per week
-        const sessionsInWeek = weeklyWorkoutSessions.get(weekStart) || new Set<string>();
-        sessionsInWeek.add(set.sessionId);
-        weeklyWorkoutSessions.set(weekStart, sessionsInWeek);
+        // For counting workouts per week (active days)
+        const performedDate = set.performedAt.substring(0, 10); // YYYY-MM-DD
+        const activeDaysInWeek = weeklyActiveDays.get(weekStart) || new Set<string>();
+        activeDaysInWeek.add(performedDate);
+        weeklyActiveDays.set(weekStart, activeDaysInWeek);
       }
       
       console.log("Weekly muscle volumes calculated (for weeklyUserMuscleVolumes):", weeklyVolumeByMuscle);
@@ -150,7 +160,8 @@ export class AggregationService implements IAggregationService {
         const newWeeklyUserVolumesData = [];
         const now = new Date();
         for (const [weekStart, totals] of weeklyTotalVolumeByUser) {
-          const totalWorkouts = weeklyWorkoutSessions.get(weekStart)?.size || 0;
+          // const totalWorkouts = weeklyWorkoutSessions.get(weekStart)?.size || 0; // weeklyWorkoutSessions -> weeklyActiveDays
+          const totalActiveDays = weeklyActiveDays.get(weekStart)?.size || 0;
           newWeeklyUserVolumesData.push({
             userId: userId.value,
             weekStart: weekStart,
@@ -184,12 +195,14 @@ export class AggregationService implements IAggregationService {
       const newUserProgressMetricsData = [];
       const nowForRM = new Date(); // Can reuse 'now' from previous blocks if scope allows
       for (const set of userSets) {
-        if (set.weight === null || set.reps === null || set.weight <= 0 || set.reps <= 0 || !set.exerciseId || !set.performed_at) {
+        // if (set.weight === null || set.reps === null || set.weight <= 0 || set.reps <= 0 || !set.exerciseId || !set.performed_at) {
+        if (set.weight === null || set.reps === null || set.weight <= 0 || set.reps <= 0 || !set.exerciseId || !set.performedAt) { // performed_at -> performedAt
           continue; 
         }
 
         const estimated1RM = calculateEpley1RM(set.weight, set.reps);
-        const weekStart = getISOWeekMondayString(set.performed_at); // Use weekStart
+        // const weekStart = getISOWeekMondayString(set.performed_at); // Use weekStart
+        const weekStart = getISOWeekMondayString(set.performedAt); // Use weekStart // performed_at -> performedAt
         
         const metricKey = `exercise_${set.exerciseId}_1rm_epley`; 
 
@@ -226,18 +239,21 @@ export class AggregationService implements IAggregationService {
       
       // weeklyUserActivity の集計 (改修 -> totalWorkouts は weeklyUserMetrics へ)
       console.log(`Starting weekly total workouts aggregation for user ${userId.value} (to be stored in weeklyUserMetrics).`);
-      // weeklyWorkoutSessions Map (weekStart -> Set<sessionId>) is already populated from the set iteration loop
+      // weeklyActiveDays Map (weekStart -> Set<performedDate>) is already populated
 
       const newWeeklyTotalWorkoutsData = [];
-      const nowForActivity = new Date(); // Can reuse 'now' or nowForRM
+      const nowForActivity = new Date();
 
-      if (weeklyWorkoutSessions.size > 0) {
-        for (const [weekStart, sessionIdsInWeek] of weeklyWorkoutSessions) {
+      // if (weeklyWorkoutSessions.size > 0) { // weeklyWorkoutSessions -> weeklyActiveDays
+      if (weeklyActiveDays.size > 0) {
+        // for (const [weekStart, sessionIdsInWeek] of weeklyWorkoutSessions) { // weeklyWorkoutSessions -> weeklyActiveDays
+        for (const [weekStart, performedDatesInWeek] of weeklyActiveDays) {
           newWeeklyTotalWorkoutsData.push({
             userId: userId.value,
             weekStart: weekStart,
             metricKey: 'total_workouts_weekly', // New metric key for weekly workouts
-            metricValue: sessionIdsInWeek.size, // Number of unique sessions
+            // metricValue: sessionIdsInWeek.size, // Number of unique sessions -> active days
+            metricValue: performedDatesInWeek.size, // Number of unique active days
             metricUnit: 'count',
             updatedAt: nowForActivity.toISOString(),
           });
@@ -265,14 +281,17 @@ export class AggregationService implements IAggregationService {
         console.log(`No weekly user activity data to process for user ${userId.value} based on sessions found.`);
       }
       
-      console.log(`Aggregation fully finished for user: ${userId.value}`);
-      return { success: true, message: "Aggregation complete. Volumes and metrics processed." };
+      console.log(`Dashboard stats update finished for user: ${userId.value}`);
+      // return { success: true, message: "Aggregation complete. Volumes and metrics processed." };
+      return; // void
 
     } catch (error) {
-      console.error(`Aggregation failed for user ${userId.value}:`, error);
+      console.error(`Dashboard stats update failed for user ${userId.value}:`, error);
       // エラーメッセージからトランザクション関連の文言を削除または一般化
-      const errorMessage = error instanceof Error ? error.message : "Unknown error during aggregation.";
-      return { success: false, message: errorMessage };
+      // const errorMessage = error instanceof Error ? error.message : "Unknown error during aggregation.";
+      // return { success: false, message: errorMessage };
+      // エラーを再スローして、呼び出し元で処理できるようにする
+      throw error;
     }
   }
 

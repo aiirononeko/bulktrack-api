@@ -52,6 +52,9 @@ import { DashboardRepository } from "../../infrastructure/db/repository/dashboar
 import { updateSetHttpHandler } from "./handlers/sets/update-set";
 import { deleteSetHttpHandler } from "./handlers/sets/delete-set";
 
+// DashboardStatsService をインポート
+import { DashboardStatsService } from "../../app/services/dashboard-stats-service";
+
 export type AppEnv = {
   Variables: {
     activateDeviceCommand: ActivateDeviceCommand;
@@ -62,6 +65,7 @@ export type AppEnv = {
     db?: DrizzleD1Database<typeof tablesSchema>;
     dashboardQueryHandler?: GetDashboardDataQueryHandler;
     jwtPayload?: JWTPayload;
+    statsUpdateService?: DashboardStatsService;
   };
   Bindings: {
     DB: D1Database;
@@ -143,6 +147,10 @@ app.use("/v1/sets/*", async (c, next) => {
 
   const workoutRepository = new DrizzleWorkoutSetRepository(db, tablesSchema);
   const appWorkoutService = new AppWorkoutService(workoutRepository);
+  
+  // StatsUpdateService (DashboardStatsService) のインスタンス化
+  const statsUpdateService = new DashboardStatsService(db);
+  c.set("statsUpdateService", statsUpdateService);
   
   c.set("workoutService", appWorkoutService);
   await next();
@@ -321,6 +329,22 @@ setsRoutes.post("/", async (c) => {
     };
 
     const resultDto = await workoutService.addWorkoutSet(commandData);
+
+    // 統計更新処理の呼び出し
+    const statsUpdater = c.var.statsUpdateService;
+    const currentUserId = new UserIdVO(userId); // UserIdVOインスタンスを生成
+    if (statsUpdater) {
+      try {
+        await statsUpdater.updateStatsForUser(currentUserId);
+      } catch (statsError) {
+        console.error("Error updating dashboard stats after adding set:", statsError);
+        // ここでのエラーはメインのレスポンスに影響させない（ログ出力に留める）
+      }
+    } else {
+      // DIミドルウェアで既に警告ログを出しているが、念のためここでもログを出すか、何もしない
+      // console.warn("StatsUpdateService not found, skipping stats update for user:", userId);
+    }
+
     return c.json(resultDto, 201);
 
   } catch (error) {
