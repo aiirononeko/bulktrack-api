@@ -8,6 +8,13 @@
       "when": 1746854658283,
       "tag": "0000_famous_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1747374750716,
+      "tag": "0001_bizarre_mentallo",
+      "breakpoints": true
     }
   ]
 }

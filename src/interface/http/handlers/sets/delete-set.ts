@@ -5,7 +5,7 @@ import type { DeleteWorkoutSetCommand } from "../../../../application/services/w
 import { NotFoundError, AuthorizationError } from "../../../../app/errors";
 
 export const deleteSetHttpHandler = async (c: Context<AppEnv>) => {
-  const { sessionId, setId } = c.req.param();
+  const { setId } = c.req.param();
   const payload = c.get("jwtPayload");
 
   if (!payload || typeof payload.sub !== 'string') {
@@ -13,8 +13,8 @@ export const deleteSetHttpHandler = async (c: Context<AppEnv>) => {
   }
   const userId = payload.sub;
 
-  if (!sessionId || !setId) {
-    throw new HTTPException(400, { message: "Session ID and Set ID are required." });
+  if (!setId) {
+    throw new HTTPException(400, { message: "Set ID is required." });
   }
 
   const workoutService = c.var.workoutService;

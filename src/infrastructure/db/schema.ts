@@ -127,26 +127,6 @@ export const menuExercises = sqliteTable(
 // ------------------------------------------------
 // 4.  Workout Sessions & Sets (fact tables)
 // ------------------------------------------------
-export const workoutSessions = sqliteTable(
-  "workout_sessions",
-  {
-    id: text("id").primaryKey(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    menuId: text("menu_id").references(() => menus.id), // NULL = ad-hoc per-exercise start
-    startedAt: text("started_at").notNull(),
-    finishedAt: text("finished_at"), // set at end of session
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  },
-  (table) => ({
-    userStartedIdx: index("idx_sessions_user_started").on(
-      table.userId,
-      table.startedAt, // Drizzle doesn't explicitly support DESC here, but SQLite implies it for index usage
-    ),
-  }),
-);
-
 export const workoutSets = sqliteTable(
   "workout_sets",
   {
@@ -154,29 +134,21 @@ export const workoutSets = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id),
-    sessionId: text("session_id")
-      .notNull()
-      .references(() => workoutSessions.id, { onDelete: "cascade" }),
     exerciseId: text("exercise_id")
       .notNull()
       .references(() => exercises.id),
-    setNo: integer("set_no").notNull(),
+    setNumber: integer("set_number").notNull(),
     reps: integer("reps"),
     weight: real("weight"),
     notes: text("notes"),
-    performed_at: text("performed_at").notNull(),
+    performedAt: text("performed_at").notNull(),
     rpe: real("rpe"),
     restSec: integer("rest_sec"),
     volume: real("volume").generatedAlwaysAs(sql`(weight * reps)`),
-    deviceId: text("device_id").notNull(),
-    createdOffline: integer("created_offline", { mode: "boolean" })
-      .notNull()
-      .default(false),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
-    sessionSetIdx: index("idx_sets_session").on(table.sessionId, table.setNo),
     exerciseRecIdx: index("idx_sets_exercise_rec").on(
       table.userId,
       table.exerciseId,

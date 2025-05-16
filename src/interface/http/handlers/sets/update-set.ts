@@ -1,11 +1,24 @@
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import * as v from 'valibot';
-import type { AppEnv } from '../../router'; // Assuming AppEnv is exported from router.ts
-import { WorkoutService, type UpdateWorkoutSetCommand, type WorkoutSetDto } from '../../../../application/services/workout.service'; // WorkoutSetDto is type
-import { SetUpdateRequestSchema, type SetUpdateRequestDto } from '../../../../app/dto/set.dto'; // SetUpdateRequestDto is type
-import { WorkoutSessionIdVO, WorkoutSetIdVO, UserIdVO } from '../../../../domain/shared/vo/identifier';
+import type { AppEnv } from '../../router'; // AppEnvのPathItem定義を期待
+import { WorkoutService, type UpdateWorkoutSetCommand } from '../../../../application/services/workout.service'; // WorkoutSetDto を削除 (未使用のため)
+import { SetUpdateRequestSchema, type SetUpdateRequestDto } from '../../../../app/dto/set.dto';
+import { WorkoutSetIdVO, UserIdVO } from '../../../../domain/shared/vo/identifier'; // WorkoutSessionIdVO を削除
 import { ApplicationError, NotFoundError, AuthorizationError } from '../../../../app/errors';
+
+// ValibotのIssuePathの要素の型定義 (valibotから直接エクスポートされていないためローカルで定義)
+interface PathItem {
+  type: string;
+  origin: 'key' | 'value';
+  input: unknown;
+  key?: unknown;
+  value: unknown;
+}
+
+// router.ts で定義された PathItem を利用することを想定
+// もし router.ts 以外でこのファイルが単独で利用される場合は、ここでも PathItem を定義する必要がある
+// interface PathItem { key?: string | number | symbol | undefined; /* ... more specific type ... */ }
 
 export async function updateSetHttpHandler(
   c: Context<AppEnv>
@@ -17,7 +30,6 @@ export async function updateSetHttpHandler(
     }
     const userIdString = jwtPayload.sub;
 
-    const sessionIdParam = c.req.param('sessionId');
     const setIdParam = c.req.param('setId');
 
     let requestBody: SetUpdateRequestDto;
@@ -28,8 +40,9 @@ export async function updateSetHttpHandler(
       if (error instanceof v.ValiError) {
         throw new HTTPException(400, {
           message: 'Validation failed',
+          // router.tsのPathItem型を参照することを期待
           cause: error.issues.map(issue => ({ 
-            path: issue.path?.map((p: { key: string | number | symbol }) => p.key).join('.'), 
+            path: issue.path?.map((p: PathItem) => p.key).join('.'), 
             message: issue.message 
           })),
         });
@@ -48,28 +61,26 @@ export async function updateSetHttpHandler(
     if (requestBody.weight !== undefined) commandData.weight = requestBody.weight;
     if (requestBody.notes !== undefined) commandData.notes = requestBody.notes;
     if (requestBody.rpe !== undefined) commandData.rpe = requestBody.rpe;
-    // executedAt (from DTO) to performedAt (for command)
     if (requestBody.performedAt !== undefined) {
-        commandData.performedAt = requestBody.performedAt === null ? undefined : requestBody.performedAt; // Handle null
+        commandData.performedAt = requestBody.performedAt === null ? undefined : requestBody.performedAt;
     }
-    // exerciseId is in SetUpdateRequestDto but not used by UpdateWorkoutSetCommand['data'] as per current design
-    // restSec is not in SetUpdateRequestDto for now (can be added if needed, and to domain/service layers)
 
     const command: UpdateWorkoutSetCommand = {
       setId: setIdParam,
       data: commandData,
-      // userId: new UserIdVO(userIdString), // Pass userId if service needs it for auth check for this specific set
+      userId: new UserIdVO(userIdString), // userId を設定
     };
 
     const updatedSetDto = await workoutService.updateWorkoutSet(command);
     return c.json(updatedSetDto, 200);
 
   } catch (error: unknown) {
-    if (error instanceof v.ValiError) { // Should be caught above, but as a safeguard
+    if (error instanceof v.ValiError) {
       throw new HTTPException(400, {
         message: 'Validation failed',
+        // router.tsのPathItem型を参照することを期待
         cause: error.issues.map(issue => ({ 
-          path: issue.path?.map((p: { key: string | number | symbol }) => p.key).join('.'), 
+          path: issue.path?.map((p: PathItem) => p.key).join('.'), 
           message: issue.message 
         })),
       });
@@ -80,9 +91,6 @@ export async function updateSetHttpHandler(
     if (error instanceof AuthorizationError) {
       throw new HTTPException(403, { message: error.message });
     }
-    // if (error instanceof ApplicationError) { // Catch other app-specific errors
-    //   throw new HTTPException(error.statusCode, { message: error.message, cause: error.details });
-    // }
     if (error instanceof HTTPException) {
       throw error;
     }

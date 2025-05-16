@@ -1,12 +1,12 @@
-import type { IWorkoutSessionRepository } from "../../domain/workout/repository";
-import { WorkoutSetIdVO, UserIdVO } from "../../domain/shared/vo/identifier";
+import type { IWorkoutSetRepository } from "../../domain/workout/workout-set-repository";
+import { UserIdVO, WorkoutSetIdVO } from "../../domain/shared/vo/identifier";
+import type { ExerciseIdVO } from "../../domain/shared/vo/identifier";
 import { type WorkoutSetUpdateProps, WorkoutSet } from "../../domain/workout/entities/workout-set.entity";
-import { NotFoundError, AuthorizationError } from "../../app/errors";
-// import type { UserIdVO } from "../../domain/shared/vo/identifier"; // If ownership check is needed
+import { ApplicationError, NotFoundError, AuthorizationError } from "../../app/errors";
 
 // It's good practice to define DTOs for use case inputs and outputs
 export interface UpdateWorkoutSetCommand {
-  // userId?: UserIdVO; // For ownership check, if applicable
+  userId: UserIdVO; // For ownership check, if applicable
   setId: string;
   data: { // This structure should align with OpenAPI's SetUpdate schema, mapped to domain props
     reps?: number | null;
@@ -20,7 +20,6 @@ export interface UpdateWorkoutSetCommand {
 
 export interface WorkoutSetDto { // Define based on what API should return, likely from WorkoutSet.toPrimitives()
   id: string;
-  sessionId: string;
   exerciseId: string;
   setNumber: number;
   reps?: number | null;
@@ -30,7 +29,6 @@ export interface WorkoutSetDto { // Define based on what API should return, like
   createdAt: string;
   rpe?: number | null;
   restSec?: number | null;
-  deviceId?: string | null;
   volume?: number;
 }
 
@@ -39,13 +37,69 @@ export interface DeleteWorkoutSetCommand {
   setId: string;
 }
 
+export interface AddWorkoutSetCommand { // 新しいコマンドインターフェース
+  userId: UserIdVO;
+  exerciseId: ExerciseIdVO;
+  reps?: number | null;
+  weight?: number | null;
+  notes?: string | null;
+  performedAt?: Date | null;
+  customSetId?: WorkoutSetIdVO; 
+  rpe?: number | null;
+  restSec?: number | null;
+  setNo?: number | null;
+}
+
 export class WorkoutService {
-  constructor(private readonly workoutSessionRepository: IWorkoutSessionRepository) {}
+  constructor(private readonly workoutSetRepository: IWorkoutSetRepository) {} // workoutSessionRepository を workoutSetRepository にリネーム
+
+  async addWorkoutSet(command: AddWorkoutSetCommand): Promise<WorkoutSetDto> { // 新しいメソッド
+    let addedSet: WorkoutSet;
+    try {
+      addedSet = WorkoutSet.create({
+        exerciseId: command.exerciseId,
+        setNumber: command.setNo ?? 1, 
+        reps: command.reps,
+        weight: command.weight,
+        notes: command.notes,
+        performedAt: command.performedAt === null ? undefined : command.performedAt,
+        id: command.customSetId,
+        rpe: command.rpe,
+        restSec: command.restSec,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        // Domain error (e.g., validation in WorkoutSet.create)
+        throw new ApplicationError(error.message, 400, "ADD_SET_FAILED");
+      }
+      throw new ApplicationError("An unexpected error occurred while creating the set.", 500, "UNEXPECTED_CREATE_SET_ERROR");
+    }
+    
+    await this.workoutSetRepository.saveSet(addedSet, command.userId);
+
+    const addedSetPrimitives = addedSet.toPrimitives();
+    const dto: WorkoutSetDto = {
+      id: addedSetPrimitives.id,
+      exerciseId: addedSetPrimitives.exerciseId,
+      setNumber: addedSetPrimitives.setNumber,
+      reps: addedSetPrimitives.reps,
+      weight: addedSetPrimitives.weight,
+      notes: addedSetPrimitives.notes,
+      performedAt: addedSetPrimitives.performedAt,
+      createdAt: addedSetPrimitives.createdAt,
+      rpe: addedSetPrimitives.rpe,
+      restSec: addedSetPrimitives.restSec,
+      volume: addedSetPrimitives.volume,
+    };
+
+    return dto;
+  }
 
   async updateWorkoutSet(command: UpdateWorkoutSetCommand): Promise<WorkoutSetDto> {
     const setIdVo = new WorkoutSetIdVO(command.setId);
+    const userIdVo = command.userId;
 
-    const existingSet = await this.workoutSessionRepository.findSetById(setIdVo);
+    const existingSet = await this.workoutSetRepository.findSetByIdAndUserId(setIdVo, userIdVo); // workoutSetRepository を使用
     if (!existingSet) {
       throw new NotFoundError(`WorkoutSet with id ${command.setId} not found.`);
     }
@@ -71,13 +125,12 @@ export class WorkoutService {
 
     existingSet.update(updateProps);
 
-    await this.workoutSessionRepository.updateSet(existingSet);
+    await this.workoutSetRepository.updateSet(existingSet, userIdVo); // workoutSetRepository を使用
 
     const updatedSetPrimitives = existingSet.toPrimitives();
     
     const dto: WorkoutSetDto = {
         id: updatedSetPrimitives.id,
-        sessionId: updatedSetPrimitives.sessionId,
         exerciseId: updatedSetPrimitives.exerciseId,
         setNumber: updatedSetPrimitives.setNumber,
         reps: updatedSetPrimitives.reps,
@@ -87,7 +140,6 @@ export class WorkoutService {
         createdAt: updatedSetPrimitives.createdAt,
         rpe: updatedSetPrimitives.rpe,
         restSec: updatedSetPrimitives.restSec,
-        deviceId: updatedSetPrimitives.deviceId,
         volume: updatedSetPrimitives.volume,
     };
 
@@ -98,27 +150,14 @@ export class WorkoutService {
     const setIdVo = new WorkoutSetIdVO(command.setId);
     const userIdVo = new UserIdVO(command.userId);
 
-    const existingSet = await this.workoutSessionRepository.findSetById(setIdVo);
+    const existingSet = await this.workoutSetRepository.findSetByIdAndUserId(setIdVo, userIdVo); // workoutSetRepository を使用
     if (!existingSet) {
-      throw new NotFoundError(`WorkoutSet with id ${command.setId} not found.`);
+      // NotFoundError をスローするか、AuthorizationError をスローして情報漏洩を防ぐか検討
+      // ここでは、セットが見つからない場合は NotFoundError とし、
+      // ユーザーIDが一致しない場合はリポジトリが null を返すかエラーをスローすることを期待。
+      throw new NotFoundError(`WorkoutSet with id ${command.setId} not found or not accessible by user.`);
     }
 
-    // Ownership check
-    const session = await this.workoutSessionRepository.findById(existingSet.sessionId);
-    if (!session) {
-      // This case should ideally not happen if a set exists with this sessionId,
-      // but it's a good practice to handle it.
-      throw new NotFoundError(
-        `WorkoutSession with id ${existingSet.sessionId.value} not found for set ${command.setId}.`
-      );
-    }
-
-    if (!session.userId.equals(userIdVo)) {
-      throw new AuthorizationError(
-        `User ${command.userId} is not authorized to delete WorkoutSet ${command.setId}.`
-      );
-    }
-
-    await this.workoutSessionRepository.deleteSet(setIdVo);
+    await this.workoutSetRepository.deleteSet(setIdVo, userIdVo); // workoutSetRepository を使用
   }
 }

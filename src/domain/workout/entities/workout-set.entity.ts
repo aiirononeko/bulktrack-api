@@ -1,9 +1,8 @@
-import { WorkoutSessionIdVO, ExerciseIdVO, WorkoutSetIdVO } from "../../shared/vo/identifier"; // パス階層変更
+import { ExerciseIdVO, WorkoutSetIdVO } from "../../shared/vo/identifier"; // パス階層変更, WorkoutSessionIdVOを削除
 import { v7 as uuidv7 } from "uuid";
 
 export interface WorkoutSetProps {
   id: WorkoutSetIdVO;
-  sessionId: WorkoutSessionIdVO;
   exerciseId: ExerciseIdVO;
   setNumber: number;
   reps?: number | null;
@@ -13,12 +12,10 @@ export interface WorkoutSetProps {
   createdAt: Date;
   rpe?: number | null;
   restSec?: number | null;
-  deviceId?: string | null;
 }
 
 export interface WorkoutSetRawData {
   id: string;
-  sessionId: string;
   exerciseId: string;
   setNumber: number;
   reps?: number | null;
@@ -29,7 +26,6 @@ export interface WorkoutSetRawData {
   volume?: number;
   rpe?: number | null;
   restSec?: number | null;
-  deviceId?: string | null;
 }
 
 export interface WorkoutSetUpdateProps {
@@ -43,7 +39,6 @@ export interface WorkoutSetUpdateProps {
 
 export class WorkoutSet {
   readonly id: WorkoutSetIdVO;
-  readonly sessionId: WorkoutSessionIdVO;
   readonly exerciseId: ExerciseIdVO;
   private _setNumber: number;
   private _reps?: number | null;
@@ -53,11 +48,9 @@ export class WorkoutSet {
   readonly createdAt: Date;
   private _rpe?: number | null;
   private _restSec?: number | null;
-  private _deviceId?: string | null;
 
   private constructor(props: WorkoutSetProps) {
     this.id = props.id;
-    this.sessionId = props.sessionId;
     this.exerciseId = props.exerciseId;
     this._setNumber = props.setNumber;
     this._reps = props.reps;
@@ -67,7 +60,6 @@ export class WorkoutSet {
     this.createdAt = props.createdAt;
     this._rpe = props.rpe;
     this._restSec = props.restSec;
-    this._deviceId = props.deviceId;
   }
 
   public static create(props: Omit<WorkoutSetProps, 'id' | 'performedAt' | 'createdAt'> & { id?: WorkoutSetIdVO, performedAt?: Date, createdAt?: Date }): WorkoutSet {
@@ -133,7 +125,6 @@ export class WorkoutSet {
 
     return new WorkoutSet({
       id: new WorkoutSetIdVO(data.id),
-      sessionId: new WorkoutSessionIdVO(data.sessionId),
       exerciseId: new ExerciseIdVO(data.exerciseId),
       setNumber: data.setNumber,
       reps: data.reps,
@@ -143,7 +134,6 @@ export class WorkoutSet {
       createdAt: createdAtDate,
       rpe: data.rpe,
       restSec: data.restSec,
-      deviceId: data.deviceId,
     });
   }
 
@@ -178,7 +168,6 @@ export class WorkoutSet {
   get performedAt(): Date { return this._performedAt; }
   get rpe(): number | undefined | null { return this._rpe; }
   get restSec(): number | undefined | null { return this._restSec; }
-  get deviceId(): string | undefined | null { return this._deviceId; }
 
   get volume(): number | null {
     if (typeof this._reps === 'number' && typeof this._weight === 'number') {
@@ -206,7 +195,6 @@ export class WorkoutSet {
 
     return {
       id: this.id.value,
-      sessionId: this.sessionId.value,
       exerciseId: this.exerciseId.value,
       setNumber: this._setNumber,
       reps: this._reps,
@@ -217,7 +205,6 @@ export class WorkoutSet {
       volume: this.volume === null ? undefined : this.volume,
       rpe: this._rpe,
       restSec: this._restSec,
-      deviceId: this._deviceId,
     };
   }
 }

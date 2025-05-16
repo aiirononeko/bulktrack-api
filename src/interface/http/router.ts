@@ -6,7 +6,16 @@ import type { StatusCode } from "hono/utils/http-status";
 import { drizzle, type DrizzleD1Database } from 'drizzle-orm/d1';
 import { jwt } from 'hono/jwt';
 import type { JWTPayload } from 'hono/utils/jwt/types';
-import * as v from 'valibot'; // valibot をインポート
+import * as v from 'valibot';
+
+// ValibotのIssuePathの要素の型定義 (valibotから直接エクスポートされていないためローカルで定義)
+interface PathItem {
+  type: string;
+  origin: 'key' | 'value';
+  input: unknown;
+  key?: unknown;
+  value: unknown;
+}
 
 import { ApplicationError } from "../../app/errors";
 
@@ -18,7 +27,6 @@ import { RefreshTokenCommand } from "../../app/command/auth/refresh-token-comman
 import { AuthService as DomainAuthService } from "../../domain/auth/service";
 
 // --- DI Setup ---
-// Import services and commands
 import { JwtServiceImpl } from "../../infrastructure/auth/jwt-service";
 import { DeviceRepositoryImpl } from "../../infrastructure/db/repository/device-repository";
 import { UserRepositoryImpl } from "../../infrastructure/db/repository/user-repository";
@@ -32,48 +40,33 @@ import { createSearchExercisesHandler } from "./handlers/exercise/search";
 import { ListRecentExercisesHandler } from "../../app/query/exercise/list-recent-exercises";
 import { createListRecentExercisesHandler } from "./handlers/exercise/list-recent";
 
-import { startSessionHttpHandler } from "./handlers/session/start";
-import { StartSessionHandler } from "../../app/command/session/start-session";
-import { FinishSessionCommand, FinishSessionHandler } from "../../app/command/session/finish-session";
-import { AddSetToSessionCommand, AddSetToSessionHandler } from "../../app/command/session/add-set-to-session"; // AddSetToSession をインポート
-import { WorkoutSessionService } from "../../domain/workout/service";
-import { WorkoutService as AppWorkoutService } from "../../application/services/workout.service"; // Renamed to avoid conflict
-import { DrizzleWorkoutSessionRepository } from "../../infrastructure/db/repository/workout-session-repository";
-import { UserIdVO, WorkoutSessionIdVO, ExerciseIdVO } from "../../domain/shared/vo/identifier"; // ExerciseIdVO をインポート
+import { WorkoutService as AppWorkoutService, type AddWorkoutSetCommand } from "../../application/services/workout.service";
+import { DrizzleWorkoutSetRepository } from "../../infrastructure/db/repository/workout-set-repository";
+import { UserIdVO, ExerciseIdVO, WorkoutSetIdVO } from "../../domain/shared/vo/identifier";
 import { AddSetRequestSchema } from "../../app/dto/set.dto";
-import { AggregationService } from "../../app/services/aggregation-service";
 
-// Import Dashboard specific items
 import dashboardStatsApp from "./handlers/dashboard/stats";
 import { GetDashboardDataQueryHandler } from "../../app/query/dashboard/get-dashboard-data";
 import { DashboardRepository } from "../../infrastructure/db/repository/dashboard-repository";
 
-import { updateSetHttpHandler } from "./handlers/session/update-set"; // Import the new handler
-import { deleteSetHttpHandler } from "./handlers/session/delete-set"; // deleteSetHttpHandler をインポート
+import { updateSetHttpHandler } from "./handlers/sets/update-set";
+import { deleteSetHttpHandler } from "./handlers/sets/delete-set";
 
-// Define types for c.var
 export type AppEnv = {
   Variables: {
     activateDeviceCommand: ActivateDeviceCommand;
     refreshTokenCommand: RefreshTokenCommand;
     searchExercisesHandler: SearchExercisesHandler;
     listRecentExercisesHandler?: ListRecentExercisesHandler;
-    startSessionHandler: StartSessionHandler;
-    finishSessionHandler: FinishSessionHandler;
-    addSetToSessionHandler: AddSetToSessionHandler;
-    workoutService?: AppWorkoutService; // Added workoutService
-    db?: DrizzleD1Database<typeof tablesSchema>; // For general DB access if needed by handlers
-    dashboardQueryHandler?: GetDashboardDataQueryHandler; // Specifically for dashboard
-    jwtPayload?: JWTPayload; // Added jwtPayload for JWT middleware
-    // userId?: string; // Removed direct userId if jwtPayload is used as source
+    workoutService?: AppWorkoutService;
+    db?: DrizzleD1Database<typeof tablesSchema>;
+    dashboardQueryHandler?: GetDashboardDataQueryHandler;
+    jwtPayload?: JWTPayload;
   };
-  // Define CloudflareBindings if not already globally defined
-  // This usually comes from a .d.ts file (e.g. hono/bindings or custom)
   Bindings: {
     DB: D1Database;
     JWT_SECRET: string;
     REFRESH_TOKENS_KV: KVNamespace;
-    // Add other bindings as needed
   };
 };
 
@@ -140,49 +133,18 @@ app.use("/v1/exercises", async (c, next) => {
   await next();
 });
 
-// Middleware for Dependency Injection for Session routes
-app.use("/v1/sessions/*", async (c, next) => {
+// Middleware for Dependency Injection for Session routes (改め Set routes)
+app.use("/v1/sets/*", async (c, next) => {
   if (!c.env.DB) {
-    console.error("CRITICAL: Missing DB environment binding for session services.");
-    throw new HTTPException(500, {
-      message: "Internal Server Configuration Error for Sessions",
-    });
+    console.error("CRITICAL: Missing DB environment binding for set services.");
+    throw new HTTPException(500, { message: "Internal Server Configuration Error for Sets" });
   }
   const db = drizzle(c.env.DB, { schema: tablesSchema });
 
-  const workoutSessionRepository = new DrizzleWorkoutSessionRepository(db, tablesSchema);
-  const workoutSessionService = new WorkoutSessionService(workoutSessionRepository); 
-  const appWorkoutService = new AppWorkoutService(workoutSessionRepository); // Instantiate AppWorkoutService
+  const workoutRepository = new DrizzleWorkoutSetRepository(db, tablesSchema);
+  const appWorkoutService = new AppWorkoutService(workoutRepository);
   
-  const aggregationService = new AggregationService(db);
-
-  // ExerciseService is needed by FinishSessionHandler for recording exercise usage
-  // It might have been instantiated in a higher scope middleware (e.g., for /v1/me/* or /v1/exercises)
-  // For simplicity here, we ensure it's available. If already set in c.var, we could use that.
-  // However, creating it here ensures it uses the same DB instance as other session services.
-  const exerciseRepository = new DrizzleExerciseRepository(db, tablesSchema); // Ensure this is the correct repo
-  const exerciseService = new ExerciseService(exerciseRepository);
-
-  const startSessionHandler = new StartSessionHandler(
-    workoutSessionService,
-    workoutSessionRepository
-  );
-
-  const finishSessionHandler = new FinishSessionHandler(
-    workoutSessionRepository,
-    workoutSessionService,
-    aggregationService,
-    exerciseService // Inject ExerciseService
-  );
-
-  const addSetToSessionHandler = new AddSetToSessionHandler(
-    workoutSessionRepository
-  );
-
-  c.set("startSessionHandler", startSessionHandler);
-  c.set("finishSessionHandler", finishSessionHandler);
-  c.set("addSetToSessionHandler", addSetToSessionHandler);
-  c.set("workoutService", appWorkoutService); // Set workoutService in context
+  c.set("workoutService", appWorkoutService);
   await next();
 });
 
@@ -311,96 +273,24 @@ app.get("/v1/me/exercises/recent", jwtAuthMiddleware, async (c) => {
   return actualHandler(c);
 });
 
-// Routes for Sessions
-const sessionsRoutes = new Hono<AppEnv>();
-sessionsRoutes.use("*", jwtAuthMiddleware); // ★ 実際の認証ミドルウェアを使用
-sessionsRoutes.post("/", startSessionHttpHandler);
+// Routes for Sets (旧 Sessions)
+const setsRoutes = new Hono<AppEnv>();
+setsRoutes.use("*", jwtAuthMiddleware);
 
-// POST /v1/sessions/:sessionId/finish ルートを追加
-sessionsRoutes.post("/:sessionId/finish", async (c) => {
-  const handler = c.var.finishSessionHandler;
-  if (!handler) {
-    console.error("FinishSessionHandler not found in c.var for /v1/sessions/:sessionId/finish route.");
-    throw new HTTPException(500, { message: "Internal Configuration Error - Handler not set" });
+// POST /v1/sets/ (旧 /v1/sessions/:sessionId/sets)
+setsRoutes.post("/", async (c) => {
+  const workoutService = c.var.workoutService;
+  if (!workoutService) {
+    console.error("WorkoutService not found for POST /sets");
+    throw new HTTPException(500, { message: "Service not configured" });
   }
 
-  const sessionIdParam = c.req.param("sessionId");
-  const jwtPayload = c.get("jwtPayload");
-
-  // Ensure jwtPayload and its sub property (user id) exist and sub is a string
-  if (!jwtPayload || typeof jwtPayload.sub !== 'string') {
-    throw new HTTPException(401, { message: "Unauthorized: Missing or invalid user identifier in token" });
-  }
-  const userId = jwtPayload.sub; // userId is now definitely a string
-
-  try {
-    const command = new FinishSessionCommand(
-      new WorkoutSessionIdVO(sessionIdParam),
-      new UserIdVO(userId)
-    );
-    const { responseDto, backgroundTask } = await handler.execute(command);
-
-    if (backgroundTask) {
-      c.executionCtx.waitUntil(backgroundTask.then(result => {
-        if (result.success) {
-          console.log(`Background aggregation for user ${command.userId.value} completed successfully: ${result.message}`);
-        } else {
-          console.error(`Background aggregation for user ${command.userId.value} failed: ${result.message}`);
-        }
-      }).catch(err => {
-        console.error(`Unhandled error in background aggregation task for user ${command.userId.value}:`, err);
-      }));
-    }
-
-    return c.json(responseDto);
-  } catch (error) {
-    if (error instanceof v.ValiError) {
-      c.status(400);
-      return c.json({
-        error: {
-          message: 'Validation failed',
-          code: 'VALIDATION_ERROR',
-          details: error.issues.map(issue => ({ path: issue.path?.map((p: { key: string | number | symbol }) => p.key).join('.'), message: issue.message })),
-        }
-      });
-    }
-    if (error instanceof ApplicationError) {
-      c.status(error.statusCode as StatusCode);
-      return c.json({
-        error: {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-        },
-      });
-    }
-    console.error("Error in POST /:sessionId/sets:", error);
-    c.status(500);
-    return c.json({
-      error: {
-        message: "Internal server error while adding set.",
-        code: "INTERNAL_SERVER_ERROR",
-      },
-    });
-  }
-});
-
-// POST /v1/sessions/:sessionId/sets ルートを追加 (ここからが復元するコード)
-sessionsRoutes.post("/:sessionId/sets", async (c) => {
-  const handler = c.var.addSetToSessionHandler;
-  if (!handler) {
-    console.error("AddSetToSessionHandler not found for /:sessionId/sets");
-    throw new HTTPException(500, { message: "Handler not configured" });
-  }
-
-  const sessionIdParam = c.req.param("sessionId");
   const jwtPayload = c.get("jwtPayload");
   
-  // Ensure jwtPayload and its sub property (user id) exist and sub is a string
   if (!jwtPayload || typeof jwtPayload.sub !== 'string') {
     throw new HTTPException(401, { message: "Unauthorized: Missing or invalid user identifier in token" });
   }
-  const userId = jwtPayload.sub; // userId is now definitely a string
+  const userId = jwtPayload.sub;
 
   try {
     const body = await c.req.json();
@@ -411,33 +301,26 @@ sessionsRoutes.post("/:sessionId/sets", async (c) => {
     if (performedAtString) {
       performedAtDate = new Date(performedAtString);
       if (Number.isNaN(performedAtDate.getTime())) {
-        console.warn(`Invalid performedAt string received: ${performedAtString}. Setting to undefined.`);
         performedAtDate = undefined;
-        // Consider throwing HTTPException(400, { message: `Invalid performedAt date format: ${performedAtString}` });
       }
     }
-    // If performedAtDate is still undefined (either not provided or invalid string), default to current date
-    if (!performedAtDate) {
-      console.warn('performedAt was not provided or invalid, defaulting to current Date.');
+    if (performedAtDate === undefined) {
       performedAtDate = new Date();
     }
 
-    const command = new AddSetToSessionCommand(
-      new WorkoutSessionIdVO(sessionIdParam),
-      new UserIdVO(userId),
-      new ExerciseIdVO(validatedBody.exerciseId),
-      validatedBody.reps,
-      validatedBody.weight,
-      validatedBody.notes,
-      performedAtDate, // Use the validated and possibly corrected performedAtDate
-      undefined, // customSetId is undefined or a specific value
-      validatedBody.rpe, // rpe
-      validatedBody.restSec, // restSec
-      validatedBody.deviceId, // deviceId
-      validatedBody.setNo // ★ validatedBody から setNo を渡す
-    );
+    const commandData: AddWorkoutSetCommand = {
+      userId: new UserIdVO(userId),
+      exerciseId: new ExerciseIdVO(validatedBody.exerciseId),
+      reps: validatedBody.reps,
+      weight: validatedBody.weight,
+      notes: validatedBody.notes,
+      performedAt: performedAtDate,
+      rpe: validatedBody.rpe,
+      restSec: validatedBody.restSec,
+      setNo: validatedBody.setNo
+    };
 
-    const resultDto = await handler.execute(command);
+    const resultDto = await workoutService.addWorkoutSet(commandData);
     return c.json(resultDto, 201);
 
   } catch (error) {
@@ -447,7 +330,7 @@ sessionsRoutes.post("/:sessionId/sets", async (c) => {
         error: {
           message: 'Validation failed',
           code: 'VALIDATION_ERROR',
-          details: error.issues.map(issue => ({ path: issue.path?.map((p: { key: string | number | symbol }) => p.key).join('.'), message: issue.message })),
+          details: error.issues.map(issue => ({ path: issue.path?.map((p: PathItem) => p.key).join('.'), message: issue.message })),
         }
       });
     }
@@ -461,8 +344,7 @@ sessionsRoutes.post("/:sessionId/sets", async (c) => {
         },
       });
     }
-    // エラーログのパスを修正
-    console.error("Error in POST /:sessionId/sets:", error);
+    console.error("Error in POST /sets:", error);
     c.status(500);
     return c.json({
       error: {
@@ -473,10 +355,13 @@ sessionsRoutes.post("/:sessionId/sets", async (c) => {
   }
 });
 
-sessionsRoutes.patch("/:sessionId/sets/:setId", updateSetHttpHandler); // Add the PATCH route
-sessionsRoutes.delete("/:sessionId/sets/:setId", deleteSetHttpHandler); // Add delete route
+// PATCH /v1/sets/:setId (旧 /v1/sessions/:sessionId/sets/:setId)
+setsRoutes.patch("/:setId", updateSetHttpHandler);
 
-app.route("/v1/sessions", sessionsRoutes);
+// DELETE /v1/sets/:setId (旧 /v1/sessions/:sessionId/sets/:setId)
+setsRoutes.delete("/:setId", deleteSetHttpHandler);
+
+app.route("/v1/sets", setsRoutes);
 
 // Routes for Dashboard
 const dashboardRoutes = new Hono<AppEnv>();

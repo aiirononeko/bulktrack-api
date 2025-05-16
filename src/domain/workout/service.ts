@@ -2,7 +2,7 @@ import { WorkoutSession } from "./entities/workout-session.entity";
 import type { UserIdVO, MenuIdVO } from "../shared/vo/identifier";
 import { WorkoutSessionIdVO } from "../shared/vo/identifier";
 import { v7 as uuidv7 } from "uuid";
-import type { IWorkoutSessionRepository } from "./repository";
+import type { IWorkoutSessionRepository } from "./workout-set-repository";
 
 function generateNewWorkoutSessionId(): WorkoutSessionIdVO {
   return new WorkoutSessionIdVO(uuidv7());
