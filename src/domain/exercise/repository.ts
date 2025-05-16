@@ -1,4 +1,4 @@
-import type { Exercise } from "./entity";
+import type { Exercise, ExerciseTranslation } from "./entity";
 import type { ExerciseIdVO } from "../shared/vo/identifier";
 
 export interface IExerciseRepository {
@@ -45,6 +45,38 @@ export interface IExerciseRepository {
    * @returns Promise<void>
    */
   upsertExerciseUsage(userId: string, exerciseId: string, usedAt: Date, incrementUseCount?: boolean): Promise<void>;
+
+  // --- FTS対応で追加/変更が必要になる可能性のあるメソッド群 ---
+  /**
+   * エクササイズエンティティ全体を保存（作成または更新）します。
+   * 実装側でFTSの更新も行います。
+   * @param exercise 保存するエクササイズエンティティ
+   */
+  saveFullExercise(exercise: Exercise): Promise<void>;
+
+  /**
+   * 指定されたIDのエクササイズを完全に削除します。
+   * 関連する翻訳やFTSデータも削除されることを期待します。
+   * @param exerciseId 削除するエクササイズのID (VO)
+   */
+  deleteFullExerciseById(exerciseId: ExerciseIdVO): Promise<void>;
+
+  /**
+   * エクササイズに翻訳情報を追加または更新します。
+   * 実装側でFTSの更新も行います。
+   * @param exerciseId 対象のエクササイズID (VO)
+   * @param translation 保存する翻訳情報
+   */
+  saveExerciseTranslation(exerciseId: ExerciseIdVO, translation: ExerciseTranslation): Promise<void>;
+
+  /**
+   * エクササイズから指定されたロケールの翻訳情報を削除します。
+   * 実装側でFTSの更新も行います。
+   * @param exerciseId 対象のエクササイズID (VO)
+   * @param locale 削除する翻訳のロケール
+   */
+  deleteExerciseTranslation(exerciseId: ExerciseIdVO, locale: string): Promise<void>;
+  // --- ここまで追加 --- 
 
   // 必要に応じて、更新 (update) や削除 (delete) メソッドも定義できますが、
   // 今回のGETエンドポイント実装には直接関係しないため、一旦含めません。

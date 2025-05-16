@@ -1,4 +1,5 @@
-import type { Exercise } from './entity';
+import { Exercise, type ExerciseTranslation } from './entity';
+import { ExerciseIdVO } from '../shared/vo/identifier';
 import type { IExerciseRepository } from './repository';
 
 export class ExerciseService {
@@ -32,20 +33,41 @@ export class ExerciseService {
    * @param isCompound コンパウンド種目かどうか
    * @returns 作成されたエクササイズエンティティ
    */
-  // async createCustomExercise(
-  //   canonicalName: string,
-  //   locale: string,
-  //   name: string,
-  //   aliases: string[] | undefined,
-  //   authorUserId: string, // User ID from auth context
-  //   defaultMuscleId?: number,
-  //   isCompound: boolean = false,
-  // ): Promise<Exercise> {
-  //   // Implement Exercise creation logic here for POST /v1/exercises
-  //   // This involves creating an Exercise entity and saving it via the repository.
-  //   // For now, this is commented out as we are focusing on the GET endpoint.
-  //   throw new Error('Not implemented');
-  // }
+  async createCustomExercise(
+    canonicalName: string,
+    locale: string,
+    name: string,
+    aliases: string[] | undefined,
+    authorUserId: string,
+    defaultMuscleId?: number,
+    isCompound = false,
+  ): Promise<Exercise> {
+    const exerciseId = ExerciseIdVO.generate();
+
+    const translations: ExerciseTranslation[] = [];
+    if (locale && name) {
+      translations.push({
+        locale: locale,
+        name: name,
+        aliases: aliases,
+      });
+    }
+
+    const newExercise = new Exercise(
+      exerciseId,
+      canonicalName,
+      defaultMuscleId ?? null,
+      isCompound,
+      false,
+      authorUserId,
+      null,
+      new Date(),
+      translations,
+    );
+
+    await this.exerciseRepository.create(newExercise);
+    return newExercise;
+  }
 
   /**
    * 認証されたユーザーの最近使用したエクササイズリストを取得します。
@@ -92,5 +114,123 @@ export class ExerciseService {
     // for (const exerciseId of exerciseIds) {
     //   await this.exerciseRepository.upsertExerciseUsage(userId, exerciseId, sessionFinishedAt, true);
     // }
+  }
+
+  /**
+   * 指定されたIDのエクササイズを削除します。
+   * 関連する翻訳やFTSデータもリポジトリ層で削除されます。
+   * @param exerciseId 削除するエクササイズのID (VO)
+   * @returns Promise<void>
+   */
+  async deleteExercise(exerciseId: ExerciseIdVO): Promise<void> {
+    // 存在確認はリポジトリやDBの制約に任せるか、ここで行うか選択
+    // ここではリポジトリに処理を委譲
+    await this.exerciseRepository.deleteFullExerciseById(exerciseId);
+    // 呼び出し元に削除成功を伝えるだけで、エンティティを返す必要はないことが多い
+  }
+
+  /**
+   * エクササイズに翻訳情報を追加または更新します。
+   * 成功した場合、更新されたエクササイズエンティティを返します。
+   * @param exerciseId 対象のエクササイズID (VO)
+   * @param translation 保存する翻訳情報
+   * @returns 更新されたエクササイズエンティティ、またはエクササイズが見つからない場合はnull
+   */
+  async addOrUpdateTranslation(
+    exerciseId: ExerciseIdVO,
+    translation: ExerciseTranslation,
+  ): Promise<Exercise | null> {
+    // 1. リポジトリ経由で翻訳を保存
+    await this.exerciseRepository.saveExerciseTranslation(exerciseId, translation);
+
+    // 2. 更新されたエクササイズエンティティ全体をリポジトリから再取得して返す
+    //    これにより、呼び出し元は最新の状態（他の翻訳も含む）を把握できる
+    const updatedExercise = await this.exerciseRepository.findById(exerciseId);
+    return updatedExercise;
+  }
+
+  /**
+   * エクササイズから指定されたロケールの翻訳情報を削除します。
+   * 成功した場合、更新されたエクササイズエンティティを返します。
+   * @param exerciseId 対象のエクササイズID (VO)
+   * @param locale 削除する翻訳のロケール
+   * @returns 更新されたエクササイズエンティティ、またはエクササイズが見つからない場合はnull
+   */
+  async deleteTranslation(
+    exerciseId: ExerciseIdVO,
+    locale: string,
+  ): Promise<Exercise | null> {
+    // 1. リポジトリ経由で翻訳を削除
+    await this.exerciseRepository.deleteExerciseTranslation(exerciseId, locale);
+
+    // 2. 更新された（かもしれない）エクササイズエンティティを再取得して返す
+    const updatedExercise = await this.exerciseRepository.findById(exerciseId);
+    return updatedExercise;
+  }
+
+  /**
+   * エクササイズの canonicalName を更新します。
+   * @param exerciseId 更新するエクササイズのID (VO)
+   * @param newCanonicalName 新しい canonicalName
+   * @returns 更新されたエクササイズエンティティ、またはエクササイズが見つからない場合はnull
+   */
+  async updateExerciseCanonicalName(
+    exerciseId: ExerciseIdVO,
+    newCanonicalName: string,
+  ): Promise<Exercise | null> {
+    const exercise = await this.exerciseRepository.findById(exerciseId);
+    if (!exercise) {
+      return null; // もしくはエラーをスロー
+    }
+
+    // Exercise エンティティはイミュータブルであるべきだが、ここでは簡略化のため直接プロパティを変更するのではなく、
+    // 新しいインスタンスを作成する形で更新を表現する (実際にはExerciseクラスに更新用メソッドがあると良い)
+    const updatedExercise = new Exercise(
+      exercise.id,
+      newCanonicalName, // ここを更新
+      exercise.defaultMuscleId,
+      exercise.isCompound,
+      exercise.isOfficial,
+      exercise.authorUserId,
+      exercise.lastUsedAt,
+      exercise.createdAt, // createdAt は通常不変だが、Exerciseのコンストラクタに合わせる
+      exercise.translations, // 翻訳はそのまま
+    );
+
+    // リポジトリの saveFullExercise を使って永続化 (FTS更新も行われる)
+    await this.exerciseRepository.saveFullExercise(updatedExercise);
+    return updatedExercise; // 保存したエンティティを返す
+  }
+
+  /**
+   * エクササイズの詳細情報 (defaultMuscleId, isCompound) を更新します。
+   * isOfficial や authorUserId はここでは更新対象外とします。
+   * @param exerciseId 更新するエクササイズのID (VO)
+   * @param details 更新する詳細情報。指定されたプロパティのみ更新されます。
+   * @returns 更新されたエクササイズエンティティ、またはエクササイズが見つからない場合はnull
+   */
+  async updateExerciseDetails(
+    exerciseId: ExerciseIdVO,
+    details: { defaultMuscleId?: number | null; isCompound?: boolean },
+  ): Promise<Exercise | null> {
+    const exercise = await this.exerciseRepository.findById(exerciseId);
+    if (!exercise) {
+      return null;
+    }
+
+    const updatedExercise = new Exercise(
+      exercise.id,
+      exercise.canonicalName,
+      details.defaultMuscleId !== undefined ? details.defaultMuscleId : exercise.defaultMuscleId,
+      details.isCompound !== undefined ? details.isCompound : exercise.isCompound,
+      exercise.isOfficial,
+      exercise.authorUserId,
+      exercise.lastUsedAt,
+      exercise.createdAt,
+      exercise.translations,
+    );
+
+    await this.exerciseRepository.saveFullExercise(updatedExercise);
+    return updatedExercise;
   }
 }

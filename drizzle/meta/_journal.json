@@ -15,6 +15,13 @@
       "when": 1747417693241,
       "tag": "0001_brown_tinkerer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1747422544387,
+      "tag": "0002_red_manta",
+      "breakpoints": true
     }
   ]
 }

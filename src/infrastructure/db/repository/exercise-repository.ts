@@ -6,6 +6,7 @@ import { Exercise, type ExerciseId, type ExerciseTranslation } from '../../../do
 import { ExerciseIdVO } from '../../../domain/shared/vo/identifier';
 import type * as schema from '../schema';
 import { exerciseUsage } from '../schema';
+import { normalizeToHiragana } from '../../../app/utils/text-processor';
 
 type AllTables = typeof schema;
 const DEFAULT_SEARCH_LIMIT = 50;
@@ -123,82 +124,39 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
 
     if (!query || query.trim().length < 2) {
       console.debug('[ExerciseRepository.search_FTS] Query is too short (less than 2 chars). Returning empty array.');
-      // ここで最近使ったエクササイズなどを返すフォールバックも検討できますが、今回は空配列とします。
-      // OpenAPI 仕様では "Search or list recent exercises" とあるため、
-      // query がない場合は最近のものをリストする、という分岐もここで可能です。
-      // 例: if (!query) { return this.findRecentByUserId(...); }
       return [];
     }
 
-    // FTS特殊文字のサニタイズ: " ' - * ( ) : など FTSクエリで問題を起こしうる文字をスペースに置換
-    // アスタリスクは前方一致で後から付加するので、入力からは除去する。
-    // ハイフンも除去対象とする（例: "barbell-row" -> "barbell row" のようにしたい場合）。
-    // 句読点などは unicode61 トークナイザがある程度処理してくれるが、明示的に対処する。
-    const sanitizedQuery = query
-    .trim()
-    .toLowerCase()
-    // 英数字、ひらがな、カタカナ、漢字、スペース以外の文字をスペースに置換
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ');
+    // ユーザー入力クエリの正規化: ひらがな化 -> 小文字化 -> 特殊文字除去
+    const normalizedQuery = normalizeToHiragana(query.trim())
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, ' '); // 英数字、ひらがな、カタカナ、漢字、スペース以外をスペースに
 
-    const keywords = sanitizedQuery
-      .split(/\s+/) // 1つ以上の空白文字で区切る
-      .filter(k => k.length > 0) // 空のキーワードを除去 (サニタイズの結果空になる場合もある)
-      .map((k) => `${k}*`) // 各キーワードに前方一致演算子を追加
+    const keywords = normalizedQuery
+      .split(/\s+/) 
+      .filter(k => k.length > 0)
+      .map((k) => `${k}*`)
       .join(' AND ');
 
     if (!keywords) {
-        console.debug('[ExerciseRepository.search_FTS] No effective keywords after sanitizing and processing. Returning empty array.');
+        console.debug('[ExerciseRepository.search_FTS] No effective keywords after normalizing and processing. Returning empty array.');
         return [];
     }
 
-    console.debug(`[ExerciseRepository.search_FTS] Sanitized query: "${sanitizedQuery}", Executing FTS query with keywords: "${keywords}", for locale: "${locale}" (and 'unknown')`);
+    console.debug(`[ExerciseRepository.search_FTS] Normalized query: "${normalizedQuery}", Executing FTS query with keywords: "${keywords}", for locale: "${locale}" (and 'unknown')`);
 
-    // 検索対象のロケール: 指定されたロケールと、canonical_nameのみを格納する 'unknown'
     const targetLocales = [locale, 'unknown'];
-    
-    // FTSクエリの組み立て
-    // exercises_fts.text を MATCH で検索
-    // exercises テーブルを JOIN して、最終的に Exercise エンティティに必要な情報を取得
-    // bm25() でスコアリングし、並び替えに使用
-    const ftsQuery = sql`
-      SELECT
-        e.id as exercise_id_val, -- エイリアスをつけて他のidと区別
-        -- mapDbRowsToExerciseEntities に必要なカラムを exercises から取得
-        e.canonical_name,
-        e.default_muscle_id,
-        e.is_compound,
-        e.is_official,
-        e.author_user_id,
-        e.last_used_at,
-        e.created_at,
-        -- FTSスコア (bm25の値が小さいほど関連性が高い)
-        bm25(exercises_fts) AS score
-      FROM exercises_fts
-      JOIN exercises e ON e.id = exercises_fts.exercise_id
-      WHERE exercises_fts.text MATCH ${keywords}
-        AND exercises_fts.locale IN ${targetLocales}
-      ORDER BY score ASC, e.is_official DESC, e.last_used_at DESC
-      LIMIT ${limit}
-    `;
-    // SQLiteのbm25()はスコアが小さいほど良いので ASC
-
-    // Drizzleで型付けされた結果を得るには、各カラムを明示的に sql.identifier や sql.raw で指定する必要がある場合があるが、
-    // db.all() は any[] を返すので、ここで型定義と合わない場合は実行時エラーになる可能性がある。
-    // 厳密には、SELECT句で取得するカラムを Exercise エンティティの構造に合わせて全て列挙し、
-    // それを元に mapDbRowsToExerciseEntities を呼び出すか、新しいマッピング関数を作る。
-    // ここでは、まずFTSでIDとスコアを取得し、その後IDリストで完全な情報を取得する二段階方式を採用。
     
     const ftsResults: { exercise_id: string; score: number }[] = await this.db.all(sql`
       SELECT
         exercise_id,
         bm25(exercises_fts) AS score
       FROM exercises_fts
-      WHERE text MATCH ${keywords}
+      WHERE text_normalized MATCH ${keywords} -- 検索対象を text_normalized に変更
         AND locale IN ${targetLocales}
-      ORDER BY score ASC -- SQLite bm25はスコアが小さいほど良い
+      ORDER BY score ASC 
       LIMIT ${limit} 
     `);
-
 
     console.debug(`[ExerciseRepository.search_FTS] Found ${ftsResults.length} exercises from FTS stage 1.`);
 
@@ -338,7 +296,7 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
   }
 
   async create(exerciseData: Exercise): Promise<void> {
-    throw new Error('Method not implemented.');
+    await this.saveFullExercise(exerciseData);
   }
 
   async upsertExerciseUsage(userId: string, exerciseId: string, usedAt: Date, incrementUseCount = true): Promise<void> {
@@ -359,5 +317,196 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
         }
       })
       .execute(); // Use .execute() for D1 driver as per Drizzle docs for writes
+  }
+
+  // --- FTS更新用ヘルパーメソッド ---
+  private async upsertExerciseFtsData(
+    exerciseId: string,
+    locale: string,
+    originalTexts: (string | null | undefined)[], // [canonicalName, name, aliasesCsv]
+    hiraganaTexts: (string | null | undefined)[]  // [hiraCanonical, hiraName, hiraAliasesCsv]
+  ): Promise<void> {
+    const combinedOriginalText = originalTexts.filter(Boolean).join(' ').trim();
+    const combinedNormalizedText = hiraganaTexts.filter(Boolean).join(' ').toLowerCase().trim();
+
+    if (!combinedOriginalText && !combinedNormalizedText) {
+      // 両方のテキストが空ならFTSエントリは削除
+      await this.db.run(sql`DELETE FROM exercises_fts WHERE exercise_id = ${exerciseId} AND locale = ${locale}`);
+      console.debug(`[ExerciseRepo.upsertFts] Deleted FTS (empty texts) for exId:${exerciseId}, locale:${locale}`);
+      return;
+    }
+
+    // exercises_fts テーブルの text には原文、text_normalized には正規化済みひらがなテキストを保存
+    // DELETE & INSERT でUPSERTを実装
+    await this.db.run(sql`DELETE FROM exercises_fts WHERE exercise_id = ${exerciseId} AND locale = ${locale}`);
+    await this.db.run(sql`
+      INSERT INTO exercises_fts (exercise_id, locale, text, text_normalized)
+      VALUES (${exerciseId}, ${locale}, ${combinedOriginalText || ''}, ${combinedNormalizedText || ''})
+    `);
+    console.debug(`[ExerciseRepo.upsertFts] Upserted FTS for exId:${exerciseId}, locale:${locale}, original: "${(combinedOriginalText || '').substring(0, 25)}...", normalized: "${(combinedNormalizedText || '').substring(0,25)}..."`);
+  }
+
+  private async deleteExerciseFtsData(exerciseId: string, locale?: string): Promise<void> {
+    if (locale) {
+      await this.db.run(sql`DELETE FROM exercises_fts WHERE exercise_id = ${exerciseId} AND locale = ${locale}`);
+      console.debug(`[ExerciseRepo.deleteFts] Deleted FTS for exId:${exerciseId}, locale:${locale}`);
+    } else {
+      await this.db.run(sql`DELETE FROM exercises_fts WHERE exercise_id = ${exerciseId}`);
+      console.debug(`[ExerciseRepo.deleteFts] Deleted all FTS for exId:${exerciseId}`);
+    }
+  }
+
+  // --- exercises テーブルへの永続化メソッド (仮の例、実際のメソッドに組み込む) ---
+  // このリポジトリがExerciseエンティティ全体を保存する責任を持つ場合
+  public async saveFullExercise(exercise: Exercise): Promise<void> {
+    // Drizzleを使って exercises テーブルに exercise の基本情報を保存 (INSERT or UPDATE)
+    // (実際のUPSERTロジックはプロジェクトに合わせてください)
+    await this.db.insert(this.tables.exercises)
+      .values({
+        id: exercise.id.value,
+        canonicalName: exercise.canonicalName,
+        defaultMuscleId: exercise.defaultMuscleId,
+        isCompound: exercise.isCompound,
+        isOfficial: exercise.isOfficial,
+        authorUserId: exercise.authorUserId,
+        lastUsedAt: exercise.lastUsedAt ? exercise.lastUsedAt.toISOString() : null,
+        // createdAtは default CURRENT_TIMESTAMP なので、INSERT時のみDrizzleが処理
+      })
+      .onConflictDoUpdate({ 
+        target: this.tables.exercises.id, 
+        set: {
+          canonicalName: exercise.canonicalName,
+          defaultMuscleId: exercise.defaultMuscleId,
+          isCompound: exercise.isCompound,
+          isOfficial: exercise.isOfficial,
+          authorUserId: exercise.authorUserId, // authorUserIdは通常更新しないが例として
+          lastUsedAt: exercise.lastUsedAt ? exercise.lastUsedAt.toISOString() : null,
+        }
+      })
+      .run(); // D1 driver is .execute() but .run() for simpler cases often works
+    console.debug(`[ExerciseRepo.saveFullExercise] Saved exercise ${exercise.id.value} to main table.`);
+
+    // FTS更新 ('unknown' ロケール)
+    const hiraCanonical = normalizeToHiragana(exercise.canonicalName);
+    await this.upsertExerciseFtsData(
+      exercise.id.value,
+      'unknown',
+      [exercise.canonicalName],
+      [hiraCanonical]
+    );
+
+    // 関連する翻訳も保存し、FTSも更新
+    if (exercise.translations && exercise.translations.length > 0) {
+      for (const trans of exercise.translations) {
+        await this.saveExerciseTranslationInternal(exercise.id, trans, exercise.canonicalName, hiraCanonical);
+      }
+      // 翻訳があるので 'unknown' のFTSエントリは削除
+      await this.deleteExerciseFtsData(exercise.id.value, 'unknown');
+    }
+    // もし saveFullExercise が translations を含まない場合、
+    // 呼び出し側で別途 saveExerciseTranslationInternal を呼ぶか、
+    // このメソッドが translation の保存まで責任を持たないなら、FTSの unknown の扱いを再考。
+    // ここでは、exercise.translations があればそれに基づいてFTSを更新しunknownを消す、
+    // なければunknownが残る（またはupsertで再作成される）という動作。
+  }
+  
+  // exercises テーブルの canonicalName のみの更新など、より細かい操作がある場合は別途メソッドを用意
+
+  public async deleteFullExerciseById(exerciseIdVo: ExerciseIdVO): Promise<void> {
+    const exerciseId = exerciseIdVo.value;
+    // 1. exercises テーブルから削除 (これにより translations も CASCADE DELETE される想定)
+    await this.db.delete(this.tables.exercises).where(eq(this.tables.exercises.id, exerciseId)).run();
+
+    // 2. 関連するFTSエントリを全て削除
+    await this.deleteExerciseFtsData(exerciseId);
+    console.debug(`[ExerciseRepo.deleteFullExercise] Deleted exercise ${exerciseId} and its FTS entries.`);
+  }
+
+
+  // --- exercise_translations テーブルへの永続化メソッド (仮の例) ---
+  // このメソッドは、Exerciseの canonicalName を引数で受け取るか、内部で参照取得する
+  private async saveExerciseTranslationInternal(
+    exerciseId: ExerciseIdVO, // ExerciseエンティティのID (VO)
+    translation: ExerciseTranslation, // 保存する翻訳データ
+    canonicalName: string, // 対応するExerciseのcanonicalName
+    hiraCanonicalName: string // canonicalNameのひらがな版
+  ): Promise<void> {
+    const exIdStr = exerciseId.value;
+    // exercise_translations テーブルへのUPSERT
+    await this.db.insert(this.tables.exerciseTranslations)
+      .values({
+        exerciseId: exIdStr,
+        locale: translation.locale,
+        name: translation.name,
+        aliases: translation.aliases?.join(',') // DBスキーマに合わせてCSVで保存
+      })
+      .onConflictDoUpdate({
+        target: [this.tables.exerciseTranslations.exerciseId, this.tables.exerciseTranslations.locale],
+        set: {
+          name: translation.name,
+          aliases: translation.aliases?.join(',')
+        }
+      })
+      .run();
+    console.debug(`[ExerciseRepo.saveTransInternal] Saved translation for exId:${exIdStr}, locale:${translation.locale}`);
+
+    // FTS更新
+    const hiraName = normalizeToHiragana(translation.name);
+    // DBから読み出すaliasesはCSVなので、正規化のために一度配列に戻すか、CSVのまま正規化するか検討。
+    // ここでは ExerciseTranslation.aliases が string[] である前提。
+    const aliasesStr = translation.aliases?.join(' '); // FTS用にスペース区切り
+    const hiraAliases = translation.aliases ? translation.aliases.map(a => normalizeToHiragana(a)).join(' ') : '';
+
+    await this.upsertExerciseFtsData(
+      exIdStr,
+      translation.locale,
+      [canonicalName, translation.name, aliasesStr],
+      [hiraCanonicalName, hiraName, hiraAliases]
+    );
+  }
+  
+  // 外部から翻訳のみを保存/更新する場合の公開メソッド
+  public async saveExerciseTranslation(exerciseIdVo: ExerciseIdVO, translation: ExerciseTranslation): Promise<void> {
+    const exercise = await this.findById(exerciseIdVo); // ExerciseIdVO を渡す
+    if (!exercise) {
+      throw new Error(`Exercise with id ${exerciseIdVo.value} not found when trying to save translation.`);
+    }
+    const hiraCanonical = normalizeToHiragana(exercise.canonicalName);
+    await this.saveExerciseTranslationInternal(exerciseIdVo, translation, exercise.canonicalName, hiraCanonical);
+    // 翻訳が追加/更新されたので、'unknown' のFTSエントリは削除
+    await this.deleteExerciseFtsData(exerciseIdVo.value, 'unknown');
+  }
+
+
+  public async deleteExerciseTranslation(exerciseIdVo: ExerciseIdVO, locale: string): Promise<void> {
+    const exerciseId = exerciseIdVo.value;
+    // 1. exercise_translations テーブルから削除
+    await this.db.delete(this.tables.exerciseTranslations)
+      .where(and(
+        eq(this.tables.exerciseTranslations.exerciseId, exerciseId),
+        eq(this.tables.exerciseTranslations.locale, locale)
+      ))
+      .run();
+    console.debug(`[ExerciseRepo.deleteTrans] Deleted translation for exId:${exerciseId}, locale:${locale}`);
+
+    // 2. 対応するFTSエントリを削除
+    await this.deleteExerciseFtsData(exerciseId, locale);
+
+    // 3. もし他に翻訳が残っていなければ、'unknown' ロケールのFTSエントリを再作成
+    const remainingTranslations = await this.db.select({ count: sql<number>`count(*)` })
+      .from(this.tables.exerciseTranslations)
+      .where(eq(this.tables.exerciseTranslations.exerciseId, exerciseId))
+      .get();
+      
+    if (remainingTranslations && remainingTranslations.count === 0) {
+      const exerciseData = await this.db.select({ canonicalName: this.tables.exercises.canonicalName })
+        .from(this.tables.exercises)
+        .where(eq(this.tables.exercises.id, exerciseId))
+        .get();
+      if (exerciseData) {
+        const hiraCanonical = normalizeToHiragana(exerciseData.canonicalName);
+        await this.upsertExerciseFtsData(exerciseId, 'unknown', [exerciseData.canonicalName], [hiraCanonical]);
+      }
+    }
   }
 }

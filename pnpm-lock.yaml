@@ -23,6 +23,9 @@ importers:
       valibot:
         specifier: ^1.1.0
         version: 1.1.0
+      wanakana:
+        specifier: ^5.3.1
+        version: 5.3.1
     devDependencies:
       '@biomejs/biome':
         specifier: 1.9.4
@@ -851,6 +854,10 @@ packages:
       typescript:
         optional: true
 
+  wanakana@5.3.1:
+    resolution: {integrity: sha512-OSDqupzTlzl2LGyqTdhcXcl6ezMiFhcUwLBP8YKaBIbMYW1wAwDvupw2T9G9oVaKT9RmaSpyTXjxddFPUcFFIw==}
+    engines: {node: '>=12'}
+
   workerd@1.20250508.0:
     resolution: {integrity: sha512-ffLxe7dXSuGoA6jb3Qx2SClIV1aLHfJQ6RhGhzYHjQgv7dL6fdUOSIIGgzmu2mRKs+WFSujp6c8WgKquco6w3w==}
     engines: {node: '>=16'}
@@ -1454,6 +1461,8 @@ snapshots:
   uuid@11.1.0: {}
 
   valibot@1.1.0: {}
+
+  wanakana@5.3.1: {}
 
   workerd@1.20250508.0:
     optionalDependencies:

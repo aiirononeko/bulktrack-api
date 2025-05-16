@@ -1,3 +1,5 @@
+import { v4 as uuidv4 } from 'uuid';
+
 export class EntityId {
   readonly value: string;
 
@@ -18,6 +20,10 @@ export class EntityId {
 
   toString(): string {
     return this.value;
+  }
+
+  public static generate(): ExerciseIdVO {
+    return new ExerciseIdVO(uuidv4());
   }
 }
 

@@ -36,9 +36,10 @@ import { DrizzleExerciseRepository } from "../../infrastructure/db/repository/ex
 import * as tablesSchema from "../../infrastructure/db/schema";
 import { ExerciseService } from "../../domain/exercise/service";
 import { SearchExercisesHandler } from "../../app/query/exercise/search-exercise";
-import { createSearchExercisesHandler } from "./handlers/exercise/search";
 import { ListRecentExercisesHandler } from "../../app/query/exercise/list-recent-exercises";
+import { createSearchExercisesHandler } from "./handlers/exercise/search";
 import { createListRecentExercisesHandler } from "./handlers/exercise/list-recent";
+import createExerciseApp from "./handlers/exercise/create";
 
 import { WorkoutService as AppWorkoutService, type AddWorkoutSetCommand } from "../../application/services/workout.service";
 import { DrizzleWorkoutSetRepository } from "../../infrastructure/db/repository/workout-set-repository";
@@ -55,6 +56,9 @@ import { deleteSetHttpHandler } from "./handlers/sets/delete-set";
 
 // DashboardStatsService をインポート
 import { DashboardStatsService } from "../../app/services/dashboard-stats-service";
+import type { FtsService } from "../../application/service/FtsService";
+import { FtsService as AppFtsService } from "../../application/service/FtsService";
+import { createPopulateFtsHandler } from "./handlers/admin/populateFtsHandler";
 
 export type AppEnv = {
   Variables: {
@@ -62,11 +66,13 @@ export type AppEnv = {
     refreshTokenCommand: RefreshTokenCommand;
     searchExercisesHandler: SearchExercisesHandler;
     listRecentExercisesHandler?: ListRecentExercisesHandler;
+    exerciseService?: ExerciseService;
     workoutService?: AppWorkoutService;
     db?: DrizzleD1Database<typeof tablesSchema>;
     dashboardQueryHandler?: GetDashboardDataQueryHandler;
     jwtPayload?: JWTPayload;
     statsUpdateService?: DashboardStatsService;
+    ftsService: FtsService;
   };
   Bindings: {
     DB: D1Database;
@@ -128,12 +134,13 @@ app.use("/v1/exercises", async (c, next) => {
       message: "Internal Server Configuration Error for Exercises",
     });
   }
-  const db = drizzle(c.env.DB, { schema: tablesSchema }); // Wrap D1Database with Drizzle
+  const db = drizzle(c.env.DB, { schema: tablesSchema });
   const exerciseRepository = new DrizzleExerciseRepository(db, tablesSchema);
   const exerciseService = new ExerciseService(exerciseRepository);
   const searchExercisesHandler = new SearchExercisesHandler(exerciseService);
 
   c.set("searchExercisesHandler", searchExercisesHandler);
+  c.set("exerciseService", exerciseService);
 
   await next();
 });
@@ -205,6 +212,24 @@ app.use("/v1/me/*", async (c, next) => {
   await next();
 });
 
+// --- Middleware for Dependency Injection for Admin routes ---
+app.use("/v1/admin/*", async (c, next) => {
+  console.log("Entered /v1/admin/* DI middleware");
+  if (!c.env.DB) {
+    console.error("CRITICAL: Missing DB environment binding for admin services.");
+    throw new HTTPException(500, {
+      message: "Internal Server Configuration Error for Admin Services",
+    });
+  }
+  const db = drizzle(c.env.DB, { schema: tablesSchema });
+  const ftsService = new AppFtsService(db);
+  c.set("ftsService", ftsService);
+  console.log("FtsService set in context for /v1/admin/*");
+  await next();
+  console.log("Exited /v1/admin/* DI middleware after next()");
+});
+// --- End of Admin DI Middleware ---
+
 // --- 認証ミドルウェア (hono/jwt を使用) ---
 const jwtAuthMiddleware = (c: Context<AppEnv>, next: Next) => {
   if (!c.env.JWT_SECRET) {
@@ -261,28 +286,44 @@ app.onError((err, c) => {
 app.route("/v1/auth", deviceAuthRoutes);
 app.route("/v1/auth", refreshAuthRoutes);
 
-// Route for Exercises
-app.get("/v1/exercises", async (c) => {
-  const handler = c.var.searchExercisesHandler;
+// Exercise Routes
+const exerciseApp = new Hono<AppEnv>();
+
+// GET /v1/exercises - Search or list recent (これは既存のsearch.tsやlist-recent.tsへのルーティングに依存)
+// 既存の createSearchExercisesHandler と createListRecentExercisesHandler は /v1/exercises と /v1/me/exercises/recent へのルーティングと思われる。
+// ここでは OpenAPI に合わせて /v1/exercises (GET) を search.ts に割り当てる想定。
+// q パラメータがあれば検索、なければ最近のリスト、という分岐は search.ts 内で行うか、ハンドラを分ける。
+// 今回はsearch.tsがqの有無で対応すると仮定。
+exerciseApp.get("/", jwtAuthMiddleware, async (c) => {
+  const handler = c.get("searchExercisesHandler");
   if (!handler) {
-    console.error("SearchExercisesHandler not found in c.var for /v1/exercises route.");
-    throw new HTTPException(500, { message: "Internal Configuration Error - Handler not set" });
+    console.error("SearchExercisesHandler not found for GET /v1/exercises");
+    throw new HTTPException(500, { message: "Search handler not configured" });
   }
-  const actualHandler = createSearchExercisesHandler(handler);
-  return actualHandler(c);
+  return createSearchExercisesHandler(handler)(c);
 });
 
+// POST /v1/exercises - Create new exercise
+// createExerciseApp は Hono インスタンスであり、内部で POST '/' を定義している。
+// /v1/exercises へのPOSTリクエストをこのHonoインスタンスにルーティングする。
+// 認証 (jwtAuthMiddleware) は、このPOSTリクエストの前に適用する必要がある。
+// ただし、Honoでは app.route() でマウントするサブアプリの前にミドルウェアを置くのが難しい場合がある。
+// createExerciseApp 内部で認証チェック (jwtPayloadの検証) が行われているため、
+// ここでは認証ミドルウェアを明示的に挟まず、createExerciseApp に委ねる。
+// Exercise用のDIミドルウェア (app.use("/v1/exercises", ...)) は既に適用されている前提。
+app.route("/v1/exercises", exerciseApp);
+
 // Route for recently used exercises for the authenticated user
-app.get("/v1/me/exercises/recent", jwtAuthMiddleware, async (c) => {
-  const handler = c.var.listRecentExercisesHandler;
+const meRoutes = new Hono<AppEnv>();
+meRoutes.get("/exercises/recent", jwtAuthMiddleware, async (c) => {
+  const handler = c.get("listRecentExercisesHandler");
   if (!handler) {
-    console.error("ListRecentExercisesHandler not found in c.var for /v1/me/exercises/recent route.");
-    throw new HTTPException(500, { message: "Internal Configuration Error - Handler not set" });
+    console.error("ListRecentExercisesHandler not found for /v1/me/exercises/recent");
+    throw new HTTPException(500, { message: "Recent handler not configured" });
   }
-  // Ensure createListRecentExercisesHandler is correctly imported and used
-  const actualHandler = createListRecentExercisesHandler(handler);
-  return actualHandler(c);
+  return createListRecentExercisesHandler(handler)(c);
 });
+app.route("/v1/me", meRoutes);
 
 // Routes for Sets (旧 Sessions)
 const setsRoutes = new Hono<AppEnv>();
@@ -408,6 +449,11 @@ dashboardRoutes.use("*", jwtAuthMiddleware); // Apply JWT auth to all dashboard 
 dashboardRoutes.route("/", dashboardStatsApp); // Mounts the stats handler at /v1/dashboard/stats
 
 app.route("/v1/dashboard", dashboardRoutes);
+
+// Admin Routes
+const adminApp = new Hono<AppEnv>();
+createPopulateFtsHandler(adminApp);
+app.route("/v1/admin", adminApp);
 
 // Root path or health check (optional)
 app.get("/", (c) => {

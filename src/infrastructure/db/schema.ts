@@ -94,8 +94,17 @@ export const exerciseTranslations = sqliteTable(
   }),
 );
 
-// Full-text search tables (exercise_fts) and triggers are not directly defined in schema.ts.
-// They should be handled via migrations.
+// Full-text search tables (exercise_fts)
+// They are VIRTUAL TABLEs created via migrations, but schema definition is needed for Drizzle ORM queries.
+export const exercisesFts = sqliteTable("exercises_fts", {
+  exerciseId: text("exercise_id").notNull(),
+  locale: text("locale").notNull(),
+  text: text("text").notNull(),
+  textNormalized: text("text_normalized"), // For hiragana normalized search
+  // rowid: integer('rowid').primaryKey(), // FTS5 virtual tables have a rowid, but it's usually managed by SQLite.
+                                          // Defining it here might be optional or depend on Drizzle's FTS handling.
+                                          // For now, omitting to let Drizzle/SQLite handle it by default.
+});
 
 // ------------------------------------------------
 // 3.  Menus (templates) & Composition

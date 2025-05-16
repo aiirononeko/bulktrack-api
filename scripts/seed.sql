@@ -9,6 +9,7 @@ DELETE FROM exercise_muscles;
 DELETE FROM exercise_translations;
 DELETE FROM exercises;
 DELETE FROM muscles;
+DELETE FROM exercises_fts; -- FTSテーブルのデータをクリア
 -- Add DELETE statements for other seeded tables if necessary, respecting order
 
 ------------------------------------------------------------
@@ -361,3 +362,31 @@ INSERT INTO exercise_muscles VALUES
  ('ecc4d9e3-678b-4ba5-9df2-a2cdb9b741e5',  9, 0.3),  -- Serratus
  ('ecc4d9e3-678b-4ba5-9df2-a2cdb9b741e5', 10, 0.3),  -- Rotator Cuff
  ('ecc4d9e3-678b-4ba5-9df2-a2cdb9b741e5', 13, 0.3);  -- Erector Spinae
+
+------------------------------------------------------------
+-- 5. Populate exercises_fts table
+------------------------------------------------------------
+-- Clear existing data from FTS table (already done above, but good for clarity if run standalone)
+-- DELETE FROM exercises_fts;
+
+-- 1. Load translated exercises into FTS table
+INSERT INTO exercises_fts(exercise_id, locale, text)
+SELECT
+    t.exercise_id,
+    t.locale,
+    lower(e.canonical_name || ' ' || COALESCE(t.name, '') || ' ' || COALESCE(t.aliases, ''))
+FROM exercise_translations t
+JOIN exercises e ON e.id = t.exercise_id;
+
+-- 2. Load exercises without translations into FTS table
+-- For exercises without translations, their original exercises.rowid can be used for fts.rowid
+INSERT INTO exercises_fts(rowid, exercise_id, locale, text)
+SELECT
+    e.rowid,
+    e.id,
+    'unknown',
+    lower(e.canonical_name)
+FROM exercises e
+WHERE NOT EXISTS (
+    SELECT 1 FROM exercise_translations et WHERE et.exercise_id = e.id
+);
