@@ -39,7 +39,6 @@ import { SearchExercisesHandler } from "../../app/query/exercise/search-exercise
 import { ListRecentExercisesHandler } from "../../app/query/exercise/list-recent-exercises";
 import { createSearchExercisesHandler } from "./handlers/exercise/search";
 import { createListRecentExercisesHandler } from "./handlers/exercise/list-recent";
-import createExerciseApp from "./handlers/exercise/create";
 
 import { WorkoutService as AppWorkoutService, type AddWorkoutSetCommand } from "../../application/services/workout.service";
 import { DrizzleWorkoutSetRepository } from "../../infrastructure/db/repository/workout-set-repository";
@@ -56,9 +55,6 @@ import { deleteSetHttpHandler } from "./handlers/sets/delete-set";
 
 // DashboardStatsService をインポート
 import { DashboardStatsService } from "../../app/services/dashboard-stats-service";
-import type { FtsService } from "../../application/service/FtsService";
-import { FtsService as AppFtsService } from "../../application/service/FtsService";
-import { createPopulateFtsHandler } from "./handlers/admin/populateFtsHandler";
 
 export type AppEnv = {
   Variables: {
@@ -72,7 +68,6 @@ export type AppEnv = {
     dashboardQueryHandler?: GetDashboardDataQueryHandler;
     jwtPayload?: JWTPayload;
     statsUpdateService?: DashboardStatsService;
-    ftsService: FtsService;
   };
   Bindings: {
     DB: D1Database;
@@ -211,24 +206,6 @@ app.use("/v1/me/*", async (c, next) => {
 
   await next();
 });
-
-// --- Middleware for Dependency Injection for Admin routes ---
-app.use("/v1/admin/*", async (c, next) => {
-  console.log("Entered /v1/admin/* DI middleware");
-  if (!c.env.DB) {
-    console.error("CRITICAL: Missing DB environment binding for admin services.");
-    throw new HTTPException(500, {
-      message: "Internal Server Configuration Error for Admin Services",
-    });
-  }
-  const db = drizzle(c.env.DB, { schema: tablesSchema });
-  const ftsService = new AppFtsService(db);
-  c.set("ftsService", ftsService);
-  console.log("FtsService set in context for /v1/admin/*");
-  await next();
-  console.log("Exited /v1/admin/* DI middleware after next()");
-});
-// --- End of Admin DI Middleware ---
 
 // --- 認証ミドルウェア (hono/jwt を使用) ---
 const jwtAuthMiddleware = (c: Context<AppEnv>, next: Next) => {
@@ -449,11 +426,6 @@ dashboardRoutes.use("*", jwtAuthMiddleware); // Apply JWT auth to all dashboard 
 dashboardRoutes.route("/", dashboardStatsApp); // Mounts the stats handler at /v1/dashboard/stats
 
 app.route("/v1/dashboard", dashboardRoutes);
-
-// Admin Routes
-const adminApp = new Hono<AppEnv>();
-createPopulateFtsHandler(adminApp);
-app.route("/v1/admin", adminApp);
 
 // Root path or health check (optional)
 app.get("/", (c) => {
