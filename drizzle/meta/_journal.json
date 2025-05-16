@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1746854658283,
-      "tag": "0000_famous_blade",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1747374750716,
-      "tag": "0001_bizarre_mentallo",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1747386852525,
-      "tag": "0002_steep_ultragirl",
+      "when": 1747396088497,
+      "tag": "0000_noisy_hitman",
       "breakpoints": true
     }
   ]

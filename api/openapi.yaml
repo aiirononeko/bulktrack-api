@@ -72,37 +72,17 @@ paths:
         '204': { description: Logged out }
       security: []
 
-  # ---------------- Users & Devices ---------------- #
-  /v1/users:
-    post:
-      summary: Create user manually (debug / admin)
-      tags: [Users]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/UserCreate' }
-      responses:
-        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
-  
-  /v1/devices:
-    post:
-      summary: Register device to user (post-Apple link)
-      tags: [Devices]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/DeviceCreate' }
-      responses:
-        '201': { description: Device registered, content: { application/json: { schema: { $ref: '#/components/schemas/Device' } } } }
-
   # ---------------- Exercises ---------------- #
   /v1/exercises:
     get:
       summary: Search or list recent exercises
       tags: [Exercises]
       parameters:
+        - name: Accept-Language
+          in: header
+          required: false
+          description: "取得するエクササイズ名の優先言語を指定します (例: en, ja)。指定されない場合はサーバーのデフォルト言語が使用されます。"
+          schema: { type: string }
         - in: query
           name: q
           schema: { type: string }
@@ -110,6 +90,7 @@ paths:
         - in: query
           name: locale
           schema: { type: string, default: ja }
+          description: "エクササイズ名のロケールを指定します。Accept-Languageヘッダーが指定されている場合はそちらが優先されます。 (例: 'en', 'ja')"
       responses:
         '200': { description: List, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Exercise' } } } } }
     post:

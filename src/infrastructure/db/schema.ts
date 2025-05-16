@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  check,
   index,
   integer,
   primaryKey,
@@ -22,7 +23,7 @@ export const userDevices = sqliteTable("user_devices", {
   deviceId: text("device_id").primaryKey(),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
   platform: text("platform"),
   linkedAt: text("linked_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -39,14 +40,14 @@ export const muscles = sqliteTable("muscles", {
 export const exercises = sqliteTable("exercises", {
   id: text("id").primaryKey(), // UUID v7
   canonicalName: text("canonical_name").notNull(), // fallback name (EN/JA any)
-  defaultMuscleId: integer("default_muscle_id").references(() => muscles.id),
+  defaultMuscleId: integer("default_muscle_id").references(() => muscles.id, { onUpdate: "cascade" }),
   isCompound: integer("is_compound", { mode: "boolean" })
     .notNull()
     .default(false),
   isOfficial: integer("is_official", { mode: "boolean" })
     .notNull()
     .default(false),
-  authorUserId: text("author_user_id").references(() => users.id),
+  authorUserId: text("author_user_id").references(() => users.id, { onUpdate: "cascade" }),
   lastUsedAt: text("last_used_at"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -56,18 +57,22 @@ export const exerciseMuscles = sqliteTable(
   {
     exerciseId: text("exercise_id")
       .notNull()
-      .references(() => exercises.id, { onDelete: "cascade" }),
+      .references(() => exercises.id, { onDelete: "cascade", onUpdate: "cascade" }),
     muscleId: integer("muscle_id")
       .notNull()
-      .references(() => muscles.id),
+      .references(() => muscles.id, { onUpdate: "cascade" }),
     // CHECK constraint (tension_ratio BETWEEN 0 AND 1) should be handled by DB migration or application validation.
     // Drizzle ORM schema definition doesn't directly support CHECK constraints in a portable way for all DBs,
     // though SQLite itself does. For now, we define the column and its type.
     // Application logic or a database trigger would be responsible for enforcing the 0-1 range.
-    tensionRatio: real("tension_ratio").notNull(), 
+    tensionRatio: real("tension_ratio").notNull(),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.exerciseId, table.muscleId] }),
+    tensionRatioCheck: check(
+      "ck_tension_ratio",
+      sql`${table.tensionRatio} >= 0 AND ${table.tensionRatio} <= 1`,
+    ),
     // Optional: Index for querying by exercise_id or muscle_id if needed frequently
     // exerciseIdx: index("idx_exercise_muscles_exercise").on(table.exerciseId),
     // muscleIdx: index("idx_exercise_muscles_muscle").on(table.muscleId),
@@ -79,7 +84,7 @@ export const exerciseTranslations = sqliteTable(
   {
     exerciseId: text("exercise_id")
       .notNull()
-      .references(() => exercises.id, { onDelete: "cascade" }),
+      .references(() => exercises.id, { onDelete: "cascade", onUpdate: "cascade" }),
     locale: text("locale").notNull(), // 'en', 'ja', …
     name: text("name").notNull(),
     aliases: text("aliases"), // CSV or JSON list
@@ -99,7 +104,7 @@ export const menus = sqliteTable("menus", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
   name: text("name").notNull(),
   sourceType: text("source_type").notNull().default("manual"), // 'manual' | 'official' | 'ai'
   isPublic: integer("is_public", { mode: "boolean" }).notNull().default(false),
@@ -111,11 +116,11 @@ export const menuExercises = sqliteTable(
   {
     menuId: text("menu_id")
       .notNull()
-      .references(() => menus.id, { onDelete: "cascade" }),
+      .references(() => menus.id, { onDelete: "cascade", onUpdate: "cascade" }),
     position: integer("position").notNull(), // 1-based order
     exerciseId: text("exercise_id")
       .notNull()
-      .references(() => exercises.id),
+      .references(() => exercises.id, { onUpdate: "cascade" }),
     defaultWeight: real("default_weight"),
     defaultReps: text("default_reps"), // e.g. "8-10"
   },
@@ -133,10 +138,10 @@ export const workoutSets = sqliteTable(
     id: text("id").primaryKey(),
     userId: text("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onUpdate: "cascade" }),
     exerciseId: text("exercise_id")
       .notNull()
-      .references(() => exercises.id),
+      .references(() => exercises.id, { onUpdate: "cascade" }),
     setNumber: integer("set_number").notNull(),
     reps: integer("reps"),
     weight: real("weight"),
@@ -154,6 +159,10 @@ export const workoutSets = sqliteTable(
       table.exerciseId,
       table.createdAt,
     ),
+    userPerformedAtIdx: index("idx_sets_user_performed_at").on(
+      table.userId,
+      table.performedAt,
+    ),
   }),
 );
 
@@ -165,14 +174,14 @@ export const exerciseUsage = sqliteTable(
   {
     userId: text("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
     exerciseId: text("exercise_id")
       .notNull()
-      .references(() => exercises.id),
+      .references(() => exercises.id, { onUpdate: "cascade" }),
     lastUsedAt: text("last_used_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.userId, table.exerciseId, table.lastUsedAt] }),
+    pk: primaryKey({ columns: [table.userId, table.exerciseId] }),
   }),
 );
 
@@ -199,7 +208,7 @@ export const weeklyUserVolumes = sqliteTable(
   {
     userId: text("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
 
     // ISO Monday of the target week (e.g. '2025-05-05')
     weekStart: text("week_start").notNull(),
@@ -231,13 +240,13 @@ export const weeklyUserMuscleVolumes = sqliteTable(
   {
     userId: text("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
 
     weekStart: text("week_start").notNull(),
 
     muscleId: integer("muscle_id")
       .notNull()
-      .references(() => muscles.id, { onDelete: "cascade" }),
+      .references(() => muscles.id, { onDelete: "cascade", onUpdate: "cascade" }),
 
     // Σ(weight × reps × tension_ratio) for that muscle
     volume: real("volume").notNull(),
@@ -260,7 +269,7 @@ export const weeklyUserMetrics = sqliteTable(
   {
     userId: text("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
 
     weekStart: text("week_start").notNull(),
 

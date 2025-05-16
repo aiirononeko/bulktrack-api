@@ -8,7 +8,7 @@
     {
       "binding": "DB",
       "database_name": "bulktrack-db",
-      "database_id": "6a89acb8-0353-4571-8a66-e9c38efaf6cb",
+      "database_id": "abb8fab8-91b1-42c0-8940-d9d75dd2823f",
       "migrations_dir": "drizzle"
     }
   ],

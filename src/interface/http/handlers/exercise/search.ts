@@ -6,6 +6,20 @@ import type { ExerciseDto } from '../../../../app/dto/exercise';
 
 // OpenAPIのデフォルトに従い、ロケールのデフォルト値を設定
 const DEFAULT_LOCALE = 'ja';
+const SUPPORTED_LOCALES = ['ja', 'en']; // サポートするロケールリスト
+
+// Accept-Languageヘッダーから優先ロケールを簡易的に取得するヘルパー関数
+const getPreferredLocaleFromHeader = (headerValue: string | undefined | null): string | null => {
+  if (!headerValue) return null;
+  const languages = headerValue.split(',').map(lang => lang.split(';')[0].trim().toLowerCase());
+  for (const lang of languages) {
+    const mainLang = lang.split('-')[0]; // 'en-US' -> 'en'
+    if (SUPPORTED_LOCALES.includes(mainLang)) {
+      return mainLang;
+    }
+  }
+  return null;
+};
 
 /**
  * エクササイズ検索API (/v1/exercises GET) のHonoハンドラファクトリ。
@@ -17,17 +31,27 @@ export const createSearchExercisesHandler = (searchHandler: SearchExercisesHandl
   return async (c: Context): Promise<Response> => {
     try {
       const queryParam = c.req.query('q');
-      const localeParam = c.req.query('locale');
+      const localeQueryParam = c.req.query('locale');
+      const acceptLanguageHeader = c.req.header('accept-language');
 
       const q = queryParam || null; // クエリがなければnull
-      const locale = localeParam || DEFAULT_LOCALE;
+      
+      let resolvedLocale: string;
+      const preferredLocaleFromHeader = getPreferredLocaleFromHeader(acceptLanguageHeader);
 
-      if (typeof locale !== 'string') {
-        // localeが予期せぬ形式の場合 (例: 配列など)
+      if (preferredLocaleFromHeader) {
+        resolvedLocale = preferredLocaleFromHeader;
+      } else if (localeQueryParam && SUPPORTED_LOCALES.includes(localeQueryParam.toLowerCase())) {
+        resolvedLocale = localeQueryParam.toLowerCase();
+      } else {
+        resolvedLocale = DEFAULT_LOCALE;
+      }
+
+      if (typeof resolvedLocale !== 'string') { // このチェックはほぼ不要になるが念のため
         throw new HTTPException(400, { message: 'Invalid locale parameter' });
       }
 
-      const applicationQuery: SearchExercisesQuery = { q, locale };
+      const applicationQuery: SearchExercisesQuery = { q, locale: resolvedLocale };
 
       const exercisesDto: ExerciseDto[] = await searchHandler.execute(applicationQuery);
       

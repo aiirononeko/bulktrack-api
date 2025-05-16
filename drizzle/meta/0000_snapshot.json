@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "88d700af-2341-4d92-95a5-d45d6f2bdb71",
+  "id": "341318fd-6850-4e95-b40f-88268625f7a8",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "exercise_muscles": {
@@ -42,7 +42,7 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         },
         "exercise_muscles_muscle_id_muscles_id_fk": {
           "name": "exercise_muscles_muscle_id_muscles_id_fk",
@@ -55,7 +55,7 @@
             "id"
           ],
           "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         }
       },
       "compositePrimaryKeys": {
@@ -68,7 +68,12 @@
         }
       },
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "ck_tension_ratio": {
+          "name": "ck_tension_ratio",
+          "value": "\"exercise_muscles\".\"tension_ratio\" >= 0 AND \"exercise_muscles\".\"tension_ratio\" <= 1"
+        }
+      }
     },
     "exercise_translations": {
       "name": "exercise_translations",
@@ -115,7 +120,7 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         }
       },
       "compositePrimaryKeys": {
@@ -152,27 +157,11 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "use_count": {
-          "name": "use_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
           "autoincrement": false,
-          "default": 1
+          "default": "CURRENT_TIMESTAMP"
         }
       },
-      "indexes": {
-        "idx_usage_recent": {
-          "name": "idx_usage_recent",
-          "columns": [
-            "user_id",
-            "last_used_at"
-          ],
-          "isUnique": false
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "exercise_usage_user_id_users_id_fk": {
           "name": "exercise_usage_user_id_users_id_fk",
@@ -185,7 +174,7 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         },
         "exercise_usage_exercise_id_exercises_id_fk": {
           "name": "exercise_usage_exercise_id_exercises_id_fk",
@@ -198,7 +187,7 @@
             "id"
           ],
           "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         }
       },
       "compositePrimaryKeys": {
@@ -289,7 +278,7 @@
             "id"
           ],
           "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         },
         "exercises_author_user_id_users_id_fk": {
           "name": "exercises_author_user_id_users_id_fk",
@@ -302,7 +291,7 @@
             "id"
           ],
           "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -361,7 +350,7 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         },
         "menu_exercises_exercise_id_exercises_id_fk": {
           "name": "menu_exercises_exercise_id_exercises_id_fk",
@@ -374,7 +363,7 @@
             "id"
           ],
           "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         }
       },
       "compositePrimaryKeys": {
@@ -451,7 +440,7 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -544,7 +533,7 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -659,7 +648,7 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         }
       },
       "compositePrimaryKeys": {
@@ -737,7 +726,7 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         },
         "weekly_user_muscle_volumes_muscle_id_muscles_id_fk": {
           "name": "weekly_user_muscle_volumes_muscle_id_muscles_id_fk",
@@ -750,7 +739,7 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         }
       },
       "compositePrimaryKeys": {
@@ -835,7 +824,7 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         }
       },
       "compositePrimaryKeys": {
@@ -847,95 +836,6 @@
           "name": "weekly_user_volumes_user_id_week_start_pk"
         }
       },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "workout_sessions": {
-      "name": "workout_sessions",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "menu_id": {
-          "name": "menu_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "finished_at": {
-          "name": "finished_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "CURRENT_TIMESTAMP"
-        }
-      },
-      "indexes": {
-        "idx_sessions_user_started": {
-          "name": "idx_sessions_user_started",
-          "columns": [
-            "user_id",
-            "started_at"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "workout_sessions_user_id_users_id_fk": {
-          "name": "workout_sessions_user_id_users_id_fk",
-          "tableFrom": "workout_sessions",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "workout_sessions_menu_id_menus_id_fk": {
-          "name": "workout_sessions_menu_id_menus_id_fk",
-          "tableFrom": "workout_sessions",
-          "tableTo": "menus",
-          "columnsFrom": [
-            "menu_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
@@ -956,13 +856,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "session_id": {
-          "name": "session_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "exercise_id": {
           "name": "exercise_id",
           "type": "text",
@@ -970,8 +863,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "set_no": {
-          "name": "set_no",
+        "set_number": {
+          "name": "set_number",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -1030,21 +923,6 @@
             "type": "virtual"
           }
         },
-        "device_id": {
-          "name": "device_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_offline": {
-          "name": "created_offline",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -1063,20 +941,20 @@
         }
       },
       "indexes": {
-        "idx_sets_session": {
-          "name": "idx_sets_session",
-          "columns": [
-            "session_id",
-            "set_no"
-          ],
-          "isUnique": false
-        },
         "idx_sets_exercise_rec": {
           "name": "idx_sets_exercise_rec",
           "columns": [
             "user_id",
             "exercise_id",
             "created_at"
+          ],
+          "isUnique": false
+        },
+        "idx_sets_user_performed_at": {
+          "name": "idx_sets_user_performed_at",
+          "columns": [
+            "user_id",
+            "performed_at"
           ],
           "isUnique": false
         }
@@ -1093,20 +971,7 @@
             "id"
           ],
           "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "workout_sets_session_id_workout_sessions_id_fk": {
-          "name": "workout_sets_session_id_workout_sessions_id_fk",
-          "tableFrom": "workout_sets",
-          "tableTo": "workout_sessions",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         },
         "workout_sets_exercise_id_exercises_id_fk": {
           "name": "workout_sets_exercise_id_exercises_id_fk",
@@ -1119,7 +984,7 @@
             "id"
           ],
           "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "cascade"
         }
       },
       "compositePrimaryKeys": {},
