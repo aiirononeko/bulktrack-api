@@ -8,6 +8,13 @@
       "when": 1747396088497,
       "tag": "0000_noisy_hitman",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1747417693241,
+      "tag": "0001_brown_tinkerer",
+      "breakpoints": true
     }
   ]
 }

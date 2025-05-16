@@ -118,59 +118,98 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
     return mappedExercises.length > 0 ? mappedExercises[0] : null;
   }
 
-  async search(query: string | null, locale: string, limit: number = DEFAULT_SEARCH_LIMIT): Promise<Exercise[]> {
-    const searchLower = query ? query.toLowerCase().trim() : null;
-    const conditions: SQL[] = [];
+  async search(query: string | null, locale = 'ja', limit: number = DEFAULT_SEARCH_LIMIT): Promise<Exercise[]> {
+    console.debug(`[ExerciseRepository.search_FTS] Start: query="${query}", locale="${locale}", limit=${limit}`);
 
-    if (searchLower) {
-      const searchQuery = `%${searchLower}%`;
-      conditions.push(like(sql<string>`lower(${this.tables.exercises.canonicalName})`, searchQuery));
-
-      const translatedMatchSubquery = this.db
-        .selectDistinct({ id: this.tables.exerciseTranslations.exerciseId })
-        .from(this.tables.exerciseTranslations)
-        .where(and(
-          eq(this.tables.exerciseTranslations.locale, locale),
-          or(
-            like(sql<string>`lower(${this.tables.exerciseTranslations.name})`, searchQuery),
-            like(sql<string>`lower(${this.tables.exerciseTranslations.aliases})`, searchQuery)
-          )
-        )).as('translated_match');
-      
-      conditions.push(inArray(this.tables.exercises.id, sql`(select id from ${translatedMatchSubquery})`));
-    } 
-
-    const finalCondition = conditions.length > 0 ? or(...conditions) : undefined;
-
-    const exerciseIdsQuery = this.db
-      .selectDistinct({ id: this.tables.exercises.id })
-      .from(this.tables.exercises)
-      .orderBy(
-        desc(sql`${this.tables.exercises.lastUsedAt} IS NULL`), 
-        desc(this.tables.exercises.lastUsedAt),
-        desc(this.tables.exercises.isOfficial),
-        desc(this.tables.exercises.createdAt) 
-      )
-      .limit(limit);
-
-    if (finalCondition) {
-      exerciseIdsQuery.where(finalCondition);
-    }
-    
-    const exerciseIdRows = await exerciseIdsQuery.all();
-
-    if (exerciseIdRows.length === 0) {
+    if (!query || query.trim().length < 2) {
+      console.debug('[ExerciseRepository.search_FTS] Query is too short (less than 2 chars). Returning empty array.');
+      // ここで最近使ったエクササイズなどを返すフォールバックも検討できますが、今回は空配列とします。
+      // OpenAPI 仕様では "Search or list recent exercises" とあるため、
+      // query がない場合は最近のものをリストする、という分岐もここで可能です。
+      // 例: if (!query) { return this.findRecentByUserId(...); }
       return [];
     }
-    const exerciseIds = exerciseIdRows.map(row => row.id);
 
+    // FTSクエリ整形: 設計案通りスペース区切りでAND検索、各単語に前方一致の '*' を付与
+    const keywords = query
+      .trim()
+      .toLowerCase() // FTSテーブルのtextは小文字で格納する想定
+      .split(/\s+/)
+      .filter(k => k.length > 0) // 空のキーワードを除去
+      .map((k) => `${k}*`)
+      .join(' AND ');
+
+    if (!keywords) { // split や filter の結果、実質的なキーワードがなければ検索しない
+        console.debug('[ExerciseRepository.search_FTS] No effective keywords after processing. Returning empty array.');
+        return [];
+    }
+
+    console.debug(`[ExerciseRepository.search_FTS] Executing FTS query with keywords: "${keywords}", for locale: "${locale}" (and 'unknown')`);
+
+    // 検索対象のロケール: 指定されたロケールと、canonical_nameのみを格納する 'unknown'
+    const targetLocales = [locale, 'unknown'];
+    
+    // FTSクエリの組み立て
+    // exercises_fts.text を MATCH で検索
+    // exercises テーブルを JOIN して、最終的に Exercise エンティティに必要な情報を取得
+    // bm25() でスコアリングし、並び替えに使用
+    const ftsQuery = sql`
+      SELECT
+        e.id as exercise_id_val, -- エイリアスをつけて他のidと区別
+        -- mapDbRowsToExerciseEntities に必要なカラムを exercises から取得
+        e.canonical_name,
+        e.default_muscle_id,
+        e.is_compound,
+        e.is_official,
+        e.author_user_id,
+        e.last_used_at,
+        e.created_at,
+        -- FTSスコア (bm25の値が小さいほど関連性が高い)
+        bm25(exercises_fts) AS score
+      FROM exercises_fts
+      JOIN exercises e ON e.id = exercises_fts.exercise_id
+      WHERE exercises_fts.text MATCH ${keywords}
+        AND exercises_fts.locale IN ${targetLocales}
+      ORDER BY score ASC, e.is_official DESC, e.last_used_at DESC
+      LIMIT ${limit}
+    `;
+    // SQLiteのbm25()はスコアが小さいほど良いので ASC
+
+    // Drizzleで型付けされた結果を得るには、各カラムを明示的に sql.identifier や sql.raw で指定する必要がある場合があるが、
+    // db.all() は any[] を返すので、ここで型定義と合わない場合は実行時エラーになる可能性がある。
+    // 厳密には、SELECT句で取得するカラムを Exercise エンティティの構造に合わせて全て列挙し、
+    // それを元に mapDbRowsToExerciseEntities を呼び出すか、新しいマッピング関数を作る。
+    // ここでは、まずFTSでIDとスコアを取得し、その後IDリストで完全な情報を取得する二段階方式を採用。
+    
+    const ftsResults: { exercise_id: string; score: number }[] = await this.db.all(sql`
+      SELECT
+        exercise_id,
+        bm25(exercises_fts) AS score
+      FROM exercises_fts
+      WHERE text MATCH ${keywords}
+        AND locale IN ${targetLocales}
+      ORDER BY score ASC -- SQLite bm25はスコアが小さいほど良い
+      LIMIT ${limit} 
+    `);
+
+
+    console.debug(`[ExerciseRepository.search_FTS] Found ${ftsResults.length} exercises from FTS stage 1.`);
+
+    if (ftsResults.length === 0) {
+      return [];
+    }
+
+    const exerciseIds = ftsResults.map(r => r.exercise_id);
+
+    // FTSで見つかったIDを使って、翻訳情報を含む完全なエクササイズ情報を取得
+    // (mapDbRowsToExerciseEntities を再利用するため)
     const fullExerciseDataRows: DbExerciseRow[] = await this.db
       .select({
         id: this.tables.exercises.id,
         canonicalName: this.tables.exercises.canonicalName,
         defaultMuscleId: this.tables.exercises.defaultMuscleId,
-        isCompound: this.tables.exercises.isCompound, // Returns boolean | null
-        isOfficial: this.tables.exercises.isOfficial, // Returns boolean | null
+        isCompound: this.tables.exercises.isCompound,
+        isOfficial: this.tables.exercises.isOfficial,
         authorUserId: this.tables.exercises.authorUserId,
         lastUsedAt: this.tables.exercises.lastUsedAt,
         createdAt: this.tables.exercises.createdAt,
@@ -179,20 +218,24 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
         translationAliases: this.tables.exerciseTranslations.aliases,
       })
       .from(this.tables.exercises)
-      .leftJoin(
+      .leftJoin( // 全翻訳情報を取得
         this.tables.exerciseTranslations,
-        eq(this.tables.exercises.id, this.tables.exerciseTranslations.exerciseId),
+        eq(this.tables.exercises.id, this.tables.exerciseTranslations.exerciseId)
       )
-      .where(inArray(this.tables.exercises.id, exerciseIds))
+      .where(inArray(this.tables.exercises.id, exerciseIds)) // FTSで見つかったIDで絞り込み
       .all();
-    
+
     const mappedExercises = this.mapDbRowsToExerciseEntities(fullExerciseDataRows);
     
-    return mappedExercises.sort((a, b) => {
-      const aIndex = exerciseIds.indexOf(a.id.value); 
+    // FTSで見つかった順序 (スコア順) を尊重するために、mappedExercises をソートし直す
+    const sortedExercises = mappedExercises.sort((a, b) => {
+      const aIndex = exerciseIds.indexOf(a.id.value); // a.id は ExerciseIdVO なので .value で文字列ID取得
       const bIndex = exerciseIds.indexOf(b.id.value);
       return aIndex - bIndex;
     });
+    
+    console.debug(`[ExerciseRepository.search_FTS] Returning ${sortedExercises.length} exercises after mapping and FTS sorting.`);
+    return sortedExercises;
   }
 
   async findRecentByUserId(userId: string, locale: string, limit: number, offset: number): Promise<Exercise[]> {
