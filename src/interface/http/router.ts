@@ -42,6 +42,7 @@ import { createListRecentExercisesHandler } from "./handlers/exercise/list-recen
 
 import { WorkoutService as AppWorkoutService, type AddWorkoutSetCommand } from "../../application/services/workout.service";
 import { DrizzleWorkoutSetRepository } from "../../infrastructure/db/repository/workout-set-repository";
+import { DrizzleExerciseUsageRepository } from "../../infrastructure/db/repository/drizzle-exercise-usage-repository";
 import { UserIdVO, ExerciseIdVO, WorkoutSetIdVO } from "../../domain/shared/vo/identifier";
 import { AddSetRequestSchema } from "../../app/dto/set.dto";
 
@@ -145,10 +146,12 @@ app.use("/v1/sets/*", async (c, next) => {
   }
   const db = drizzle(c.env.DB, { schema: tablesSchema });
 
-  const workoutRepository = new DrizzleWorkoutSetRepository(db, tablesSchema);
-  const appWorkoutService = new AppWorkoutService(workoutRepository);
+  // DrizzleWorkoutSetRepository のコンストラクタに合わせて修正
+  const workoutSetRepository = new DrizzleWorkoutSetRepository(db, tablesSchema);
+  const exerciseUsageRepository = new DrizzleExerciseUsageRepository(db);
   
-  // StatsUpdateService (DashboardStatsService) のインスタンス化
+  const appWorkoutService = new AppWorkoutService(workoutSetRepository, exerciseUsageRepository);
+  
   const statsUpdateService = new DashboardStatsService(db);
   c.set("statsUpdateService", statsUpdateService);
   
@@ -340,9 +343,21 @@ setsRoutes.post("/", async (c) => {
         console.error("Error updating dashboard stats after adding set:", statsError);
         // ここでのエラーはメインのレスポンスに影響させない（ログ出力に留める）
       }
-    } else {
-      // DIミドルウェアで既に警告ログを出しているが、念のためここでもログを出すか、何もしない
-      // console.warn("StatsUpdateService not found, skipping stats update for user:", userId);
+    }
+
+    // exercise_usage テーブルへの記録処理
+    // AppWorkoutServiceに recordExerciseUsage メソッドが実装されていることを想定
+    // このメソッドは内部で exercise_usage テーブルへの書き込みを行い、
+    // (userId, exerciseId, DATE(performedAt)) の組み合わせでの重複を避ける (例: INSERT IGNORE)
+    try {
+      await workoutService.recordExerciseUsage(
+        new UserIdVO(userId),
+        new ExerciseIdVO(validatedBody.exerciseId),
+        performedAtDate // commandData.performedAt と同じはず
+      );
+    } catch (usageError) {
+      console.error("Error recording exercise usage after adding set:", usageError);
+      // こちらもメインのレスポンスには影響させない
     }
 
     return c.json(resultDto, 201);

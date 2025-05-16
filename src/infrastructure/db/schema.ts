@@ -169,15 +169,10 @@ export const exerciseUsage = sqliteTable(
     exerciseId: text("exercise_id")
       .notNull()
       .references(() => exercises.id),
-    lastUsedAt: text("last_used_at").notNull(),
-    useCount: integer("use_count").notNull().default(1),
+    lastUsedAt: text("last_used_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.userId, table.exerciseId] }),
-    recentUsageIdx: index("idx_usage_recent").on(
-      table.userId,
-      table.lastUsedAt, // Drizzle doesn't explicitly support DESC here
-    ),
+    pk: primaryKey({ columns: [table.userId, table.exerciseId, table.lastUsedAt] }),
   }),
 );
 

@@ -200,11 +200,10 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
       .select({
         exerciseId: this.tables.exerciseUsage.exerciseId,
         lastUsedAt: this.tables.exerciseUsage.lastUsedAt,
-        useCount: this.tables.exerciseUsage.useCount,
       })
       .from(this.tables.exerciseUsage)
       .where(eq(this.tables.exerciseUsage.userId, userId))
-      .orderBy(desc(this.tables.exerciseUsage.useCount), desc(this.tables.exerciseUsage.lastUsedAt))
+      .orderBy(desc(this.tables.exerciseUsage.lastUsedAt))
       .limit(limit)
       .offset(offset)
       .all();
@@ -281,18 +280,11 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
         userId: userId,
         exerciseId: exerciseId,
         lastUsedAt: usedAtISO,
-        useCount: 1, // Initial count if new, will be updated if conflict
       })
       .onConflictDoUpdate({
         target: [this.tables.exerciseUsage.userId, this.tables.exerciseUsage.exerciseId],
         set: {
           lastUsedAt: usedAtISO,
-          // Conditionally increment useCount. 
-          // The sql template below is a common way to increment a column on conflict.
-          // Note: Drizzle ORM might have more direct ways to increment, but sql helper is robust.
-          useCount: incrementUseCount 
-            ? sql`${this.tables.exerciseUsage.useCount} + 1` 
-            : this.tables.exerciseUsage.useCount,
         }
       })
       .execute(); // Use .execute() for D1 driver as per Drizzle docs for writes

@@ -1,4 +1,5 @@
 import type { IWorkoutSetRepository } from "../../domain/workout/workout-set-repository";
+import type { IExerciseUsageRepository } from "../../domain/exercise/repository/exercise-usage-repository";
 import { UserIdVO, WorkoutSetIdVO } from "../../domain/shared/vo/identifier";
 import type { ExerciseIdVO } from "../../domain/shared/vo/identifier";
 import { type WorkoutSetUpdateProps, WorkoutSet } from "../../domain/workout/entities/workout-set.entity";
@@ -51,7 +52,10 @@ export interface AddWorkoutSetCommand { // 新しいコマンドインターフ�
 }
 
 export class WorkoutService {
-  constructor(private readonly workoutSetRepository: IWorkoutSetRepository) {} // workoutSessionRepository を workoutSetRepository にリネーム
+  constructor(
+    private readonly workoutSetRepository: IWorkoutSetRepository,
+    private readonly exerciseUsageRepository: IExerciseUsageRepository
+  ) {}
 
   async addWorkoutSet(command: AddWorkoutSetCommand): Promise<WorkoutSetDto> { // 新しいメソッド
     let addedSet: WorkoutSet;
@@ -159,5 +163,27 @@ export class WorkoutService {
     }
 
     await this.workoutSetRepository.deleteSet(setIdVo, userIdVo); // workoutSetRepository を使用
+  }
+
+  // 新しいメソッド: recordExerciseUsage
+  async recordExerciseUsage(userId: UserIdVO, exerciseId: ExerciseIdVO, performedAt: Date): Promise<void> {
+    if (!this.exerciseUsageRepository) {
+      // exerciseUsageRepository がDIされていなければエラーまたはログを出力
+      // 通常はコンストラクタで必須とするため、このチェックは不要かもしれないが念のため
+      console.error("ExerciseUsageRepository not injected into WorkoutService.");
+      // ここでエラーをスローするか、処理をスキップするかは設計による
+      // throw new Error("ExerciseUsageRepository not configured");
+      return; // ここではスキップする
+    }
+    try {
+      // performedAt の日付部分のみを使用する（時刻は無視）
+      const performedDate = new Date(performedAt.getFullYear(), performedAt.getMonth(), performedAt.getDate());
+      await this.exerciseUsageRepository.recordUsage(userId, exerciseId, performedDate);
+    } catch (error) {
+      // ログ出力は行うが、このメソッドのエラーは呼び出し元に伝播させない設計も考えられる
+      // (ユーザー体験として、セットの追加が成功すれば利用履歴の記録失敗は致命的ではない場合)
+      console.error(`Error recording exercise usage for user ${userId.value} and exercise ${exerciseId.value} on ${performedAt.toISOString()}:`, error);
+      // throw error; // 必要に応じてエラーを再スロー
+    }
   }
 }
