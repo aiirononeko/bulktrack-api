@@ -34,9 +34,10 @@ export const deleteSetHttpHandler = async (c: Context<AppEnv>) => {
 
     const statsUpdater = c.var.statsUpdateService;
     const currentUserId = new UserIdVO(userId);
+    const performedAtDate = new Date();
     if (statsUpdater) {
       try {
-        await statsUpdater.updateStatsForUser(currentUserId);
+        await statsUpdater.updateStatsForUser(currentUserId, performedAtDate);
       } catch (statsError) {
         console.error(`Error updating dashboard stats after deleting set ${setId}:`, statsError);
       }

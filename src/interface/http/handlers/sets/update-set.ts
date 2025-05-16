@@ -76,9 +76,23 @@ export async function updateSetHttpHandler(
     // 統計更新処理の呼び出し
     const statsUpdater = c.var.statsUpdateService;
     const currentUserId = new UserIdVO(userIdString);
+    let performedAtForStats: Date;
+    if (updatedSetDto.performedAt) {
+      performedAtForStats = new Date(updatedSetDto.performedAt);
+      if (Number.isNaN(performedAtForStats.getTime())) {
+        // 不正な日付の場合は現在時刻でフォールバック
+        console.warn('Invalid performedAt from DTO, falling back to current time for stats.');
+        performedAtForStats = new Date();
+      }
+    } else {
+      // performedAt が DTO にない場合は現在時刻でフォールバック
+      console.warn('performedAt not found in DTO, falling back to current time for stats.');
+      performedAtForStats = new Date();
+    }
+
     if (statsUpdater) {
       try {
-        await statsUpdater.updateStatsForUser(currentUserId);
+        await statsUpdater.updateStatsForUser(currentUserId, performedAtForStats);
       } catch (statsError) {
         console.error(`Error updating dashboard stats after updating set ${setIdParam}:`, statsError);
         // ここでのエラーはメインのレスポンスに影響させない

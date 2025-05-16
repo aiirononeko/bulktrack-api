@@ -47,4 +47,25 @@ export function getISOWeekMondayString(dateInput: Date | string): string {
   
   return `${year}-${month}-${Mday}`;
 }
+
+/**
+ * Dateオブジェクトまたは日付文字列から、その日が含まれるISO週の日曜日の日付を
+ * 'YYYY-MM-DD' 形式の文字列で返します。
+ * @param dateInput Dateオブジェクトまたはパース可能な日付文字列
+ * @returns 'YYYY-MM-DD' 形式の日曜日の日付文字列
+ */
+export function getISOWeekSundayString(dateInput: Date | string): string {
+  const mondayString = getISOWeekMondayString(dateInput);
+  const monday = new Date(`${mondayString}T00:00:00Z`); // Ensure parsing as UTC date
+
+  const sunday = new Date(monday.valueOf());
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+
+  // Format to YYYY-MM-DD
+  const year = sunday.getUTCFullYear();
+  const month = (sunday.getUTCMonth() + 1).toString().padStart(2, '0');
+  const day = sunday.getUTCDate().toString().padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
   

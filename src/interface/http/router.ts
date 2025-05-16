@@ -338,7 +338,7 @@ setsRoutes.post("/", async (c) => {
     const currentUserId = new UserIdVO(userId); // UserIdVOインスタンスを生成
     if (statsUpdater) {
       try {
-        await statsUpdater.updateStatsForUser(currentUserId);
+        await statsUpdater.updateStatsForUser(currentUserId, performedAtDate);
       } catch (statsError) {
         console.error("Error updating dashboard stats after adding set:", statsError);
         // ここでのエラーはメインのレスポンスに影響させない（ログ出力に留める）
