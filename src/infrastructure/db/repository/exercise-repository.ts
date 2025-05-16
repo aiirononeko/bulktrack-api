@@ -130,21 +130,28 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
       return [];
     }
 
-    // FTSクエリ整形: 設計案通りスペース区切りでAND検索、各単語に前方一致の '*' を付与
-    const keywords = query
-      .trim()
-      .toLowerCase() // FTSテーブルのtextは小文字で格納する想定
-      .split(/\s+/)
-      .filter(k => k.length > 0) // 空のキーワードを除去
-      .map((k) => `${k}*`)
+    // FTS特殊文字のサニタイズ: " ' - * ( ) : など FTSクエリで問題を起こしうる文字をスペースに置換
+    // アスタリスクは前方一致で後から付加するので、入力からは除去する。
+    // ハイフンも除去対象とする（例: "barbell-row" -> "barbell row" のようにしたい場合）。
+    // 句読点などは unicode61 トークナイザがある程度処理してくれるが、明示的に対処する。
+    const sanitizedQuery = query
+    .trim()
+    .toLowerCase()
+    // 英数字、ひらがな、カタカナ、漢字、スペース以外の文字をスペースに置換
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ');
+
+    const keywords = sanitizedQuery
+      .split(/\s+/) // 1つ以上の空白文字で区切る
+      .filter(k => k.length > 0) // 空のキーワードを除去 (サニタイズの結果空になる場合もある)
+      .map((k) => `${k}*`) // 各キーワードに前方一致演算子を追加
       .join(' AND ');
 
-    if (!keywords) { // split や filter の結果、実質的なキーワードがなければ検索しない
-        console.debug('[ExerciseRepository.search_FTS] No effective keywords after processing. Returning empty array.');
+    if (!keywords) {
+        console.debug('[ExerciseRepository.search_FTS] No effective keywords after sanitizing and processing. Returning empty array.');
         return [];
     }
 
-    console.debug(`[ExerciseRepository.search_FTS] Executing FTS query with keywords: "${keywords}", for locale: "${locale}" (and 'unknown')`);
+    console.debug(`[ExerciseRepository.search_FTS] Sanitized query: "${sanitizedQuery}", Executing FTS query with keywords: "${keywords}", for locale: "${locale}" (and 'unknown')`);
 
     // 検索対象のロケール: 指定されたロケールと、canonical_nameのみを格納する 'unknown'
     const targetLocales = [locale, 'unknown'];
@@ -227,14 +234,35 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
 
     const mappedExercises = this.mapDbRowsToExerciseEntities(fullExerciseDataRows);
     
-    // FTSで見つかった順序 (スコア順) を尊重するために、mappedExercises をソートし直す
+    if (exerciseIds.length === 0 && mappedExercises.length > 0) {
+      // このケースは通常発生しないはず (FTSでIDが見つからなければmappedExercisesも空になる)
+      // しかし、念のためログを出してそのまま返す
+      console.warn('[ExerciseRepository.search_FTS] exerciseIds is empty, but mappedExercises is not. Returning mappedExercises as is.');
+      return mappedExercises;
+    }
+    if (mappedExercises.length === 0) { // FTSの結果があっても、詳細取得で0件になることはないはずだが、安全のため
+        return [];
+    }
+
+    // IDとその元の順序(インデックス)をMapに格納
+    const orderMap = new Map<string, number>();
+    exerciseIds.forEach((id, index) => {
+      orderMap.set(id, index);
+    });
+
     const sortedExercises = mappedExercises.sort((a, b) => {
-      const aIndex = exerciseIds.indexOf(a.id.value); // a.id は ExerciseIdVO なので .value で文字列ID取得
-      const bIndex = exerciseIds.indexOf(b.id.value);
-      return aIndex - bIndex;
+      const orderA = orderMap.get(a.id.value); // a.id は ExerciseIdVO
+      const orderB = orderMap.get(b.id.value); // b.id は ExerciseIdVO
+
+      // orderMap にIDが存在しないケースは原則ありえないが、万が一を考慮
+      if (orderA === undefined && orderB === undefined) return 0;
+      if (orderA === undefined) return 1; // orderA がないものを後ろへ
+      if (orderB === undefined) return -1; // orderB がないものを後ろへ (orderAはあるので a が先)
+
+      return orderA - orderB;
     });
     
-    console.debug(`[ExerciseRepository.search_FTS] Returning ${sortedExercises.length} exercises after mapping and FTS sorting.`);
+    console.debug(`[ExerciseRepository.search_FTS] Returning ${sortedExercises.length} exercises after mapping and FTS-order sorting.`);
     return sortedExercises;
   }
 

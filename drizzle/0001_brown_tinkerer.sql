@@ -119,3 +119,32 @@ FROM exercises e
 WHERE NOT EXISTS (
     SELECT 1 FROM exercise_translations et WHERE et.exercise_id = e.id
 );
+
+-- trg_exercise_fts_after_update_exercise の修正
+-- まず既存のトリガーを削除 (名前が同じなら不要だが、安全のため)
+DROP TRIGGER IF EXISTS trg_exercise_fts_after_update_exercise;
+DROP TRIGGER IF EXISTS trg_exercise_fts_after_update_exercise_new; -- もし前回の修正でこの名前で作っていたら
+
+-- 新しいDELETE -> INSERT戦略のトリガーを作成
+CREATE TRIGGER trg_exercise_fts_after_update_exercise
+AFTER UPDATE ON exercises
+WHEN old.canonical_name IS NOT new.canonical_name
+BEGIN
+  -- 1. 当該exercise_idのFTSエントリを全て削除
+  DELETE FROM exercises_fts WHERE exercise_id = new.id;
+
+  -- 2. 翻訳情報を元に、更新後のcanonical_nameと結合してFTSエントリを再挿入
+  INSERT INTO exercises_fts(exercise_id, locale, text)
+  SELECT
+    t.exercise_id,
+    t.locale,
+    lower(new.canonical_name || ' ' || COALESCE(t.name, '') || ' ' || COALESCE(t.aliases, ''))
+  FROM exercise_translations t
+  WHERE t.exercise_id = new.id;
+
+  -- 3. もし上記INSERTで翻訳ベースのエントリが1つも入らなかった場合 (翻訳が存在しない場合) のみ、
+  --    更新後のcanonical_nameで 'unknown' ロケールのFTSエントリを挿入
+  INSERT INTO exercises_fts(rowid, exercise_id, locale, text)
+  SELECT new.rowid, new.id, 'unknown', lower(new.canonical_name)
+  WHERE NOT EXISTS (SELECT 1 FROM exercises_fts fts WHERE fts.exercise_id = new.id);
+END;
