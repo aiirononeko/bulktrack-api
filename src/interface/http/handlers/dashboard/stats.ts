@@ -79,7 +79,7 @@ function calculateDateRangeFromSpan(span: string): { startDate: string, endDate:
   endDateForPeriod.setDate(endDateForPeriod.getDate() + 6); // End of current week (Sunday)
 
   let weeksToSubtract = 1; // Default to 1w
-  const spanMatch = /(\\d+)w/.exec(span);
+  const spanMatch = /(\d+)w/.exec(span);
   if (spanMatch?.[1]) {
     weeksToSubtract = Number.parseInt(spanMatch[1], 10);
   }
@@ -210,8 +210,21 @@ dashboardStatsApp.get('/', /* authenticate, */ async (c) => { // authenticate wi
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
-    const { startDate, endDate, metricKeys: metricKeysQuery } = c.req.query();
+    // 'period' または 'span' クエリパラメータを取得し、それに基づいて日付範囲を計算
+    const periodOrSpanQuery = c.req.query('period') || c.req.query('span');
+    const requestedSpan = periodOrSpanQuery || '1w'; // APIレスポンスで使用するspan
+
+    let queryStartDate = c.req.query('startDate');
+    let queryEndDate = c.req.query('endDate');
+
+    if (periodOrSpanQuery && (!queryStartDate || !queryEndDate)) {
+      // period/span が指定されていて、かつ startDate/endDate が直接指定されていない場合、日付範囲を計算
+      const range = calculateDateRangeFromSpan(periodOrSpanQuery);
+      queryStartDate = range.startDate;
+      queryEndDate = range.endDate;
+    }
     
+    const { metricKeys: metricKeysQuery } = c.req.query();
     let metricKeys: string[] | undefined;
     if (typeof metricKeysQuery === 'string' && metricKeysQuery.trim() !== '') {
       metricKeys = metricKeysQuery.split(',').map(k => k.trim()).filter(k => k !== '');
@@ -220,7 +233,7 @@ dashboardStatsApp.get('/', /* authenticate, */ async (c) => { // authenticate wi
         if (metricKeys.length === 0) metricKeys = undefined;
     }
 
-    const query = new GetDashboardDataQuery(userId, startDate, endDate, metricKeys);
+    const query = new GetDashboardDataQuery(userId, queryStartDate, queryEndDate, metricKeys);
     
     // dashboardQueryHandler should be populated by DI middleware in router.ts
     // The type for c.var.dashboardQueryHandler will come from AppEnv in router.ts.
@@ -234,7 +247,7 @@ dashboardStatsApp.get('/', /* authenticate, */ async (c) => { // authenticate wi
     const dashboardDto: DashboardDataDto = await handler.execute(query);
 
     // Map DTO to the OpenAPI response structure
-    const responsePayload: DashboardResponse = mapDtoToResponse(dashboardDto, userId, c.req.query('span') || '1w');
+    const responsePayload: DashboardResponse = mapDtoToResponse(dashboardDto, userId, requestedSpan);
 
     return c.json(responsePayload);
   } catch (error) {
