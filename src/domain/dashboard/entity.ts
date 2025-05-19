@@ -27,8 +27,13 @@ export type WeeklyUserMuscleVolume = {
   muscleId: MuscleIdVO;
   /** 部位名 (リポジトリ層でmusclesテーブルからJOINして取得することを想定) */
   muscleName?: string; // Optional as it might be joined
+  muscleGroupId?: number; // 追加: 紐づくmuscle_groups.id
+  muscleGroupName?: string; // 追加: 紐づくmuscle_groups.name
   /** その部位のその週の総トレーニングボリューム (例: Σ(weight * reps * tension_ratio)) */
   volume: number;
+  setCount: number;
+  e1rmSum: number;
+  e1rmCount: number;
   /** 更新日時 */
   updatedAt: Date;
 };

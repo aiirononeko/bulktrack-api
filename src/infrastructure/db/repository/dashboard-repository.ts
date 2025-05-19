@@ -53,24 +53,35 @@ export class DashboardRepository implements IDashboardRepository {
         weekStart: schema.weeklyUserMuscleVolumes.weekStart,
         muscleId: schema.weeklyUserMuscleVolumes.muscleId,
         muscleName: schema.muscles.name,
+        muscleGroupId: schema.muscles.muscleGroupId,
+        muscleGroupName: schema.muscleGroups.name,
         volume: schema.weeklyUserMuscleVolumes.volume,
+        setCount: schema.weeklyUserMuscleVolumes.setCount,
+        e1rmSum: schema.weeklyUserMuscleVolumes.e1rmSum,
+        e1rmCount: schema.weeklyUserMuscleVolumes.e1rmCount,
         updatedAt: schema.weeklyUserMuscleVolumes.updatedAt,
       })
       .from(schema.weeklyUserMuscleVolumes)
       .leftJoin(schema.muscles, eq(schema.weeklyUserMuscleVolumes.muscleId, schema.muscles.id))
+      .leftJoin(schema.muscleGroups, eq(schema.muscles.muscleGroupId, schema.muscleGroups.id))
       .where(and(...conditions))
-      .orderBy(desc(schema.weeklyUserMuscleVolumes.weekStart), schema.muscles.name);
+      .orderBy(desc(schema.weeklyUserMuscleVolumes.weekStart), schema.muscleGroups.name, schema.muscles.name);
 
     return results.map((r) => {
-      if (r.userId === null || r.weekStart === null || r.muscleId === null || r.volume === null || r.updatedAt === null) {
+      if (r.userId === null || r.weekStart === null || r.muscleId === null || r.volume === null || r.updatedAt === null || r.setCount === null || r.e1rmSum === null || r.e1rmCount === null) {
         throw new Error("Unexpected null value in weeklyUserMuscleVolumes join result");
       }
       return {
         userId: new UserIdVO(r.userId),
         weekStart: r.weekStart,
         muscleId: MuscleIdVO.create(r.muscleId),
-        muscleName: r.muscleName || undefined, // muscleName can be null from leftJoin
+        muscleName: r.muscleName || undefined,
+        muscleGroupId: r.muscleGroupId || undefined,
+        muscleGroupName: r.muscleGroupName || undefined,
         volume: r.volume,
+        setCount: r.setCount,
+        e1rmSum: r.e1rmSum,
+        e1rmCount: r.e1rmCount,
         updatedAt: new Date(r.updatedAt),
       };
     });
@@ -138,16 +149,22 @@ export class DashboardRepository implements IDashboardRepository {
         weekStart: schema.weeklyUserMuscleVolumes.weekStart,
         muscleId: schema.weeklyUserMuscleVolumes.muscleId,
         muscleName: schema.muscles.name,
+        muscleGroupId: schema.muscles.muscleGroupId,
+        muscleGroupName: schema.muscleGroups.name,
         volume: schema.weeklyUserMuscleVolumes.volume,
+        setCount: schema.weeklyUserMuscleVolumes.setCount,
+        e1rmSum: schema.weeklyUserMuscleVolumes.e1rmSum,
+        e1rmCount: schema.weeklyUserMuscleVolumes.e1rmCount,
         updatedAt: schema.weeklyUserMuscleVolumes.updatedAt,
       })
       .from(schema.weeklyUserMuscleVolumes)
       .leftJoin(schema.muscles, eq(schema.weeklyUserMuscleVolumes.muscleId, schema.muscles.id))
+      .leftJoin(schema.muscleGroups, eq(schema.muscles.muscleGroupId, schema.muscleGroups.id))
       .where(and(eq(schema.weeklyUserMuscleVolumes.userId, userId.value), eq(schema.weeklyUserMuscleVolumes.weekStart, currentWeekStart)))
-      .orderBy(schema.muscles.name);
+      .orderBy(schema.muscleGroups.name, schema.muscles.name);
 
     return results.map((r) => {
-      if (r.userId === null || r.weekStart === null || r.muscleId === null || r.volume === null || r.updatedAt === null) {
+      if (r.userId === null || r.weekStart === null || r.muscleId === null || r.volume === null || r.updatedAt === null || r.setCount === null || r.e1rmSum === null || r.e1rmCount === null) {
         throw new Error("Unexpected null value in currentWeeklyUserMuscleVolumes join result");
       }
       return {
@@ -155,7 +172,12 @@ export class DashboardRepository implements IDashboardRepository {
         weekStart: r.weekStart,
         muscleId: MuscleIdVO.create(r.muscleId),
         muscleName: r.muscleName || undefined,
+        muscleGroupId: r.muscleGroupId || undefined,
+        muscleGroupName: r.muscleGroupName || undefined,
         volume: r.volume,
+        setCount: r.setCount,
+        e1rmSum: r.e1rmSum,
+        e1rmCount: r.e1rmCount,
         updatedAt: new Date(r.updatedAt),
       };
     });

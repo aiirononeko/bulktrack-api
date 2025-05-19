@@ -14,8 +14,10 @@ CREATE TABLE `exercise_modifier_values` (
 	CONSTRAINT "ck_rel_share_multiplier" CHECK("exercise_modifier_values"."rel_share_multiplier" >= 0 AND "exercise_modifier_values"."rel_share_multiplier" <= 2)
 );
 --> statement-breakpoint
-CREATE INDEX `idx_mod_exercise` ON `exercise_modifier_values` (`exercise_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `unq_emv_eid_mid_vkey` ON `exercise_modifier_values` (`exercise_id`,`modifier_id`,`value_key`);--> statement-breakpoint
+CREATE INDEX `idx_mod_exercise` ON `exercise_modifier_values` (`exercise_id`);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `unq_emv_eid_mid_vkey` ON `exercise_modifier_values` (`exercise_id`,`modifier_id`,`value_key`);
+--> statement-breakpoint
 CREATE TABLE `exercise_muscles` (
 	`exercise_id` text NOT NULL,
 	`muscle_id` integer NOT NULL,
@@ -30,8 +32,10 @@ CREATE TABLE `exercise_muscles` (
 	CONSTRAINT "ck_relative_share" CHECK("exercise_muscles"."relative_share" >= 0 AND "exercise_muscles"."relative_share" <= 1000)
 );
 --> statement-breakpoint
-CREATE INDEX `idx_exercise_muscles_muscle` ON `exercise_muscles` (`muscle_id`);--> statement-breakpoint
-CREATE INDEX `idx_muscles_exercise` ON `exercise_muscles` (`exercise_id`);--> statement-breakpoint
+CREATE INDEX `idx_exercise_muscles_muscle` ON `exercise_muscles` (`muscle_id`);
+--> statement-breakpoint
+CREATE INDEX `idx_muscles_exercise` ON `exercise_muscles` (`exercise_id`);
+--> statement-breakpoint
 CREATE TABLE `exercise_sources` (
 	`id` text PRIMARY KEY NOT NULL,
 	`title` text NOT NULL,
@@ -102,14 +106,16 @@ CREATE TABLE `modifiers` (
 	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `modifiers_key_unique` ON `modifiers` (`key`);--> statement-breakpoint
+CREATE UNIQUE INDEX `modifiers_key_unique` ON `modifiers` (`key`);
+--> statement-breakpoint
 CREATE TABLE `muscle_groups` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,
 	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `muscle_groups_name_unique` ON `muscle_groups` (`name`);--> statement-breakpoint
+CREATE UNIQUE INDEX `muscle_groups_name_unique` ON `muscle_groups` (`name`);
+--> statement-breakpoint
 CREATE TABLE `muscles` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,
@@ -119,7 +125,8 @@ CREATE TABLE `muscles` (
 	FOREIGN KEY (`muscle_group_id`) REFERENCES `muscle_groups`(`id`) ON UPDATE cascade ON DELETE no action
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `muscles_name_unique` ON `muscles` (`name`);--> statement-breakpoint
+CREATE UNIQUE INDEX `muscles_name_unique` ON `muscles` (`name`);
+--> statement-breakpoint
 CREATE TABLE `user_devices` (
 	`device_id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -146,7 +153,8 @@ CREATE TABLE `weekly_user_metrics` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE cascade ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE INDEX `idx_wum_user_week_metric` ON `weekly_user_metrics` (`user_id`,`week_start`);--> statement-breakpoint
+CREATE INDEX `idx_wum_user_week_metric` ON `weekly_user_metrics` (`user_id`,`week_start`);
+--> statement-breakpoint
 CREATE TABLE `weekly_user_muscle_volumes` (
 	`user_id` text NOT NULL,
 	`week_start` text NOT NULL,
@@ -158,7 +166,8 @@ CREATE TABLE `weekly_user_muscle_volumes` (
 	FOREIGN KEY (`muscle_id`) REFERENCES `muscles`(`id`) ON UPDATE cascade ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE INDEX `idx_weekly_umv` ON `weekly_user_muscle_volumes` (`user_id`,`week_start`);--> statement-breakpoint
+CREATE INDEX `idx_weekly_umv` ON `weekly_user_muscle_volumes` (`user_id`,`week_start`);
+--> statement-breakpoint
 CREATE TABLE `weekly_user_volumes` (
 	`user_id` text NOT NULL,
 	`week_start` text NOT NULL,
@@ -170,7 +179,8 @@ CREATE TABLE `weekly_user_volumes` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE cascade ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE INDEX `idx_weekly_uv_user_week` ON `weekly_user_volumes` (`user_id`,`week_start`);--> statement-breakpoint
+CREATE INDEX `idx_weekly_uv_user_week` ON `weekly_user_volumes` (`user_id`,`week_start`);
+--> statement-breakpoint
 CREATE TABLE `workout_sets` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -190,42 +200,9 @@ CREATE TABLE `workout_sets` (
 	CONSTRAINT "ck_rpe_range" CHECK("workout_sets"."rpe" >= 1 AND "workout_sets"."rpe" <= 10)
 );
 --> statement-breakpoint
-CREATE INDEX `idx_sets_exercise_rec` ON `workout_sets` (`user_id`,`exercise_id`,`created_at`);--> statement-breakpoint
+CREATE INDEX `idx_sets_exercise_rec` ON `workout_sets` (`user_id`,`exercise_id`,`created_at`);
+--> statement-breakpoint
 CREATE INDEX `idx_sets_user_performed_at` ON `workout_sets` (`user_id`,`performed_at`);
---> statement-breakpoint
-CREATE TRIGGER trg_exercise_muscles_relative_share_insert
-BEFORE INSERT ON exercise_muscles
-FOR EACH ROW
-WHEN (SELECT COALESCE(SUM(relative_share),0) FROM exercise_muscles
-      WHERE exercise_id = NEW.exercise_id) + NEW.relative_share > 1000
-BEGIN
-  SELECT RAISE(ABORT,
-    'relative_share sum would exceed 1000. Insert aborted.');
-END;
---> statement-breakpoint
-CREATE TRIGGER trg_exercise_muscles_relative_share_update
-BEFORE UPDATE OF relative_share ON exercise_muscles
-FOR EACH ROW
-WHEN (SELECT COALESCE(SUM(relative_share),0) - OLD.relative_share
-                       + NEW.relative_share
-      FROM exercise_muscles
-      WHERE exercise_id = NEW.exercise_id) > 1000
-BEGIN
-  SELECT RAISE(ABORT,
-    'relative_share sum would exceed 1000. Update aborted.');
-END;
---> statement-breakpoint
-CREATE TRIGGER trg_exercise_muscles_relative_share_delete
-AFTER DELETE ON exercise_muscles
-FOR EACH ROW
-BEGIN
-	SELECT
-	CASE
-		-- Check only if there are remaining shares for the exercise_id
-		WHEN EXISTS (SELECT 1 FROM exercise_muscles WHERE exercise_id = OLD.exercise_id) AND (SELECT SUM(relative_share) FROM exercise_muscles WHERE exercise_id = OLD.exercise_id) <> 1000
-		THEN RAISE(ABORT, 'relative_share for a given exercise_id must sum to 1000 after delete if other shares exist')
-	END;
-END;
 --> statement-breakpoint
 CREATE VIRTUAL TABLE exercises_fts
 USING fts5(
@@ -236,3 +213,39 @@ USING fts5(
   tokenize = 'unicode61 remove_diacritics 2',
   prefix = '2 3 4'
 );
+--> statement-breakpoint
+CREATE TABLE `set_modifiers` (
+	`set_id` text NOT NULL,
+	`exercise_modifier_value_id` integer NOT NULL,
+	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	PRIMARY KEY(`set_id`, `exercise_modifier_value_id`),
+	FOREIGN KEY (`set_id`) REFERENCES `workout_sets`(`id`) ON UPDATE cascade ON DELETE cascade,
+	FOREIGN KEY (`exercise_modifier_value_id`) REFERENCES `exercise_modifier_values`(`id`) ON UPDATE cascade ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `idx_set_modifiers_set_id` ON `set_modifiers` (`set_id`);
+--> statement-breakpoint
+CREATE INDEX `idx_set_modifiers_emv_id` ON `set_modifiers` (`exercise_modifier_value_id`);
+--> statement-breakpoint
+ALTER TABLE `weekly_user_muscle_volumes` ADD `set_count` integer DEFAULT 0 NOT NULL;
+--> statement-breakpoint
+ALTER TABLE `weekly_user_muscle_volumes` ADD `e1rm_sum` real DEFAULT 0 NOT NULL;
+--> statement-breakpoint
+ALTER TABLE `weekly_user_muscle_volumes` ADD `e1rm_count` integer DEFAULT 0 NOT NULL;
+--> statement-breakpoint
+CREATE VIEW v_weekly_user_group_volumes AS
+    SELECT
+      w.user_id,
+      w.week_start,
+      mg.id AS muscle_group_id,
+      mg.name AS muscle_group_name,
+      SUM(w.volume) AS group_volume,
+      SUM(w.set_count) AS group_set_count
+    FROM weekly_user_muscle_volumes w
+    JOIN muscles m ON m.id = w.muscle_id
+    JOIN muscle_groups mg ON mg.id = m.muscle_group_id
+    GROUP BY
+      w.user_id,
+      w.week_start,
+      mg.id,
+      mg.name;

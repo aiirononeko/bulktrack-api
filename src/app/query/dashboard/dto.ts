@@ -18,7 +18,12 @@ export type WeeklyUserMuscleVolumeDto = {
   weekStart: string;
   muscleId: number;
   muscleName?: string;
+  muscleGroupId?: number;
+  muscleGroupName?: string;
   volume: number;
+  setCount: number;
+  e1rmSum: number;
+  e1rmCount: number;
   updatedAt: string; // ISO string representation of Date
 };
 

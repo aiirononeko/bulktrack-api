@@ -9,6 +9,7 @@ import type { DashboardDataDto, WeeklyUserVolumeDto, WeeklyUserMuscleVolumeDto, 
 // import type { IDashboardRepository } from '../../../../domain/dashboard/repository';
 // import { DashboardRepository } from '../../../../infrastructure/db/repository/dashboard-repository';
 // import { authenticate } from '../../middleware/auth'; // Assuming auth middleware
+import { getISOWeekMondayString as getUtilsIsoWeekMondayString } from '../../../../app/utils/date-utils';
 
 // The HonoEnv specific to this file can be removed if AppEnv from router.ts is accessible
 // or if Hono can infer it. For clarity, if AppEnv is not directly imported, 
@@ -25,14 +26,37 @@ const dashboardStatsApp = new Hono<AppEnv>();
 type WeekPoint = {
   weekStart: string; // YYYY-MM-DD
   totalVolume: number;
-  avgSetVolume?: number | null; // Made optional/nullable as per common usage, ensure alignment with strict OpenAPI spec
-  e1rmAvg?: number | null;    // Made optional/nullable
+  avgSetVolume?: number | null; 
+  e1rmAvg?: number | null;    
+  // ↓ MuscleSeriesのpointsでのみ使用するため、WeekPointの共通定義からは削除し、muscles.points作成時に直接追加する
+  // setCount?: number | null; 
+  // avgMuscleSetE1rm?: number | null; 
 };
 
-type MuscleSeries = {
-  muscleId: number;
-  name: string;
-  points: WeekPoint[];
+// MuscleSeriesのpointsで使用する型を別途定義も検討できるが、今回は WeekPoint にオプショナルで含める形を維持
+// 代わりに、muscles.points で使用するプロパティを明確にするため、muscles.pointsの型を拡張する
+// type MuscleWeekPoint = WeekPoint & { // MuscleWeekPoint は不要になるか、 MuscleGroupWeekPoint に改名
+//   setCount?: number | null;
+//   avgMuscleSetE1rm?: number | null;
+// };
+
+// type MuscleSeries = { // MuscleGroupSeries に改名
+//   muscleId: number;
+//   name: string;
+//   points: MuscleWeekPoint[]; 
+// };
+
+type MuscleGroupWeekPoint = {
+  weekStart: string; // YYYY-MM-DD
+  totalVolume: number; // グループの総ボリューム
+  setCount: number; // グループの総セット数
+  avgE1rm?: number | null; // グループの平均e1RM (e1rmSum / e1rmCount)
+};
+
+type MuscleGroupSeries = {
+  muscleGroupId: number;
+  groupName: string;
+  points: MuscleGroupWeekPoint[];
 };
 
 type MetricPoint = {
@@ -52,54 +76,58 @@ type DashboardResponse = {
   thisWeek: WeekPoint;
   lastWeek: WeekPoint;
   trend: WeekPoint[];
-  muscles: MuscleSeries[];
+  muscleGroups: MuscleGroupSeries[];
   metrics: MetricSeries[];
 };
 // --- End OpenAPI Response Type Definitions ---
 
 // --- Helper Functions ---
-function getWeekStartDate(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay(); // Sunday - Saturday : 0 - 6
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0); // Normalize to start of day
-  return d;
-}
+// getWeekStartDate 関数は date-utils の getISOWeekMondayString を使うため削除
+// function getWeekStartDate(date: Date): Date {
+//   const d = new Date(date);
+//   const day = d.getDay(); // Sunday - Saturday : 0 - 6
+//   const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+//   d.setDate(diff);
+//   d.setHours(0, 0, 0, 0); // Normalize to start of day
+//   return d;
+// }
 
-function getISODateString(date: Date): string {
-  return date.toISOString().split('T')[0];
-}
+// getISODateString も date-utils の getISOWeekMondayString が YYYY-MM-DD 文字列を返すので、用途によっては不要になる
+// function getISODateString(date: Date): string {
+//   return date.toISOString().split('T')[0];
+// }
 
 function calculateDateRangeFromSpan(span: string): { startDate: string, endDate: string } {
   const now = new Date();
-  const currentWeekMonday = getWeekStartDate(now);
+  // const currentWeekMonday = getWeekStartDate(now); // 削除
+  const currentWeekMondayIsoString = getUtilsIsoWeekMondayString(now);
+  const currentWeekMonday = new Date(`${currentWeekMondayIsoString}T00:00:00Z`); // UTCとしてパース
 
-  const endDateForPeriod = new Date(currentWeekMonday);
-  endDateForPeriod.setDate(endDateForPeriod.getDate() + 6); // End of current week (Sunday)
+  const endDateForPeriod = new Date(currentWeekMonday.valueOf()); // valueOf() を使ってコピー
+  endDateForPeriod.setUTCDate(endDateForPeriod.getUTCDate() + 6); // End of current week (Sunday)
 
   let weeksToSubtract = 1; // Default to 1w
-  const spanMatch = /(\d+)w/.exec(span);
+  const spanMatch = /(\d+)w/.exec(span); // Corrected regex escape
   if (spanMatch?.[1]) {
     weeksToSubtract = Number.parseInt(spanMatch[1], 10);
   }
 
-  const startDateForPeriod = new Date(currentWeekMonday);
-  // To get a span of N weeks *including* the current week,
-  // we go back N-1 weeks from the start of the current week.
-  startDateForPeriod.setDate(startDateForPeriod.getDate() - (weeksToSubtract - 1) * 7);
+  const startDateForPeriod = new Date(currentWeekMonday.valueOf()); // valueOf() を使ってコピー
+  // startDateForPeriod.setUTCDate(startDateForPeriod.getUTCDate() - (weeksToSubtract - 1) * 7 * 24 * 60 * 60 * 1000); // UTCで日付操作
+  startDateForPeriod.setUTCDate(startDateForPeriod.getUTCDate() - (weeksToSubtract - 1) * 7); // Corrected: subtract days
 
   return {
-    startDate: getISODateString(startDateForPeriod),
-    endDate: getISODateString(endDateForPeriod), // This will be the end of the current week
+    startDate: getUtilsIsoWeekMondayString(startDateForPeriod), // YYYY-MM-DD文字列を直接使用
+    // endDate: getUtilsIsoWeekMondayString(endDateForPeriod), // YYYY-MM-DD文字列を直接使用
+    endDate: endDateForPeriod.toISOString().split('T')[0], // Corrected: Use the actual Sunday's date string
   };
 }
 
 function getPreviousWeekStartDateString(currentWeekStartStr: string): string {
-  const currentWeekStartDate = new Date(currentWeekStartStr);
-  const previousWeekStartDate = new Date(currentWeekStartDate);
-  previousWeekStartDate.setDate(previousWeekStartDate.getDate() - 7);
-  return getISODateString(previousWeekStartDate);
+  const currentWeekStartDate = new Date(`${currentWeekStartStr}T00:00:00Z`); // UTCとしてパース
+  const previousWeekStartDate = new Date(currentWeekStartDate.valueOf());
+  previousWeekStartDate.setUTCDate(previousWeekStartDate.getUTCDate() - 7);
+  return getUtilsIsoWeekMondayString(previousWeekStartDate); // YYYY-MM-DD文字列を直接使用
 }
 
 // --- End Helper Functions ---
@@ -110,8 +138,9 @@ function toWeekPoint(volumeDto?: WeeklyUserVolumeDto | null): WeekPoint | null {
   return {
     weekStart: volumeDto.weekStart,
     totalVolume: volumeDto.totalVolume,
-    avgSetVolume: volumeDto.avgSetVolume, // DTO has number, OpenAPI allows null
+    avgSetVolume: volumeDto.avgSetVolume, 
     e1rmAvg: volumeDto.e1rmAvg,
+    // setCount や avgMuscleSetE1rm はここでは設定しない
   };
 }
 
@@ -120,56 +149,97 @@ function mapDtoToResponse(
   userIdInput: string,
   requestedSpan: string
 ): DashboardResponse {
-  const currentIsoWeekStartDate = getISODateString(getWeekStartDate(new Date()));
+  // const currentIsoWeekStartDate = getISODateString(getWeekStartDate(new Date())); // 変更
+  const currentIsoWeekStartDate = getUtilsIsoWeekMondayString(new Date());
 
-  // thisWeek
-  const thisWeekData = dto.currentWeekSummary?.volumeStats;
-  const thisWeek: WeekPoint = toWeekPoint(thisWeekData) ?? {
+  // historicalWeeklyVolumes を一度 WeekPoint[] に変換し、ソートする (thisWeek, lastWeek, trend で共通利用)
+  const allWeeklyVolumePoints: WeekPoint[] = (dto.historicalWeeklyVolumes ?? [])
+    .map(toWeekPoint)
+    .filter((wp): wp is WeekPoint => wp !== null) // Type guard to filter out nulls
+    .sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime());
+
+  // thisWeek - allWeeklyVolumePoints から今週のデータを検索
+  const thisWeekDataFromAllVolumes = allWeeklyVolumePoints.find(t => t.weekStart === currentIsoWeekStartDate);
+  const thisWeek: WeekPoint = thisWeekDataFromAllVolumes ?? {
     weekStart: currentIsoWeekStartDate,
     totalVolume: 0,
     avgSetVolume: 0,
     e1rmAvg: null,
   };
 
-  // lastWeek
-  const lastWeekStartDateStr = getPreviousWeekStartDateString(thisWeek.weekStart);
-  const lastWeekDtoFromHistorical = (dto.historicalWeeklyVolumes ?? []).find(
+  // lastWeek - allWeeklyVolumePoints から先週のデータを検索
+  // const lastWeekStartDateStr = getPreviousWeekStartDateString(thisWeek.weekStart); // thisWeek.weekStartは上記で変動可能性あり
+  const lastWeekStartDateStr = getPreviousWeekStartDateString(currentIsoWeekStartDate); // currentIsoWeekStartDate を基準にする
+  const lastWeekDataFromAllVolumes = allWeeklyVolumePoints.find(
     (v) => v.weekStart === lastWeekStartDateStr
   );
-  const lastWeek: WeekPoint = toWeekPoint(lastWeekDtoFromHistorical) ?? {
+  const lastWeek: WeekPoint = lastWeekDataFromAllVolumes ?? {
     weekStart: lastWeekStartDateStr,
     totalVolume: 0,
     avgSetVolume: 0,
     e1rmAvg: null,
   };
 
-  // trend - Includes all historical data points, should align with the requested span.
-  // The DTO's historicalWeeklyVolumes should already be filtered by the span via the query handler.
-  const trend: WeekPoint[] = (dto.historicalWeeklyVolumes ?? [])
-    .map(toWeekPoint)
-    .filter((wp): wp is WeekPoint => wp !== null) // Type guard to filter out nulls
-    .sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime());
+  // trend - allWeeklyVolumePoints をそのまま使用
+  const trend: WeekPoint[] = allWeeklyVolumePoints;
 
-  // muscles
-  const musclesData: { [muscleId: number]: { name?: string, points: WeekPoint[] } } = {};
+  // muscles から muscleGroups に変更
+  const muscleGroupsData: { 
+    [groupId: number]: {
+      groupName?: string;
+      pointsMap: Map<string, { weekStart: string; totalVolume: number; setCount: number; e1rmSum: number; e1rmCount: number; }>;
+    };
+  } = {};
+
   for (const mVol of (dto.historicalWeeklyMuscleVolumes ?? [])) {
-    if (!musclesData[mVol.muscleId]) {
-      musclesData[mVol.muscleId] = { name: mVol.muscleName, points: [] };
+    if (mVol.muscleGroupId === undefined || mVol.muscleGroupId === null) continue; // muscleGroupId がないデータはスキップ
+
+    if (!muscleGroupsData[mVol.muscleGroupId]) {
+      muscleGroupsData[mVol.muscleGroupId] = {
+        groupName: mVol.muscleGroupName,
+        pointsMap: new Map()
+      };
     }
-    // For MuscleSeries, WeekPoint's avgSetVolume & e1rmAvg might not be directly available from WeeklyUserMuscleVolumeDto.
-    // Using 0/null as placeholders, as per earlier discussion.
-    musclesData[mVol.muscleId].points.push({
-      weekStart: mVol.weekStart,
-      totalVolume: mVol.volume,
-      avgSetVolume: 0, // Placeholder
-      e1rmAvg: null,   // Placeholder
-    });
+
+    let pointData = muscleGroupsData[mVol.muscleGroupId].pointsMap.get(mVol.weekStart);
+    if (!pointData) {
+      pointData = { 
+        weekStart: mVol.weekStart, 
+        totalVolume: 0, 
+        setCount: 0, 
+        e1rmSum: 0, 
+        e1rmCount: 0 
+      };
+    }
+
+    pointData.totalVolume += mVol.volume; // ボリュームは単純加算
+    pointData.setCount += mVol.setCount; // セット数も単純加算
+    pointData.e1rmSum += mVol.e1rmSum;
+    pointData.e1rmCount += mVol.e1rmCount;
+    
+    muscleGroupsData[mVol.muscleGroupId].pointsMap.set(mVol.weekStart, pointData);
   }
-  const muscles: MuscleSeries[] = Object.entries(musclesData).map(([id, data]) => ({
-    muscleId: Number.parseInt(id, 10),
-    name: data.name ?? 'Unknown Muscle',
-    points: data.points.sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime()),
-  }));
+
+  const muscleGroups: MuscleGroupSeries[] = Object.entries(muscleGroupsData).map(([id, data]) => {
+    const points: MuscleGroupWeekPoint[] = Array.from(data.pointsMap.values()).map(p => {
+      let avgE1rm: number | null = null;
+      if (p.e1rmCount > 0 && p.e1rmSum !== null) {
+        avgE1rm = Number.parseFloat((p.e1rmSum / p.e1rmCount).toFixed(2));
+      }
+      return {
+        weekStart: p.weekStart,
+        totalVolume: p.totalVolume,
+        setCount: p.setCount,
+        avgE1rm: avgE1rm,
+      };
+    }).sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime());
+    
+    return {
+      muscleGroupId: Number.parseInt(id, 10),
+      groupName: data.groupName ?? 'Unknown Muscle Group',
+      points: points,
+    };
+  });
 
   // metrics
   const metricsData: { [key: string]: { unit?: string | null, points: MetricPoint[] } } = {};
@@ -194,7 +264,7 @@ function mapDtoToResponse(
     thisWeek,
     lastWeek,
     trend,
-    muscles,
+    muscleGroups,
     metrics,
   };
 }

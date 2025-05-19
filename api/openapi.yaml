@@ -462,15 +462,24 @@ components:
         avgSetVolume: { type: number, example: 180 }
         e1rmAvg: { type: number, nullable: true, example: 110 }
 
-    MuscleSeries:
+    MuscleGroupSeries:
       type: object
-      required: [muscleId, name, points]
+      required: [muscleGroupId, groupName, points]
       properties:
-        muscleId: { type: integer }
-        name: { type: string }
+        muscleGroupId: { type: integer }
+        groupName: { type: string }
         points:
           type: array
-          items: { $ref: '#/components/schemas/WeekPoint' }
+          items: { $ref: '#/components/schemas/MuscleGroupWeekPoint' }
+
+    MuscleGroupWeekPoint:
+      type: object
+      required: [weekStart, totalVolume, setCount]
+      properties:
+        weekStart: { type: string, example: '2025-05-05' }
+        totalVolume: { type: number, example: 2500 }
+        setCount: { type: integer, example: 20 }
+        avgE1rm: { type: number, nullable: true, example: 80.0 }
 
     MetricSeries:
       type: object
@@ -489,7 +498,7 @@ components:
 
     DashboardResponse:
       type: object
-      required: [userId, span, thisWeek, lastWeek, trend, muscles, metrics]
+      required: [userId, span, thisWeek, lastWeek, trend, muscleGroups, metrics]
       properties:
         userId: { type: string, format: uuid }
         span: { type: string, example: 4w }
@@ -499,9 +508,9 @@ components:
           type: array
           items: { $ref: '#/components/schemas/WeekPoint' }
           description: Bar/line data for the requested span.
-        muscles:
+        muscleGroups:
           type: array
-          items: { $ref: '#/components/schemas/MuscleSeries' }
+          items: { $ref: '#/components/schemas/MuscleGroupSeries' }
         metrics:
           type: array
           items: { $ref: '#/components/schemas/MetricSeries' }

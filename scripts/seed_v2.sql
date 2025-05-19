@@ -72,14 +72,12 @@ INSERT INTO muscles(id,name,muscle_group_id) VALUES
 -- 3. Exercises（32 種）
 ------------------------------------------------------------
 INSERT INTO exercises(id,canonical_name,default_muscle_id,is_compound,is_official) VALUES
- -- Chest
  ('437c3738-b98d-4647-badf-2800da6653e8','Bench Press',102,1,1),
  ('62d5e1af-7c34-463b-8d3b-1c4d16fc5f77','Incline Bench Press 30°',101,1,1),
  ('d0f1c4c6-2700-47d9-a7ab-011e5e5b0001','Decline Bench Press',102,1,1),
  ('d0f1c4c6-2700-47d9-a7ab-011e5e5b0002','Push-up',102,1,1),
  ('2f1b44c9-1fcf-4db2-927e-5b1b6b14c539','Weighted Dip',102,1,1),
  ('a0b29be0-3a9e-4f57-8c93-34d9faebcdc9','Dumbbell Fly',102,0,1),
- -- Shoulders
  ('2504cbb2-7b95-4237-931d-c9ab080a1910','Overhead Press',301,1,1),
  ('ecc4d9e3-678b-4ba5-9df2-a2cdb9b741e5','Seated DB Shoulder Press',301,1,1),
  ('f3e67011-2f4f-444d-8e75-0b99c9000001','Arnold Press',301,1,1),
@@ -87,13 +85,11 @@ INSERT INTO exercises(id,canonical_name,default_muscle_id,is_compound,is_officia
  ('f3e67011-2f4f-444d-8e75-0b99c9000002','Cable Lateral Raise',302,0,1),
  ('67d80b5b-d3f4-4e58-9b95-3147d119c73a','Face Pull',303,1,1),
  ('f3e67011-2f4f-444d-8e75-0b99c9000003','Upright Row',301,1,1),
- -- Back
  ('4505171d-9d3d-4656-9947-e3fd7c57d4c5','Bent-Over Row',201,1,1),
  ('b61e9d06-49ba-4b22-af26-32cf9152e7c7','Seated Cable Row',202,1,1),
  ('f37f0c6f-bd6a-4df3-9d10-dae2db0e6d92','Lat Pulldown',201,1,1),
  ('14d4665b-6f3b-4c78-afb4-9a466a97a6d0','Pull-up',201,1,1),
  ('97a4ac5f-62e5-43ba-b618-12f7a4c0913e','Chin-up',201,1,1),
- -- Legs / Glutes
  ('3a60bb2d-48a0-4409-81c9-102999355d73','Back Squat',701,1,1),
  ('f8a76177-21a7-4db9-bf08-0d9e40000001','Front Squat',701,1,1),
  ('e21bd027-0b23-4d33-a6b0-29e2f878cd75','Barbell Deadlift',503,1,1),
@@ -104,13 +100,11 @@ INSERT INTO exercises(id,canonical_name,default_muscle_id,is_compound,is_officia
  ('2ef94be3-3f5e-45d1-95c4-67a21bcb88d5','Seated Leg Curl',702,0,1),
  ('6762571e-62af-4254-b260-043e496f8ea0','Standing Calf Raise',703,0,1),
  ('7fd0722e-3b4b-4dbc-a2df-538659168e49','Seated Calf Raise',704,0,1),
- -- Arms
  ('c352b06d-4aed-4cf9-9c4b-d3779542c56e','Barbell Curl',402,0,1),
  ('4f8e4523-053e-422c-8bed-6efa8b78c123','Dumbbell Curl',402,0,1),
  ('47062dbe-d70f-4477-9734-2bcd6c05e662','Incline Dumbbell Curl',402,0,1),
  ('5641b19d-1acf-4e59-8a00-bbde7077c8c1','Skull Crusher',401,0,1),
  ('f8a76177-21a7-4db9-bf08-0d9e40000002','Triceps Pushdown',401,0,1),
- -- Core
  ('d675c8f0-d542-4bfb-9de4-3772fe8a70be','Plank',501,0,1),
  ('47e2c2aa-5bce-44c7-9ec7-d596cb8f1791','Ab Wheel Rollout',501,1,1),
  ('28c69121-3ef7-49d2-bb5a-5a6cc9e04202','Russian Twist',502,0,1);
@@ -265,47 +259,47 @@ INSERT INTO exercise_muscles VALUES
 
 /* 4-1. Machine Chest Press ─ DOI:10.3390/app13085203 */
 INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id) VALUES
-  ('8d1c5c52-1111-4a1f-b111-1234567890ca', 102, 650, '10.3390/app13085203'), -- Pectoralis Major - Sternal
-  ('8d1c5c52-1111-4a1f-b111-1234567890ca', 401, 200, '10.3390/app13085203'), -- Triceps Brachii
-  ('8d1c5c52-1111-4a1f-b111-1234567890ca', 301, 150, '10.3390/app13085203'); -- Deltoid Anterior
+  ('8d1c5c52-1111-4a1f-b111-1234567890ca', 102, 650, '10.3390/app13085203'),
+  ('8d1c5c52-1111-4a1f-b111-1234567890ca', 401, 200, '10.3390/app13085203'),
+  ('8d1c5c52-1111-4a1f-b111-1234567890ca', 301, 150, '10.3390/app13085203');
 
 /* 4-2. Machine Shoulder Press ─ DOI:10.5604/17342260.1055261 */
 INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id) VALUES
-  ('b2e6a123-2222-4eef-b222-1234567890cb', 301, 600, '10.5604/17342260.1055261'), -- Deltoid Anterior
-  ('b2e6a123-2222-4eef-b222-1234567890cb', 401, 300, '10.5604/17342260.1055261'), -- Triceps Brachii
-  ('b2e6a123-2222-4eef-b222-1234567890cb', 203, 100, '10.5604/17342260.1055261'); -- Trapezius Upper
+  ('b2e6a123-2222-4eef-b222-1234567890cb', 301, 600, '10.5604/17342260.1055261'),
+  ('b2e6a123-2222-4eef-b222-1234567890cb', 401, 300, '10.5604/17342260.1055261'),
+  ('b2e6a123-2222-4eef-b222-1234567890cb', 203, 100, '10.5604/17342260.1055261');
 
 /* 4-3. Pec-Deck Fly ─ DOI:10.5604/17342260.1055261 */
 INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id) VALUES
-  ('f1a0d333-3333-4acd-b333-1234567890cc', 102, 800, '10.5604/17342260.1055261'), -- Pectoralis Major - Sternal
-  ('f1a0d333-3333-4acd-b333-1234567890cc', 301, 150, '10.5604/17342260.1055261'), -- Deltoid Anterior
-  ('f1a0d333-3333-4acd-b333-1234567890cc', 203,  50, '10.5604/17342260.1055261'); -- Trapezius Upper
+  ('f1a0d333-3333-4acd-b333-1234567890cc', 102, 800, '10.5604/17342260.1055261'),
+  ('f1a0d333-3333-4acd-b333-1234567890cc', 301, 150, '10.5604/17342260.1055261'),
+  ('f1a0d333-3333-4acd-b333-1234567890cc', 203,  50, '10.5604/17342260.1055261');
 
 /* 4-4. Cable Fly (Standing) ─ DOI:10.3390/app13085203 */
 INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id) VALUES
-  ('c5e7f444-4444-4bdf-b444-1234567890cd', 102, 750, '10.3390/app13085203'), -- Pectoralis Major - Sternal
-  ('c5e7f444-4444-4bdf-b444-1234567890cd', 301, 180, '10.3390/app13085203'), -- Deltoid Anterior
-  ('c5e7f444-4444-4bdf-b444-1234567890cd', 203,  70, '10.3390/app13085203'); -- Trapezius Upper
+  ('c5e7f444-4444-4bdf-b444-1234567890cd', 102, 750, '10.3390/app13085203'),
+  ('c5e7f444-4444-4bdf-b444-1234567890cd', 301, 180, '10.3390/app13085203'),
+  ('c5e7f444-4444-4bdf-b444-1234567890cd', 203,  70, '10.3390/app13085203');
 
 /* 4-5. Preacher Curl ─ DOI:10.1055/a-2517-0509 */
 INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id) VALUES
-  ('d6b8e555-5555-4ccf-b555-1234567890ce', 402, 850, '10.1055/a-2517-0509'), -- Biceps Brachii
-  ('d6b8e555-5555-4ccf-b555-1234567890ce', 403, 120, '10.1055/a-2517-0509'), -- Forearm Flex-Ext
-  ('d6b8e555-5555-4ccf-b555-1234567890ce', 301,  30, '10.1055/a-2517-0509'); -- Deltoid Anterior
+  ('d6b8e555-5555-4ccf-b555-1234567890ce', 402, 850, '10.1055/a-2517-0509'),
+  ('d6b8e555-5555-4ccf-b555-1234567890ce', 403, 120, '10.1055/a-2517-0509'),
+  ('d6b8e555-5555-4ccf-b555-1234567890ce', 301,  30, '10.1055/a-2517-0509');
 
 /* 4-6. Barbell Shoulder Press ─ DOI:10.5604/17342260.1055261 */
 INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id) VALUES
-  ('e9c9f666-6666-4def-b666-1234567890cf', 301, 550, '10.5604/17342260.1055261'), -- Deltoid Anterior
-  ('e9c9f666-6666-4def-b666-1234567890cf', 401, 300, '10.5604/17342260.1055261'), -- Triceps Brachii
-  ('e9c9f666-6666-4def-b666-1234567890cf', 203, 150, '10.5604/17342260.1055261'); -- Trapezius Upper
+  ('e9c9f666-6666-4def-b666-1234567890cf', 301, 550, '10.5604/17342260.1055261'),
+  ('e9c9f666-6666-4def-b666-1234567890cf', 401, 300, '10.5604/17342260.1055261'),
+  ('e9c9f666-6666-4def-b666-1234567890cf', 203, 150, '10.5604/17342260.1055261');
 
 ------------------------------------------------------------
 -- 5. Exercise translations (JP 主要 10 種のみ例示)
 ------------------------------------------------------------
 INSERT INTO exercise_translations VALUES
- ('437c3738-b98d-4647-badf-2800da6653e8','ja','ベンチプレス',''),
+ ('437c3738-b98d-4647-badf-2800da6653e8','ja','ベンチプレス','バーベルベンチプレス'),
  ('62d5e1af-7c34-463b-8d3b-1c4d16fc5f77','ja','インクラインベンチプレス',''),
- ('3a60bb2d-48a0-4409-81c9-102999355d73','ja','バックスクワット',''),
+ ('3a60bb2d-48a0-4409-81c9-102999355d73','ja','バックスクワット','スクワット'),
  ('e21bd027-0b23-4d33-a6b0-29e2f878cd75','ja','デッドリフト',''),
  ('2504cbb2-7b95-4237-931d-c9ab080a1910','ja','オーバーヘッドプレス','ショルダープレス'),
  ('14d4665b-6f3b-4c78-afb4-9a466a97a6d0','ja','プルアップ','懸垂'),
@@ -363,7 +357,7 @@ INSERT INTO exercise_translations VALUES
 
 -- Arms
 INSERT INTO exercise_translations VALUES
- ('4f8e4523-053e-422c-8bed-6efa8b78c123','ja','ダンベルカール','');
+ ('4f8e4523-053e-422c-8bed-6efa8b78c123','ja','ダンベルカール','アームカール');
 INSERT INTO exercise_translations VALUES
  ('47062dbe-d70f-4477-9734-2bcd6c05e662','ja','インクラインダンベルカール','');
 INSERT INTO exercise_translations VALUES

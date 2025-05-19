@@ -8,6 +8,13 @@
       "when": 1747647663060,
       "tag": "0000_strange_hawkeye",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1747660799268,
+      "tag": "0001_rainy_scorpion",
+      "breakpoints": true
     }
   ]
 }

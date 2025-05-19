@@ -345,6 +345,9 @@ export const weeklyUserMuscleVolumes = sqliteTable(
 
     // Σ(weight × reps × relativeShare) for that muscle
     volume: real("volume").notNull(),
+    setCount: integer("set_count").notNull().default(0),
+    e1rmSum: real("e1rm_sum").notNull().default(0),
+    e1rmCount: integer("e1rm_count").notNull().default(0),
 
     updatedAt: text("updated_at")
       .notNull()
@@ -379,6 +382,27 @@ export const weeklyUserMetrics = sqliteTable(
   (table) => ({
     pk: primaryKey({ columns: [table.userId, table.weekStart, table.metricKey] }),
     idxMetric: index("idx_wum_user_week_metric").on(table.userId, table.weekStart),
+  }),
+);
+
+// --------------------------------------------------
+// Intermediate table for Workout Sets and Exercise Modifiers
+// --------------------------------------------------
+export const setModifiers = sqliteTable(
+  "set_modifiers",
+  {
+    setId: text("set_id") // workout_sets.id
+      .notNull()
+      .references(() => workoutSets.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    exerciseModifierValueId: integer("exercise_modifier_value_id") // exercise_modifier_values.id
+      .notNull()
+      .references(() => exerciseModifierValues.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), // Optional
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.setId, table.exerciseModifierValueId] }),
+    idxSetId: index("idx_set_modifiers_set_id").on(table.setId),
+    idxExerciseModifierValueId: index("idx_set_modifiers_emv_id").on(table.exerciseModifierValueId),
   }),
 );
 
