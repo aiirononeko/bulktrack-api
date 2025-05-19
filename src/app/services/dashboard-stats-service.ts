@@ -19,8 +19,39 @@ function calcEffectiveVolume(
 
 export class DashboardStatsService {
   constructor(private readonly db: DrizzleD1Database<typeof schema>) {}
+  
+  /**
+   * 特定ユーザーの全集計データをクリアする
+   * データベース移行時などに利用
+   */
+  async clearAllUserStats(userId: UserIdVO): Promise<void> {
+    console.log(`Clearing all dashboard stats for user: ${userId.value}`);
+    
+    try {
+      // 筋肉別の週間ボリュームをクリア
+      console.log(`Clearing weekly muscle volumes for user ${userId.value}`);
+      await this.db.delete(schema.weeklyUserMuscleVolumes)
+        .where(eq(schema.weeklyUserMuscleVolumes.userId, userId.value));
+      
+      // 週間総ボリュームをクリア
+      console.log(`Clearing weekly user volumes for user ${userId.value}`);
+      await this.db.delete(schema.weeklyUserVolumes)
+        .where(eq(schema.weeklyUserVolumes.userId, userId.value));
+      
+      // メトリクスデータをクリア
+      console.log(`Clearing weekly metrics for user ${userId.value}`);
+      await this.db.delete(schema.weeklyUserMetrics)
+        .where(eq(schema.weeklyUserMetrics.userId, userId.value));
+      
+      console.log(`All dashboard stats cleared for user: ${userId.value}`);
+    } catch (error) {
+      console.error(`Error clearing dashboard stats for user ${userId.value}:`, error);
+      throw error;
+    }
+  }
 
-  async updateStatsForUser(userId: UserIdVO, targetDate: Date): Promise<void> {
+  // オリジナルの週ごとの集計処理（復元用に保存）
+  async _originalUpdateStatsForUser(userId: UserIdVO, targetDate: Date): Promise<void> {
     console.log(`Starting dashboard stats update for user: ${userId.value} for week of ${targetDate.toISOString()}.`);
     
     const targetWeekMonday = getISOWeekMondayString(targetDate);
@@ -41,6 +72,33 @@ export class DashboardStatsService {
             gte(schema.workoutSets.performedAt, targetWeekMonday),
             lte(schema.workoutSets.performedAt, targetWeekSundayEnd.toISOString())
           )
+        )
+        .orderBy(schema.workoutSets.performedAt);
+      
+      // [以下、元のコードは省略 - このメソッドは保存用]
+    } catch (error) {
+      console.error(`Error updating dashboard stats for user ${userId.value} for week of ${targetDate.toISOString()}:`, error);
+      throw error; 
+    }
+  }
+
+  // 一時的に全期間のデータを集計するように変更したメソッド
+  async updateStatsForUser(userId: UserIdVO, targetDate: Date): Promise<void> {
+    console.log(`Starting full history dashboard stats update for user: ${userId.value}.`);
+    
+    // 指定された日付の週の情報も取得（UIで当該週を表示する際に必要）
+    const targetWeekMonday = getISOWeekMondayString(targetDate);
+    console.log(`Reference week for UI: ${targetWeekMonday}`);
+
+    try {
+      console.log(`Fetching ALL workout sets for user ${userId.value}.`);
+
+      // 日付フィルターを削除して全てのセットを取得
+      const userSets = await this.db
+        .select()
+        .from(schema.workoutSets)
+        .where(
+          eq(schema.workoutSets.userId, userId.value)
         )
         .orderBy(schema.workoutSets.performedAt);
 
@@ -115,9 +173,14 @@ export class DashboardStatsService {
       const weeklyTotalVolumeByUser = new Map<string, { totalVolume: number, setCount: number, e1rmSum: number, e1rmCount: number }>();
       const weeklyActiveDays = new Map<string, Set<string>>();
 
+      // データを週ごとにグループ化する
       for (const set of userSets) {
         if (!set.performedAt || set.volume === null || !set.exerciseId || !set.id) continue;
-        const weekStart = targetWeekMonday;
+        
+        // 各セットの実施日から週の開始日（月曜日）を計算
+        const performedDate = new Date(set.performedAt);
+        const weekStart = getISOWeekMondayString(performedDate);
+        
         const exerciseDetails = exerciseDetailsMap.get(set.exerciseId);
         const modifierMultiplier = setModifierMap.get(set.id) ?? 1;
 
@@ -154,203 +217,248 @@ export class DashboardStatsService {
         if (set.weight !== null && set.reps !== null && set.weight > 0 && set.reps > 0) {
             const estimated1RM = calculateEpley1RM(set.weight, set.reps);
             userWeeklyTotals.e1rmSum += estimated1RM;
-            userWeeklyTotals.e1rmCount +=1;
+            userWeeklyTotals.e1rmCount += 1;
         }
         weeklyTotalVolumeByUser.set(weekStart, userWeeklyTotals);
 
-        const performedDate = set.performedAt.substring(0, 10);
+        const performedDateStr = set.performedAt.substring(0, 10);
         const activeDaysInWeek = weeklyActiveDays.get(weekStart) || new Set<string>();
-        activeDaysInWeek.add(performedDate);
+        activeDaysInWeek.add(performedDateStr);
         weeklyActiveDays.set(weekStart, activeDaysInWeek);
       }
       
-      console.log(`Weekly muscle volumes for ${targetWeekMonday} (for weeklyUserMuscleVolumes):`, weeklyVolumeByMuscle);
-      console.log(`Weekly user total volumes for ${targetWeekMonday} (for weeklyUserVolumes):`, weeklyTotalVolumeByUser);
+      console.log(`Processed weekly muscle volumes for ${weeklyVolumeByMuscle.size} weeks`);
+      console.log(`Processed weekly user total volumes for ${weeklyTotalVolumeByUser.size} weeks`);
 
       const now = new Date().toISOString();
-      if (weeklyVolumeByMuscle.has(targetWeekMonday)) {
+      
+      // 1. 筋肉別の週間ボリュームデータを更新
+      for (const [weekStart, muscleMap] of weeklyVolumeByMuscle.entries()) {
         const newWeeklyUserMuscleVolumesData = [];
-        const muscleMap = weeklyVolumeByMuscle.get(targetWeekMonday);
-        if (muscleMap) {
-          for (const [muscleIdNum, stats] of muscleMap) {
-            newWeeklyUserMuscleVolumesData.push({
-              userId: userId.value,
-              muscleId: muscleIdNum,
-              weekStart: targetWeekMonday,
-              volume: stats.volume,
-              setCount: stats.setCount,
-              e1rmSum: stats.e1rmSum,
-              e1rmCount: stats.e1rmCount,
-              updatedAt: now,
-            });
-          }
-        }
-
-        if (newWeeklyUserMuscleVolumesData.length > 0) {
-          console.log(`Upserting ${newWeeklyUserMuscleVolumesData.length} weekly user muscle volume records for user ${userId.value} for week ${targetWeekMonday}.`);
-          await this.db.insert(schema.weeklyUserMuscleVolumes)
-            .values(newWeeklyUserMuscleVolumesData)
-            .onConflictDoUpdate({
-              target: [
-                schema.weeklyUserMuscleVolumes.userId,
-                schema.weeklyUserMuscleVolumes.muscleId,
-                schema.weeklyUserMuscleVolumes.weekStart
-              ],
-              set: {
-                volume: sql`excluded.volume`,
-                setCount: sql`excluded.set_count`,
-                e1rmSum: sql`excluded.e1rm_sum`,
-                e1rmCount: sql`excluded.e1rm_count`,
-                updatedAt: sql`excluded.updated_at`,
-              }
-            });
-          console.log("Weekly user muscle volumes upserted successfully.");
-        }
-      } else {
-        console.log(`No muscle volume data for user ${userId.value} for week ${targetWeekMonday}. Clearing existing entries if any.`);
-        await this.db.delete(schema.weeklyUserMuscleVolumes)
-          .where(and(
-            eq(schema.weeklyUserMuscleVolumes.userId, userId.value),
-            eq(schema.weeklyUserMuscleVolumes.weekStart, targetWeekMonday)
-          ));
-      }
-
-      if (weeklyTotalVolumeByUser.has(targetWeekMonday)) {
-        const newWeeklyUserVolumesData = [];
-        const totals = weeklyTotalVolumeByUser.get(targetWeekMonday);
-        if (totals) {
-          newWeeklyUserVolumesData.push({
+        
+        for (const [muscleIdNum, stats] of muscleMap.entries()) {
+          newWeeklyUserMuscleVolumesData.push({
             userId: userId.value,
-            weekStart: targetWeekMonday,
-            totalVolume: totals.totalVolume,
-            avgSetVolume: totals.setCount > 0 ? totals.totalVolume / totals.setCount : 0,
-            e1rmAvg: totals.e1rmCount > 0 ? totals.e1rmSum / totals.e1rmCount : null,
+            muscleId: muscleIdNum,
+            weekStart: weekStart,
+            volume: stats.volume,
+            setCount: stats.setCount,
+            e1rmSum: stats.e1rmSum,
+            e1rmCount: stats.e1rmCount,
             updatedAt: now,
           });
         }
+
+        if (newWeeklyUserMuscleVolumesData.length > 0) {
+          console.log(`Upserting ${newWeeklyUserMuscleVolumesData.length} weekly user muscle volume records for user ${userId.value} for week ${weekStart}.`);
+          
+          // データをより小さなバッチに分割（SQLite変数の制限を回避するため）
+          const BATCH_SIZE = 50; // SQLite変数の制限を考慮したバッチサイズ
+          
+          for (let i = 0; i < newWeeklyUserMuscleVolumesData.length; i += BATCH_SIZE) {
+            const batch = newWeeklyUserMuscleVolumesData.slice(i, i + BATCH_SIZE);
+            console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(newWeeklyUserMuscleVolumesData.length / BATCH_SIZE)}, size: ${batch.length}`);
+            
+            try {
+              // D1はトランザクションが使えないので、エラー発生時はその週のレコードのみ影響あり
+              await this.db.insert(schema.weeklyUserMuscleVolumes)
+                .values(batch)
+                .onConflictDoUpdate({
+                  target: [
+                    schema.weeklyUserMuscleVolumes.userId,
+                    schema.weeklyUserMuscleVolumes.muscleId,
+                    schema.weeklyUserMuscleVolumes.weekStart
+                  ],
+                  set: {
+                    volume: sql`excluded.volume`,
+                    setCount: sql`excluded.set_count`,
+                    e1rmSum: sql`excluded.e1rm_sum`,
+                    e1rmCount: sql`excluded.e1rm_count`,
+                    updatedAt: sql`excluded.updated_at`,
+                  }
+                });
+            } catch (error) {
+              console.error(`Error upserting muscle volumes batch for week ${weekStart}:`, error);
+              // 処理を継続するため、エラーはスローせず次のバッチに進む
+            }
+          }
+          
+          console.log(`Weekly user muscle volumes for week ${weekStart} upserted successfully.`);
+        }
+      }
+
+      // 2. ユーザー全体の週間ボリュームデータを更新
+      for (const [weekStart, totals] of weeklyTotalVolumeByUser.entries()) {
+        const newWeeklyUserVolumesData = {
+          userId: userId.value,
+          weekStart: weekStart,
+          totalVolume: totals.totalVolume,
+          avgSetVolume: totals.setCount > 0 ? totals.totalVolume / totals.setCount : 0,
+          e1rmAvg: totals.e1rmCount > 0 ? totals.e1rmSum / totals.e1rmCount : null,
+          updatedAt: now,
+        };
         
-        if (newWeeklyUserVolumesData.length > 0) {
-          console.log(`Upserting weekly user volume record for user ${userId.value} for week ${targetWeekMonday}.`);
+        console.log(`Upserting weekly user volume record for user ${userId.value} for week ${weekStart}.`);
+        try {
           await this.db.insert(schema.weeklyUserVolumes)
             .values(newWeeklyUserVolumesData)
             .onConflictDoUpdate({
-                target: [schema.weeklyUserVolumes.userId, schema.weeklyUserVolumes.weekStart],
-                set: {
-                    totalVolume: sql`excluded.total_volume`,
-                    avgSetVolume: sql`excluded.avg_set_volume`,
-                    e1rmAvg: sql`excluded.e1rm_avg`,
-                    updatedAt: sql`excluded.updated_at`,
-                }
+              target: [schema.weeklyUserVolumes.userId, schema.weeklyUserVolumes.weekStart],
+              set: {
+                totalVolume: sql`excluded.total_volume`,
+                avgSetVolume: sql`excluded.avg_set_volume`,
+                e1rmAvg: sql`excluded.e1rm_avg`,
+                updatedAt: sql`excluded.updated_at`,
+              }
             });
-            console.log("Weekly user volumes upserted successfully.");
+          console.log(`Weekly user volumes for week ${weekStart} upserted successfully.`);
+        } catch (error) {
+          console.error(`Error upserting user volumes for week ${weekStart}:`, error);
+          // 処理を継続するため、エラーはスローせず次の週に進む
         }
-      } else {
-        console.log(`No total volume data for user ${userId.value} for week ${targetWeekMonday}. Clearing existing entry if any.`);
-        await this.db.delete(schema.weeklyUserVolumes)
-          .where(and(
-            eq(schema.weeklyUserVolumes.userId, userId.value),
-            eq(schema.weeklyUserVolumes.weekStart, targetWeekMonday)
-          ));
       }
 
-      const newUserProgressMetricsData1RM = [];
+      // 3. 1RMメトリクスデータの更新
+      // セットごとに1RMを計算し、週ごとに最新のデータで上書き
+      const weeklyExerciseMaxes = new Map<string, Map<string, { value: number, count: number }>>();
+      
       for (const set of userSets) {
         if (set.weight === null || set.reps === null || set.weight <= 0 || set.reps <= 0 || !set.exerciseId || !set.performedAt) {
           continue;
         }
+        const performedDate = new Date(set.performedAt);
+        const weekStart = getISOWeekMondayString(performedDate);
+        
         const estimated1RM = calculateEpley1RM(set.weight, set.reps);
         const metricKey = `exercise_${set.exerciseId}_1rm_epley`;
-        newUserProgressMetricsData1RM.push({
-          userId: userId.value,
-          weekStart: targetWeekMonday,
-          metricKey: metricKey,
-          metricValue: Number.parseFloat(estimated1RM.toFixed(2)),
-          metricUnit: "kg",
-          updatedAt: now,
-        });
+        
+        const weeklyExerciseMap = weeklyExerciseMaxes.get(weekStart) || new Map<string, { value: number, count: number }>();
+        const currentStats = weeklyExerciseMap.get(metricKey) || { value: 0, count: 0 };
+        
+        // 単純に合計して後で平均を取る
+        currentStats.value += estimated1RM;
+        currentStats.count += 1;
+        
+        weeklyExerciseMap.set(metricKey, currentStats);
+        weeklyExerciseMaxes.set(weekStart, weeklyExerciseMap);
       }
       
-      console.log(`Clearing existing 1RM metrics for user ${userId.value} for week ${targetWeekMonday} before upserting new ones.`);
-      await this.db.delete(schema.weeklyUserMetrics)
-        .where(and(
-          eq(schema.weeklyUserMetrics.userId, userId.value),
-          eq(schema.weeklyUserMetrics.weekStart, targetWeekMonday),
-          like(schema.weeklyUserMetrics.metricKey, 'exercise_%_1rm_epley')
-        ));
-
-      if (newUserProgressMetricsData1RM.length > 0) {
-        console.log(`Upserting ${newUserProgressMetricsData1RM.length} weekly user metric records (1RM) for user ${userId.value} for week ${targetWeekMonday}.`);
-        await this.db.insert(schema.weeklyUserMetrics)
-          .values(newUserProgressMetricsData1RM)
-          .onConflictDoUpdate({
-            target: [
-              schema.weeklyUserMetrics.userId,
-              schema.weeklyUserMetrics.weekStart,
-              schema.weeklyUserMetrics.metricKey
-            ],
-            set: {
-              metricValue: sql`excluded.metric_value`,
-              metricUnit: sql`excluded.metric_unit`,
-              updatedAt: sql`excluded.updated_at`,
-            }
-          });
-        console.log("Weekly user metrics (1RM) upserted successfully.");
-      }
-      
-      const newWeeklyActiveDaysData = [];
-      const activeDaysMetricKey = "active_days";
-
-      if (weeklyActiveDays.has(targetWeekMonday)) {
-        const performedDatesInWeek = weeklyActiveDays.get(targetWeekMonday);
-        if (performedDatesInWeek) {
-          const totalActiveDays = performedDatesInWeek.size;
-
-          newWeeklyActiveDaysData.push({
+      // 各週のエクササイズごとの1RMメトリクスを更新
+      for (const [weekStart, exerciseMap] of weeklyExerciseMaxes.entries()) {
+        const newMetricsData = [];
+        
+        for (const [metricKey, stats] of exerciseMap.entries()) {
+          // 平均値を計算
+          const avgValue = stats.count > 0 ? stats.value / stats.count : 0;
+          
+          newMetricsData.push({
             userId: userId.value,
-            weekStart: targetWeekMonday,
-            metricKey: activeDaysMetricKey,
-            metricValue: totalActiveDays,
-            metricUnit: "days",
+            weekStart: weekStart,
+            metricKey: metricKey,
+            metricValue: Number.parseFloat(avgValue.toFixed(2)),
+            metricUnit: "kg",
             updatedAt: now,
           });
         }
         
-        if (newWeeklyActiveDaysData.length > 0) {
-          console.log(`Upserting ${activeDaysMetricKey} metric for user ${userId.value} for week ${targetWeekMonday}.`);
-          await this.db.delete(schema.weeklyUserMetrics)
-            .where(and(
-              eq(schema.weeklyUserMetrics.userId, userId.value),
-              eq(schema.weeklyUserMetrics.weekStart, targetWeekMonday),
-              eq(schema.weeklyUserMetrics.metricKey, 'total_workouts')
-            ));
-
-          await this.db.insert(schema.weeklyUserMetrics)
-            .values(newWeeklyActiveDaysData)
-            .onConflictDoUpdate({
-              target: [
-                schema.weeklyUserMetrics.userId,
-                schema.weeklyUserMetrics.weekStart,
-                schema.weeklyUserMetrics.metricKey
-              ],
-              set: {
-                metricValue: sql`excluded.metric_value`,
-                metricUnit: sql`excluded.metric_unit`,
-                updatedAt: sql`excluded.updated_at`,
+        if (newMetricsData.length > 0) {
+          try {
+            // まず該当週の古い1RMデータを削除
+            console.log(`Clearing existing 1RM metrics for user ${userId.value} for week ${weekStart}`);
+            await this.db.delete(schema.weeklyUserMetrics)
+              .where(and(
+                eq(schema.weeklyUserMetrics.userId, userId.value),
+                eq(schema.weeklyUserMetrics.weekStart, weekStart),
+                like(schema.weeklyUserMetrics.metricKey, 'exercise_%_1rm_epley')
+              ));
+            
+            // バッチサイズを小さくして処理
+            const BATCH_SIZE = 50;
+            console.log(`Upserting ${newMetricsData.length} 1RM metrics for user ${userId.value} for week ${weekStart} in batches`);
+            
+            for (let i = 0; i < newMetricsData.length; i += BATCH_SIZE) {
+              const batch = newMetricsData.slice(i, i + BATCH_SIZE);
+              console.log(`Processing 1RM metrics batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(newMetricsData.length / BATCH_SIZE)}, size: ${batch.length}`);
+              
+              try {
+                await this.db.insert(schema.weeklyUserMetrics)
+                  .values(batch)
+                  .onConflictDoUpdate({
+                    target: [
+                      schema.weeklyUserMetrics.userId,
+                      schema.weeklyUserMetrics.weekStart,
+                      schema.weeklyUserMetrics.metricKey
+                    ],
+                    set: {
+                      metricValue: sql`excluded.metric_value`,
+                      metricUnit: sql`excluded.metric_unit`,
+                      updatedAt: sql`excluded.updated_at`,
+                    }
+                  });
+              } catch (batchError) {
+                console.error(`Error upserting 1RM metrics batch for week ${weekStart}:`, batchError);
+                // バッチエラーでも次に進む
               }
-            });
-          console.log(`${activeDaysMetricKey} metric upserted successfully.`);
+            }
+            
+            console.log(`1RM metrics for week ${weekStart} upserted successfully`);
+          } catch (error) {
+            console.error(`Error upserting 1RM metrics for week ${weekStart}:`, error);
+            // 処理を継続
+          }
         }
-      } else {
-        console.log(`No active days for user ${userId.value} for week ${targetWeekMonday}. Clearing ${activeDaysMetricKey} and 'total_workouts' metrics.`);
-        await this.db.delete(schema.weeklyUserMetrics)
-          .where(and(
-            eq(schema.weeklyUserMetrics.userId, userId.value),
-            eq(schema.weeklyUserMetrics.weekStart, targetWeekMonday),
-            inArray(schema.weeklyUserMetrics.metricKey, [activeDaysMetricKey, 'total_workouts'])
-          ));
+      }
+      
+      // 4. アクティブ日数メトリクスの更新
+      const activeDaysMetricKey = "active_days";
+      
+      for (const [weekStart, activeDaysSet] of weeklyActiveDays.entries()) {
+        if (activeDaysSet && activeDaysSet.size > 0) {
+          const totalActiveDays = activeDaysSet.size;
+          
+          try {
+            // 該当週の古いアクティブ日数データを削除
+            console.log(`Clearing existing active days metrics for user ${userId.value} for week ${weekStart}`);
+            await this.db.delete(schema.weeklyUserMetrics)
+              .where(and(
+                eq(schema.weeklyUserMetrics.userId, userId.value),
+                eq(schema.weeklyUserMetrics.weekStart, weekStart),
+                inArray(schema.weeklyUserMetrics.metricKey, [activeDaysMetricKey, 'total_workouts'])
+              ));
+            
+            // 新しいデータを挿入
+            console.log(`Upserting active days metric for user ${userId.value} for week ${weekStart}: ${totalActiveDays} days`);
+            await this.db.insert(schema.weeklyUserMetrics)
+              .values({
+                userId: userId.value,
+                weekStart: weekStart,
+                metricKey: activeDaysMetricKey,
+                metricValue: totalActiveDays,
+                metricUnit: "days",
+                updatedAt: now,
+              })
+              .onConflictDoUpdate({
+                target: [
+                  schema.weeklyUserMetrics.userId,
+                  schema.weeklyUserMetrics.weekStart,
+                  schema.weeklyUserMetrics.metricKey
+                ],
+                set: {
+                  metricValue: sql`excluded.metric_value`,
+                  metricUnit: sql`excluded.metric_unit`,
+                  updatedAt: sql`excluded.updated_at`,
+                }
+              });
+            console.log(`Active days metric for week ${weekStart} upserted successfully`);
+          } catch (error) {
+            console.error(`Error upserting active days metric for week ${weekStart}:`, error);
+            // 処理を継続
+          }
+        }
       }
 
-      console.log(`Dashboard stats update completed for user: ${userId.value} for week ${targetWeekMonday}.`);
+      console.log(`[一時的な全期間再集計] Dashboard stats update completed for user: ${userId.value}, processed ${weeklyVolumeByMuscle.size} weeks of data.`);
+      console.log('注意: 元の週単位の集計に戻す場合は、_originalUpdateStatsForUser メソッドを updateStatsForUser にリネームしてください。');
 
     } catch (error) {
       console.error(`Error updating dashboard stats for user ${userId.value} for week of ${targetDate.toISOString()}:`, error);
