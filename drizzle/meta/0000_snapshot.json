@@ -1,9 +1,145 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "341318fd-6850-4e95-b40f-88268625f7a8",
+  "id": "4b97fbe2-adcf-4316-8038-a5c220c5316e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
+    "exercise_modifier_values": {
+      "name": "exercise_modifier_values",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "exercise_id": {
+          "name": "exercise_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "modifier_id": {
+          "name": "modifier_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value_num": {
+          "name": "value_num",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "value_text": {
+          "name": "value_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "value_key": {
+          "name": "value_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "generated": {
+            "as": "(COALESCE(CAST(value_num AS TEXT), value_text))",
+            "type": "virtual"
+          }
+        },
+        "rel_share_multiplier": {
+          "name": "rel_share_multiplier",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "peak_emg_offset": {
+          "name": "peak_emg_offset",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "idx_mod_exercise": {
+          "name": "idx_mod_exercise",
+          "columns": [
+            "exercise_id"
+          ],
+          "isUnique": false
+        },
+        "unq_emv_eid_mid_vkey": {
+          "name": "unq_emv_eid_mid_vkey",
+          "columns": [
+            "exercise_id",
+            "modifier_id",
+            "value_key"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "exercise_modifier_values_exercise_id_exercises_id_fk": {
+          "name": "exercise_modifier_values_exercise_id_exercises_id_fk",
+          "tableFrom": "exercise_modifier_values",
+          "tableTo": "exercises",
+          "columnsFrom": [
+            "exercise_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
+        "exercise_modifier_values_modifier_id_modifiers_id_fk": {
+          "name": "exercise_modifier_values_modifier_id_modifiers_id_fk",
+          "tableFrom": "exercise_modifier_values",
+          "tableTo": "modifiers",
+          "columnsFrom": [
+            "modifier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "ck_rel_share_multiplier": {
+          "name": "ck_rel_share_multiplier",
+          "value": "\"exercise_modifier_values\".\"rel_share_multiplier\" >= 0 AND \"exercise_modifier_values\".\"rel_share_multiplier\" <= 2"
+        }
+      }
+    },
     "exercise_muscles": {
       "name": "exercise_muscles",
       "columns": {
@@ -21,15 +157,51 @@
           "notNull": true,
           "autoincrement": false
         },
-        "tension_ratio": {
-          "name": "tension_ratio",
-          "type": "real",
+        "relative_share": {
+          "name": "relative_share",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "peak_emg_pct": {
+          "name": "peak_emg_pct",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_exercise_muscles_muscle": {
+          "name": "idx_exercise_muscles_muscle",
+          "columns": [
+            "muscle_id"
+          ],
+          "isUnique": false
+        },
+        "idx_muscles_exercise": {
+          "name": "idx_muscles_exercise",
+          "columns": [
+            "exercise_id"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "exercise_muscles_exercise_id_exercises_id_fk": {
           "name": "exercise_muscles_exercise_id_exercises_id_fk",
@@ -56,6 +228,19 @@
           ],
           "onDelete": "no action",
           "onUpdate": "cascade"
+        },
+        "exercise_muscles_source_id_exercise_sources_id_fk": {
+          "name": "exercise_muscles_source_id_exercise_sources_id_fk",
+          "tableFrom": "exercise_muscles",
+          "tableTo": "exercise_sources",
+          "columnsFrom": [
+            "source_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "cascade"
         }
       },
       "compositePrimaryKeys": {
@@ -69,11 +254,64 @@
       },
       "uniqueConstraints": {},
       "checkConstraints": {
-        "ck_tension_ratio": {
-          "name": "ck_tension_ratio",
-          "value": "\"exercise_muscles\".\"tension_ratio\" >= 0 AND \"exercise_muscles\".\"tension_ratio\" <= 1"
+        "ck_relative_share": {
+          "name": "ck_relative_share",
+          "value": "\"exercise_muscles\".\"relative_share\" >= 0 AND \"exercise_muscles\".\"relative_share\" <= 1000"
         }
       }
+    },
+    "exercise_sources": {
+      "name": "exercise_sources",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "citation": {
+          "name": "citation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retrieved_at": {
+          "name": "retrieved_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     },
     "exercise_translations": {
       "name": "exercise_translations",
@@ -298,6 +536,44 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "exercises_fts": {
+      "name": "exercises_fts",
+      "columns": {
+        "exercise_id": {
+          "name": "exercise_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "text_normalized": {
+          "name": "text_normalized",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "menu_exercises": {
       "name": "menu_exercises",
       "columns": {
@@ -447,6 +723,107 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "modifiers": {
+      "name": "modifiers",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "modifiers_key_unique": {
+          "name": "modifiers_key_unique",
+          "columns": [
+            "key"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "muscle_groups": {
+      "name": "muscle_groups",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "muscle_groups_name_unique": {
+          "name": "muscle_groups_name_unique",
+          "columns": [
+            "name"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "muscles": {
       "name": "muscles",
       "columns": {
@@ -464,6 +841,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "muscle_group_id": {
+          "name": "muscle_group_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "tension_factor": {
           "name": "tension_factor",
           "type": "real",
@@ -471,6 +855,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
         }
       },
       "indexes": {
@@ -482,7 +874,21 @@
           "isUnique": true
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "muscles_muscle_group_id_muscle_groups_id_fk": {
+          "name": "muscles_muscle_group_id_muscle_groups_id_fk",
+          "tableFrom": "muscles",
+          "tableTo": "muscle_groups",
+          "columnsFrom": [
+            "muscle_group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "cascade"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -919,7 +1325,7 @@
           "notNull": false,
           "autoincrement": false,
           "generated": {
-            "as": "((weight * reps))",
+            "as": "((COALESCE(weight, 0) * COALESCE(reps, 0)))",
             "type": "virtual"
           }
         },
@@ -989,7 +1395,12 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "ck_rpe_range": {
+          "name": "ck_rpe_range",
+          "value": "\"workout_sets\".\"rpe\" >= 1 AND \"workout_sets\".\"rpe\" <= 10"
+        }
+      }
     }
   },
   "views": {},

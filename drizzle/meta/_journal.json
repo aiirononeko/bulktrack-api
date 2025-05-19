@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1747396088497,
-      "tag": "0000_noisy_hitman",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1747417693241,
-      "tag": "0001_brown_tinkerer",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1747422544387,
-      "tag": "0002_red_manta",
+      "when": 1747647663060,
+      "tag": "0000_strange_hawkeye",
       "breakpoints": true
     }
   ]

@@ -1,11 +1,44 @@
+CREATE TABLE `exercise_modifier_values` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`exercise_id` text NOT NULL,
+	`modifier_id` integer NOT NULL,
+	`value_num` real,
+	`value_text` text,
+	`value_key` text GENERATED ALWAYS AS (COALESCE(CAST(value_num AS TEXT), value_text)) VIRTUAL NOT NULL,
+	`rel_share_multiplier` real DEFAULT 1 NOT NULL,
+	`peak_emg_offset` real DEFAULT 0 NOT NULL,
+	`notes` text,
+	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	FOREIGN KEY (`exercise_id`) REFERENCES `exercises`(`id`) ON UPDATE cascade ON DELETE cascade,
+	FOREIGN KEY (`modifier_id`) REFERENCES `modifiers`(`id`) ON UPDATE cascade ON DELETE cascade,
+	CONSTRAINT "ck_rel_share_multiplier" CHECK("exercise_modifier_values"."rel_share_multiplier" >= 0 AND "exercise_modifier_values"."rel_share_multiplier" <= 2)
+);
+--> statement-breakpoint
+CREATE INDEX `idx_mod_exercise` ON `exercise_modifier_values` (`exercise_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `unq_emv_eid_mid_vkey` ON `exercise_modifier_values` (`exercise_id`,`modifier_id`,`value_key`);--> statement-breakpoint
 CREATE TABLE `exercise_muscles` (
 	`exercise_id` text NOT NULL,
 	`muscle_id` integer NOT NULL,
-	`tension_ratio` real NOT NULL,
+	`relative_share` integer NOT NULL,
+	`peak_emg_pct` real,
+	`source_id` text,
+	`notes` text,
 	PRIMARY KEY(`exercise_id`, `muscle_id`),
 	FOREIGN KEY (`exercise_id`) REFERENCES `exercises`(`id`) ON UPDATE cascade ON DELETE cascade,
 	FOREIGN KEY (`muscle_id`) REFERENCES `muscles`(`id`) ON UPDATE cascade ON DELETE no action,
-	CONSTRAINT "ck_tension_ratio" CHECK("exercise_muscles"."tension_ratio" >= 0 AND "exercise_muscles"."tension_ratio" <= 1)
+	FOREIGN KEY (`source_id`) REFERENCES `exercise_sources`(`id`) ON UPDATE cascade ON DELETE set null,
+	CONSTRAINT "ck_relative_share" CHECK("exercise_muscles"."relative_share" >= 0 AND "exercise_muscles"."relative_share" <= 1000)
+);
+--> statement-breakpoint
+CREATE INDEX `idx_exercise_muscles_muscle` ON `exercise_muscles` (`muscle_id`);--> statement-breakpoint
+CREATE INDEX `idx_muscles_exercise` ON `exercise_muscles` (`exercise_id`);--> statement-breakpoint
+CREATE TABLE `exercise_sources` (
+	`id` text PRIMARY KEY NOT NULL,
+	`title` text NOT NULL,
+	`citation` text,
+	`url` text,
+	`retrieved_at` text,
+	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `exercise_translations` (
@@ -60,10 +93,30 @@ CREATE TABLE `menus` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE cascade ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE TABLE `modifiers` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`key` text NOT NULL,
+	`name` text NOT NULL,
+	`unit` text,
+	`description` text,
+	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `modifiers_key_unique` ON `modifiers` (`key`);--> statement-breakpoint
+CREATE TABLE `muscle_groups` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`name` text NOT NULL,
+	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `muscle_groups_name_unique` ON `muscle_groups` (`name`);--> statement-breakpoint
 CREATE TABLE `muscles` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,
-	`tension_factor` real DEFAULT 1 NOT NULL
+	`muscle_group_id` integer NOT NULL,
+	`tension_factor` real DEFAULT 1 NOT NULL,
+	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	FOREIGN KEY (`muscle_group_id`) REFERENCES `muscle_groups`(`id`) ON UPDATE cascade ON DELETE no action
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `muscles_name_unique` ON `muscles` (`name`);--> statement-breakpoint
@@ -129,12 +182,57 @@ CREATE TABLE `workout_sets` (
 	`performed_at` text NOT NULL,
 	`rpe` real,
 	`rest_sec` integer,
-	`volume` real GENERATED ALWAYS AS ((weight * reps)) VIRTUAL,
+	`volume` real GENERATED ALWAYS AS ((COALESCE(weight, 0) * COALESCE(reps, 0))) VIRTUAL,
 	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	`updated_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE cascade ON DELETE no action,
-	FOREIGN KEY (`exercise_id`) REFERENCES `exercises`(`id`) ON UPDATE cascade ON DELETE no action
+	FOREIGN KEY (`exercise_id`) REFERENCES `exercises`(`id`) ON UPDATE cascade ON DELETE no action,
+	CONSTRAINT "ck_rpe_range" CHECK("workout_sets"."rpe" >= 1 AND "workout_sets"."rpe" <= 10)
 );
 --> statement-breakpoint
 CREATE INDEX `idx_sets_exercise_rec` ON `workout_sets` (`user_id`,`exercise_id`,`created_at`);--> statement-breakpoint
 CREATE INDEX `idx_sets_user_performed_at` ON `workout_sets` (`user_id`,`performed_at`);
+--> statement-breakpoint
+CREATE TRIGGER trg_exercise_muscles_relative_share_insert
+BEFORE INSERT ON exercise_muscles
+FOR EACH ROW
+WHEN (SELECT COALESCE(SUM(relative_share),0) FROM exercise_muscles
+      WHERE exercise_id = NEW.exercise_id) + NEW.relative_share > 1000
+BEGIN
+  SELECT RAISE(ABORT,
+    'relative_share sum would exceed 1000. Insert aborted.');
+END;
+--> statement-breakpoint
+CREATE TRIGGER trg_exercise_muscles_relative_share_update
+BEFORE UPDATE OF relative_share ON exercise_muscles
+FOR EACH ROW
+WHEN (SELECT COALESCE(SUM(relative_share),0) - OLD.relative_share
+                       + NEW.relative_share
+      FROM exercise_muscles
+      WHERE exercise_id = NEW.exercise_id) > 1000
+BEGIN
+  SELECT RAISE(ABORT,
+    'relative_share sum would exceed 1000. Update aborted.');
+END;
+--> statement-breakpoint
+CREATE TRIGGER trg_exercise_muscles_relative_share_delete
+AFTER DELETE ON exercise_muscles
+FOR EACH ROW
+BEGIN
+	SELECT
+	CASE
+		-- Check only if there are remaining shares for the exercise_id
+		WHEN EXISTS (SELECT 1 FROM exercise_muscles WHERE exercise_id = OLD.exercise_id) AND (SELECT SUM(relative_share) FROM exercise_muscles WHERE exercise_id = OLD.exercise_id) <> 1000
+		THEN RAISE(ABORT, 'relative_share for a given exercise_id must sum to 1000 after delete if other shares exist')
+	END;
+END;
+--> statement-breakpoint
+CREATE VIRTUAL TABLE exercises_fts
+USING fts5(
+  exercise_id UNINDEXED,
+  locale UNINDEXED,
+  text,
+  text_normalized,
+  tokenize = 'unicode61 remove_diacritics 2',
+  prefix = '2 3 4'
+);
