@@ -6,8 +6,13 @@ import { toExerciseDto } from '../../../../app/dto/exercise'; // DTO変換関数
 import { HTTPException } from 'hono/http-exception';
 import type { JWTPayload } from 'hono/utils/jwt/types'; // JWTPayloadをインポート
 
-// OpenAPIの ExerciseCreate スキーマに対応する型 (仮)
-// 実際にはopenapi.yamlから生成された型か、手動で正確に定義する必要があります
+interface ExerciseMuscleInputDto {
+  muscle_id: number;
+  relative_share: number;
+  source_id?: string;
+  source_details?: string;
+}
+
 interface ExerciseCreateRequest {
   canonical_name: string;
   locale: string;         // 最初の翻訳ロケール
@@ -15,6 +20,7 @@ interface ExerciseCreateRequest {
   aliases?: string[];      // 最初の翻訳エイリアス (OpenAPIではstring CSVかもしれないので注意)
   default_muscle_id?: number;
   is_compound?: boolean;
+  exercise_muscles?: ExerciseMuscleInputDto[];
   // author_user_id は認証情報から取得するのでリクエストボディには含めない想定
 }
 
@@ -34,7 +40,34 @@ app.post(
     if (!body.name || typeof body.name !== 'string') {
       throw new HTTPException(400, { message: 'name is required and must be a string' });
     }
-    // aliases, default_muscle_id, is_compound のバリデーションも同様に追加
+    if (body.aliases && !Array.isArray(body.aliases)) {
+      throw new HTTPException(400, { message: 'aliases must be an array of strings' });
+    }
+    if (body.default_muscle_id !== undefined && typeof body.default_muscle_id !== 'number') {
+      throw new HTTPException(400, { message: 'default_muscle_id must be a number' });
+    }
+    if (body.is_compound !== undefined && typeof body.is_compound !== 'boolean') {
+      throw new HTTPException(400, { message: 'is_compound must be a boolean' });
+    }
+    if (body.exercise_muscles) {
+      if (!Array.isArray(body.exercise_muscles)) {
+        throw new HTTPException(400, { message: 'exercise_muscles must be an array' });
+      }
+      for (const em of body.exercise_muscles) {
+        if (typeof em.muscle_id !== 'number') {
+          throw new HTTPException(400, { message: 'exercise_muscles[].muscle_id must be a number' });
+        }
+        if (typeof em.relative_share !== 'number' || em.relative_share < 0 || em.relative_share > 1000) {
+          throw new HTTPException(400, { message: 'exercise_muscles[].relative_share must be a number between 0 and 1000' });
+        }
+        if (em.source_id !== undefined && typeof em.source_id !== 'string') {
+          throw new HTTPException(400, { message: 'exercise_muscles[].source_id must be a string' });
+        }
+        if (em.source_details !== undefined && typeof em.source_details !== 'string') {
+          throw new HTTPException(400, { message: 'exercise_muscles[].source_details must be a string' });
+        }
+      }
+    }
     return body; // バリデーション成功時はそのまま返す
   }),
   async (c) => {
@@ -62,14 +95,23 @@ app.post(
     const reqBody = c.req.valid('json');
 
     try {
+      const exerciseMusclesDomain = reqBody.exercise_muscles?.map(dto => ({
+        // exerciseId はサービス側で Exercise エンティティ作成時に設定されるため、ここでは不要
+        muscleId: dto.muscle_id,
+        relativeShare: dto.relative_share,
+        sourceId: dto.source_id,
+        sourceDetails: dto.source_details,
+      }));
+
       const newExercise = await exerciseService.createCustomExercise(
         reqBody.canonical_name,
         reqBody.locale,
         reqBody.name,
-        reqBody.aliases, 
+        reqBody.aliases,
         userIdString,
         reqBody.default_muscle_id,
         reqBody.is_compound ?? false,
+        exerciseMusclesDomain // 変換後のデータを渡す
       );
 
       // レスポンスロケールは作成時のロケールを使用

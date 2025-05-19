@@ -32,7 +32,7 @@ export function toExerciseDto(exercise: Exercise, locale: string): ExerciseDto {
 
   return {
     id: exercise.id.value,
-    canonical_name: exercise.canonicalName,
+    canonical_name: exercise.canonicalName.value,
     locale: effectiveLocale, // または、実際に名前が取得できたロケール
     name: name,
     aliases: aliasesArray.length > 0 ? aliasesArray.join(',') : undefined,

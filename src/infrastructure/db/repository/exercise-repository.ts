@@ -4,6 +4,7 @@ import type { DrizzleD1Database } from 'drizzle-orm/d1';
 import type { IExerciseRepository } from '../../../domain/exercise/repository';
 import { Exercise, type ExerciseId, type ExerciseTranslation } from '../../../domain/exercise/entity';
 import { ExerciseIdVO } from '../../../domain/shared/vo/identifier';
+import { ExerciseNameVO } from '../../../domain/exercise/vo';
 import type * as schema from '../schema';
 import { exerciseUsage } from '../schema';
 import { normalizeToHiragana } from '../../../app/utils/text-processor';
@@ -57,9 +58,8 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
             isCompound: row.isCompound, 
             isOfficial: row.isOfficial, 
             authorUserId: row.authorUserId,
-            lastUsedAt: row.lastUsedAt, // Original lastUsedAt from exercises table
+            lastUsedAt: row.lastUsedAt,
             createdAt: row.createdAt,
-            // Check if userLastUsedAt property exists and assign it
             userLastUsedAt: 'userLastUsedAt' in row ? (row as DbRecentExerciseRow).userLastUsedAt : undefined,
           },
           translations: [],
@@ -79,15 +79,14 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
     
     return Array.from(exercisesMap.values()).map(entry => new Exercise(
       new ExerciseIdVO(entry.exerciseData.id),
-      entry.exerciseData.canonicalName,
+      ExerciseNameVO.create(entry.exerciseData.canonicalName),
       entry.exerciseData.defaultMuscleId,
       Boolean(entry.exerciseData.isCompound), 
       Boolean(entry.exerciseData.isOfficial), 
       entry.exerciseData.authorUserId,
-      // Prioritize userLastUsedAt if available, otherwise use exercises.lastUsedAt
       entry.exerciseData.userLastUsedAt ? new Date(entry.exerciseData.userLastUsedAt) : (entry.exerciseData.lastUsedAt ? new Date(entry.exerciseData.lastUsedAt) : null),
-      new Date(entry.exerciseData.createdAt),
       entry.translations,
+      [],
     ));
   }
 
@@ -295,28 +294,58 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
     });
   }
 
-  async create(exerciseData: Exercise): Promise<void> {
-    await this.saveFullExercise(exerciseData);
+  async create(exercise: Exercise): Promise<void> {
+    await this.db.insert(this.tables.exercises).values({
+      id: exercise.id.value,
+      canonicalName: exercise.canonicalName.value,
+      defaultMuscleId: exercise.defaultMuscleId,
+      isCompound: exercise.isCompound,
+      isOfficial: exercise.isOfficial,
+      authorUserId: exercise.authorUserId,
+      lastUsedAt: exercise.lastUsedAt ? exercise.lastUsedAt.toISOString() : null,
+    });
+
+    for (const translation of exercise.translations) {
+      await this.saveExerciseTranslationInternal(
+        exercise.id,
+        translation,
+        exercise.canonicalName.value,
+        normalizeToHiragana(exercise.canonicalName.value)
+      );
+    }
+    if (exercise.exerciseMuscles && exercise.exerciseMuscles.length > 0) {
+      const muscleValues = exercise.exerciseMuscles.map(em => ({
+        exerciseId: exercise.id.value,
+        muscleId: em.muscleId,
+        relativeShare: em.relativeShare,
+        sourceId: em.sourceId,
+        sourceDetails: em.sourceDetails,
+      }));
+      const muscleValuesCorrected = exercise.exerciseMuscles.map(em => ({
+        exerciseId: exercise.id.value,
+        muscleId: em.muscleId,
+        relativeShare: em.relativeShare,
+        sourceId: em.sourceId,
+        notes: em.sourceDetails,
+      }));
+      await this.db.insert(this.tables.exerciseMuscles).values(muscleValuesCorrected).onConflictDoNothing();
+    }
   }
 
-  async upsertExerciseUsage(userId: string, exerciseId: string, usedAt: Date, incrementUseCount = true): Promise<void> {
-    const usedAtISO = usedAt.toISOString();
-
-    // Using Drizzle's way to do an "upsert" for SQLite
-    // This relies on the primary key (userId, exerciseId) on the exercise_usage table
+  async upsertExerciseUsage(userId: string, exerciseId: ExerciseId, usedAt: Date, incrementUseCount = true): Promise<void> {
+    const nowIso = usedAt.toISOString();
     await this.db.insert(this.tables.exerciseUsage)
       .values({
         userId: userId,
-        exerciseId: exerciseId,
-        lastUsedAt: usedAtISO,
+        exerciseId: exerciseId.value,
+        lastUsedAt: nowIso,
       })
       .onConflictDoUpdate({
         target: [this.tables.exerciseUsage.userId, this.tables.exerciseUsage.exerciseId],
         set: {
-          lastUsedAt: usedAtISO,
-        }
-      })
-      .execute(); // Use .execute() for D1 driver as per Drizzle docs for writes
+          lastUsedAt: nowIso,
+        },
+      });
   }
 
   // --- FTS更新用ヘルパーメソッド ---
@@ -359,65 +388,51 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
   // --- exercises テーブルへの永続化メソッド (仮の例、実際のメソッドに組み込む) ---
   // このリポジトリがExerciseエンティティ全体を保存する責任を持つ場合
   public async saveFullExercise(exercise: Exercise): Promise<void> {
-    // Drizzleを使って exercises テーブルに exercise の基本情報を保存 (INSERT or UPDATE)
-    // (実際のUPSERTロジックはプロジェクトに合わせてください)
     await this.db.insert(this.tables.exercises)
       .values({
         id: exercise.id.value,
-        canonicalName: exercise.canonicalName,
+        canonicalName: exercise.canonicalName.value,
         defaultMuscleId: exercise.defaultMuscleId,
         isCompound: exercise.isCompound,
         isOfficial: exercise.isOfficial,
         authorUserId: exercise.authorUserId,
         lastUsedAt: exercise.lastUsedAt ? exercise.lastUsedAt.toISOString() : null,
-        // createdAtは default CURRENT_TIMESTAMP なので、INSERT時のみDrizzleが処理
       })
-      .onConflictDoUpdate({ 
-        target: this.tables.exercises.id, 
+      .onConflictDoUpdate({
+        target: this.tables.exercises.id,
         set: {
-          canonicalName: exercise.canonicalName,
+          canonicalName: exercise.canonicalName.value,
           defaultMuscleId: exercise.defaultMuscleId,
           isCompound: exercise.isCompound,
           isOfficial: exercise.isOfficial,
-          authorUserId: exercise.authorUserId, // authorUserIdは通常更新しないが例として
+          authorUserId: exercise.authorUserId,
           lastUsedAt: exercise.lastUsedAt ? exercise.lastUsedAt.toISOString() : null,
         }
       })
-      .run(); // D1 driver is .execute() but .run() for simpler cases often works
+      .run();
     console.debug(`[ExerciseRepo.saveFullExercise] Saved exercise ${exercise.id.value} to main table.`);
 
-    // FTS更新 ('unknown' ロケール)
-    const hiraCanonical = normalizeToHiragana(exercise.canonicalName);
+    const hiraCanonical = normalizeToHiragana(exercise.canonicalName.value);
     await this.upsertExerciseFtsData(
       exercise.id.value,
       'unknown',
-      [exercise.canonicalName],
+      [exercise.canonicalName.value],
       [hiraCanonical]
     );
 
-    // 関連する翻訳も保存し、FTSも更新
     if (exercise.translations && exercise.translations.length > 0) {
       for (const trans of exercise.translations) {
-        await this.saveExerciseTranslationInternal(exercise.id, trans, exercise.canonicalName, hiraCanonical);
+        await this.saveExerciseTranslationInternal(exercise.id, trans, exercise.canonicalName.value, hiraCanonical);
       }
-      // 翻訳があるので 'unknown' のFTSエントリは削除
       await this.deleteExerciseFtsData(exercise.id.value, 'unknown');
     }
-    // もし saveFullExercise が translations を含まない場合、
-    // 呼び出し側で別途 saveExerciseTranslationInternal を呼ぶか、
-    // このメソッドが translation の保存まで責任を持たないなら、FTSの unknown の扱いを再考。
-    // ここでは、exercise.translations があればそれに基づいてFTSを更新しunknownを消す、
-    // なければunknownが残る（またはupsertで再作成される）という動作。
   }
   
   // exercises テーブルの canonicalName のみの更新など、より細かい操作がある場合は別途メソッドを用意
 
   public async deleteFullExerciseById(exerciseIdVo: ExerciseIdVO): Promise<void> {
     const exerciseId = exerciseIdVo.value;
-    // 1. exercises テーブルから削除 (これにより translations も CASCADE DELETE される想定)
     await this.db.delete(this.tables.exercises).where(eq(this.tables.exercises.id, exerciseId)).run();
-
-    // 2. 関連するFTSエントリを全て削除
     await this.deleteExerciseFtsData(exerciseId);
     console.debug(`[ExerciseRepo.deleteFullExercise] Deleted exercise ${exerciseId} and its FTS entries.`);
   }
@@ -426,10 +441,10 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
   // --- exercise_translations テーブルへの永続化メソッド (仮の例) ---
   // このメソッドは、Exerciseの canonicalName を引数で受け取るか、内部で参照取得する
   private async saveExerciseTranslationInternal(
-    exerciseId: ExerciseIdVO, // ExerciseエンティティのID (VO)
-    translation: ExerciseTranslation, // 保存する翻訳データ
-    canonicalName: string, // 対応するExerciseのcanonicalName
-    hiraCanonicalName: string // canonicalNameのひらがな版
+    exerciseId: ExerciseIdVO,
+    translation: ExerciseTranslation,
+    canonicalName: string,
+    hiraCanonicalName: string
   ): Promise<void> {
     const exIdStr = exerciseId.value;
     // exercise_translations テーブルへのUPSERT
@@ -438,7 +453,7 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
         exerciseId: exIdStr,
         locale: translation.locale,
         name: translation.name,
-        aliases: translation.aliases?.join(',') // DBスキーマに合わせてCSVで保存
+        aliases: translation.aliases?.join(',')
       })
       .onConflictDoUpdate({
         target: [this.tables.exerciseTranslations.exerciseId, this.tables.exerciseTranslations.locale],
@@ -467,13 +482,13 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
   
   // 外部から翻訳のみを保存/更新する場合の公開メソッド
   public async saveExerciseTranslation(exerciseIdVo: ExerciseIdVO, translation: ExerciseTranslation): Promise<void> {
-    const exercise = await this.findById(exerciseIdVo); // ExerciseIdVO を渡す
+    const exercise = await this.findById(exerciseIdVo);
     if (!exercise) {
       throw new Error(`Exercise with id ${exerciseIdVo.value} not found when trying to save translation.`);
     }
-    const hiraCanonical = normalizeToHiragana(exercise.canonicalName);
-    await this.saveExerciseTranslationInternal(exerciseIdVo, translation, exercise.canonicalName, hiraCanonical);
-    // 翻訳が追加/更新されたので、'unknown' のFTSエントリは削除
+    const canonicalNameStr = exercise.canonicalName.value;
+    const hiraCanonical = normalizeToHiragana(canonicalNameStr);
+    await this.saveExerciseTranslationInternal(exerciseIdVo, translation, canonicalNameStr, hiraCanonical);
     await this.deleteExerciseFtsData(exerciseIdVo.value, 'unknown');
   }
 

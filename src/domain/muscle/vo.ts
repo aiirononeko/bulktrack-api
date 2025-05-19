@@ -1,27 +1,30 @@
 // src/domain/muscle/vo.ts
 
-// muscles.id (INTEGER) に対応
-// export type MuscleId = number; // 旧定義をコメントアウト
+// muscles.id (INTEGER PK) - 筋頭レベルのID
+export type MuscleId = number;
 
-// MuscleIdVO class definition was here, now moved to shared/vo/identifier.ts
-
-// muscles.name (TEXT) に対応
+// muscles.name (TEXT) - 筋頭レベルの名前
 export type MuscleName = string;
 
-// 必要であれば、より具体的なバリデーションを持つクラスとして定義することも可能です。
-// 例:
-// export class MuscleNameVO {
-//   readonly value: string;
-//   private constructor(value: string) {
-//     if (!value || value.trim().length === 0) {
-//       throw new Error("Muscle name cannot be empty.");
-//     }
-//     this.value = value;
-//   }
-//   public static create(value: string): MuscleNameVO {
-//     return new MuscleNameVO(value);
-//   }
-//   public toString(): string {
-//     return this.value;
-//   }
-// } 
+// muscle_groups.id (INTEGER PK) - 筋群レベルのID
+export type MuscleGroupId = number;
+
+// muscle_groups.name (TEXT) - 筋群レベルの名前
+export type MuscleGroupName = string;
+
+/**
+ * Represents a specific muscle (e.g., Pectoralis Major - Clavicular).
+ */
+export interface Muscle {
+  id: MuscleId;
+  name: MuscleName;
+  muscleGroupId: MuscleGroupId;
+}
+
+/**
+ * Represents a muscle group (e.g., Chest).
+ */
+export interface MuscleGroup {
+  id: MuscleGroupId;
+  name: MuscleGroupName;
+}

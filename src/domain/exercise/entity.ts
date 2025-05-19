@@ -1,4 +1,6 @@
 import type { ExerciseIdVO } from "../shared/vo/identifier";
+import type { MuscleId } from "../muscle/vo";
+import type { ExerciseMuscle, ExerciseNameVO } from "./vo";
 
 export type ExerciseId = ExerciseIdVO;
 
@@ -12,14 +14,14 @@ export type ExerciseTranslation = {
 export class Exercise {
   constructor(
     public readonly id: ExerciseId,
-    public readonly canonicalName: string,
-    public readonly defaultMuscleId: number | null, // Corresponds to exercises.defaultMuscleId
+    public readonly canonicalName: ExerciseNameVO,
+    public readonly defaultMuscleId: MuscleId | null,
     public readonly isCompound: boolean,          // Corresponds to exercises.isCompound
     public readonly isOfficial: boolean,          // Corresponds to exercises.isOfficial
     public readonly authorUserId: string | null,    // Corresponds to exercises.authorUserId
     public readonly lastUsedAt: Date | null,      // Corresponds to exercises.lastUsedAt and openapi Exercise.last_used_at
-    public readonly createdAt: Date,              // Corresponds to exercises.createdAt
     public readonly translations: ExerciseTranslation[] = [], // Populated from exerciseTranslations table
+    public readonly exerciseMuscles: ExerciseMuscle[] = [],
   ) {}
 
   /**
@@ -28,7 +30,7 @@ export class Exercise {
    */
   public getName(locale: string): string {
     const translation = this.translations.find(t => t.locale === locale);
-    return translation?.name || this.canonicalName;
+    return translation?.name || this.canonicalName.value;
   }
 
   /**

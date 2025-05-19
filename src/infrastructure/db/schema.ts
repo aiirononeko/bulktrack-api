@@ -7,6 +7,7 @@ import {
   real,
   sqliteTable,
   text,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 // ------------------------------------------------
@@ -31,10 +32,96 @@ export const userDevices = sqliteTable("user_devices", {
 // ------------------------------------------------
 // 2.  Muscles & Exercises (multilingual)
 // ------------------------------------------------
+export const muscleGroups = sqliteTable("muscle_groups", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(), // e.g., "Chest", "Back", "Shoulders", "Arms", "Legs", "Core"
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const muscles = sqliteTable("muscles", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull().unique(),
-  tensionFactor: real("tension_factor").notNull().default(1.0), // relative stimulus multiplier
+  name: text("name").notNull().unique(), // e.g., "Pectoralis Major (Clavicular Head)", "Deltoid (Anterior Head)"
+  muscleGroupId: integer("muscle_group_id")
+    .notNull()
+    .references(() => muscleGroups.id, { onDelete: "no action", onUpdate: "cascade" }),
+  tensionFactor: real("tension_factor").notNull().default(1.0), // relative stimulus multiplier (legacy, might be reviewed later)
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// --------------------------------------------------------------------
+// 2-1.  Modifier メタ定義（例: グリップ幅, ベンチ角度, スタンス幅 …）
+// --------------------------------------------------------------------
+export const modifiers = sqliteTable("modifiers", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  /** 例: 'grip_width', 'bench_incline', 'stance_width' */
+  key: text("key").notNull().unique(),
+  /** 多言語 UI 用の表示名 */
+  name: text("name").notNull(),
+  /** 'enum' | 'deg' | 'cm' | 'ratio' など自由記述。単位が無い時は NULL */
+  unit: text("unit"),
+  /** 備考・定義の根拠など */
+  description: text("description"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// --------------------------------------------------------------------
+// 2-2.  Exercise × Modifier 値 & 筋負荷補正係数
+//    ─ 1 種目に複数の修飾子を付与可
+// --------------------------------------------------------------------
+export const exerciseModifierValues = sqliteTable(
+  "exercise_modifier_values",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    /** FK: 種目 */
+    exerciseId: text("exercise_id")
+      .notNull()
+      .references(() => exercises.id, { onDelete: "cascade", onUpdate: "cascade" }),
+
+    /** FK: 修飾子 */
+    modifierId: integer("modifier_id")
+      .notNull()
+      .references(() => modifiers.id, { onDelete: "cascade", onUpdate: "cascade" }),
+
+    /** 数値パラメータ（インクライン角=30° 等）——数値不要なら NULL */
+    valueNum: real("value_num"),
+
+    /** 列挙・自由記述パラメータ（'wide', 'close' 等）——数値の場合は NULL でOK */
+    valueText: text("value_text"),
+
+    /** valueNum と valueText を結合したキー（複合UNIQUE制約用） */
+    valueKey: text("value_key")
+      .notNull()
+      .generatedAlwaysAs(sql`COALESCE(CAST(value_num AS TEXT), value_text)`),
+
+    /** relative_share 全体に掛ける倍率 (例: +15% → 1.15) */
+    relShareMultiplier: real("rel_share_multiplier").notNull().default(1.0),
+
+    /** peak_emg_pct に加算するオフセット (例: +10%MVC → 10) */
+    peakEmgOffset: real("peak_emg_offset").notNull().default(0),
+
+    notes: text("notes"),
+
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    /** 倍率は 0–2 程度の実用域に制限 */
+    multCheck: check(
+      "ck_rel_share_multiplier",
+      sql`${table.relShareMultiplier} >= 0 AND ${table.relShareMultiplier} <= 2`,
+    ),
+    idxModExercise: index("idx_mod_exercise").on(table.exerciseId),
+    unqExerciseModifierValue: uniqueIndex("unq_emv_eid_mid_vkey")
+      .on(table.exerciseId, table.modifierId, table.valueKey),
+  }),
+);
+
+export const exerciseSources = sqliteTable("exercise_sources", {
+  id: text("id").primaryKey(), // DOI, ISBN, URL, or custom UUID
+  title: text("title").notNull(),
+  citation: text("citation"), // APA, MLA, etc.
+  url: text("url"),
+  retrievedAt: text("retrieved_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const exercises = sqliteTable("exercises", {
@@ -61,21 +148,19 @@ export const exerciseMuscles = sqliteTable(
     muscleId: integer("muscle_id")
       .notNull()
       .references(() => muscles.id, { onUpdate: "cascade" }),
-    // CHECK constraint (tension_ratio BETWEEN 0 AND 1) should be handled by DB migration or application validation.
-    // Drizzle ORM schema definition doesn't directly support CHECK constraints in a portable way for all DBs,
-    // though SQLite itself does. For now, we define the column and its type.
-    // Application logic or a database trigger would be responsible for enforcing the 0-1 range.
-    tensionRatio: real("tension_ratio").notNull(),
+    relativeShare: integer("relative_share").notNull(), // Changed to integer, 0-1000, sum for an exercise should be 1000
+    peakEmgPct: real("peak_emg_pct"), // %MVIC, optional
+    sourceId: text("source_id").references(() => exerciseSources.id, { onDelete: "set null", onUpdate: "cascade" }), // Link to evidence
+    notes: text("notes"), // e.g., "Based on wide grip variation"
   },
   (table) => ({
     pk: primaryKey({ columns: [table.exerciseId, table.muscleId] }),
-    tensionRatioCheck: check(
-      "ck_tension_ratio",
-      sql`${table.tensionRatio} >= 0 AND ${table.tensionRatio} <= 1`,
+    relativeShareCheck: check(
+      "ck_relative_share",
+      sql`${table.relativeShare} >= 0 AND ${table.relativeShare} <= 1000`, // Adjusted for 0-1000 range
     ),
-    // Optional: Index for querying by exercise_id or muscle_id if needed frequently
-    // exerciseIdx: index("idx_exercise_muscles_exercise").on(table.exerciseId),
-    // muscleIdx: index("idx_exercise_muscles_muscle").on(table.muscleId),
+    muscleIdx: index("idx_exercise_muscles_muscle").on(table.muscleId),
+    exerciseIdx: index("idx_muscles_exercise").on(table.exerciseId),
   }),
 );
 
@@ -102,8 +187,8 @@ export const exercisesFts = sqliteTable("exercises_fts", {
   text: text("text").notNull(),
   textNormalized: text("text_normalized"), // For hiragana normalized search
   // rowid: integer('rowid').primaryKey(), // FTS5 virtual tables have a rowid, but it's usually managed by SQLite.
-                                          // Defining it here might be optional or depend on Drizzle's FTS handling.
-                                          // For now, omitting to let Drizzle/SQLite handle it by default.
+                                           // Defining it here might be optional or depend on Drizzle's FTS handling.
+                                           // For now, omitting to let Drizzle/SQLite handle it by default.
 });
 
 // ------------------------------------------------
@@ -158,7 +243,7 @@ export const workoutSets = sqliteTable(
     performedAt: text("performed_at").notNull(),
     rpe: real("rpe"),
     restSec: integer("rest_sec"),
-    volume: real("volume").generatedAlwaysAs(sql`(weight * reps)`),
+    volume: real("volume").generatedAlwaysAs(sql`(COALESCE(weight, 0) * COALESCE(reps, 0))`),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
@@ -172,6 +257,7 @@ export const workoutSets = sqliteTable(
       table.userId,
       table.performedAt,
     ),
+    rpeCheck: check("ck_rpe_range", sql`${table.rpe} >= 1 AND ${table.rpe} <= 10`),
   }),
 );
 
@@ -257,7 +343,7 @@ export const weeklyUserMuscleVolumes = sqliteTable(
       .notNull()
       .references(() => muscles.id, { onDelete: "cascade", onUpdate: "cascade" }),
 
-    // Σ(weight × reps × tension_ratio) for that muscle
+    // Σ(weight × reps × relativeShare) for that muscle
     volume: real("volume").notNull(),
 
     updatedAt: text("updated_at")

@@ -66,24 +66,24 @@ export class DashboardStatsService {
       // 週間筋肉ボリュームの計算と保存
       // exerciseIdsの取得は、取得したuserSetsから行うので、その週のデータに限定される
       const exerciseIds = [...new Set(userSets.map(set => set.exerciseId).filter(id => id !== null))] as string[];
-      const exerciseMuscleMappings = exerciseIds.length > 0 ? await this.db // tx から this.db
+      const exerciseMuscleMappings = exerciseIds.length > 0 ? await this.db
         .select({
           exerciseId: schema.exerciseMuscles.exerciseId,
           muscleId: schema.exerciseMuscles.muscleId,
-          tensionRatio: schema.exerciseMuscles.tensionRatio,
+          relativeShare: schema.exerciseMuscles.relativeShare,
           tensionFactor: schema.muscles.tensionFactor,
         })
         .from(schema.exerciseMuscles)
         .innerJoin(schema.muscles, eq(schema.exerciseMuscles.muscleId, schema.muscles.id))
         .where(inArray(schema.exerciseMuscles.exerciseId, exerciseIds)) : [];
       
-      const exerciseDetailsMap = new Map<string, { muscleId: number, tensionRatio: number, tensionFactor: number }[]>();
+      const exerciseDetailsMap = new Map<string, { muscleId: number, relativeShare: number, tensionFactor: number }[]>();
       for (const mapping of exerciseMuscleMappings) {
-        if (!mapping.exerciseId || mapping.muscleId === null || mapping.tensionRatio === null || mapping.tensionFactor === null) continue;
+        if (!mapping.exerciseId || mapping.muscleId === null || mapping.relativeShare === null || mapping.tensionFactor === null) continue;
         const details = exerciseDetailsMap.get(mapping.exerciseId) || [];
         details.push({
           muscleId: mapping.muscleId,
-          tensionRatio: mapping.tensionRatio,
+          relativeShare: mapping.relativeShare,
           tensionFactor: mapping.tensionFactor,
         });
         exerciseDetailsMap.set(mapping.exerciseId, details);
@@ -92,8 +92,8 @@ export class DashboardStatsService {
       // weeklyVolumeByMuscle, weeklyTotalVolumeByUser, weeklyActiveDays は
       // この関数のスコープ内で、対象週のデータのみで計算されるので、
       // `targetWeekMonday` をキーとして値が設定されることになる。
-      const weeklyVolumeByMuscle = new Map<string, Map<number, number>>(); 
-      const weeklyTotalVolumeByUser = new Map<string, { totalVolume: number, setCount: number, e1rmSum: number, e1rmCount: number }>(); 
+      const weeklyVolumeByMuscle = new Map<string, Map<number, { volume: number; setCount: number; e1rmSum: number; e1rmCount: number }>>();
+      const weeklyTotalVolumeByUser = new Map<string, { totalVolume: number, setCount: number, e1rmSum: number, e1rmCount: number }>();
       const weeklyActiveDays = new Map<string, Set<string>>(); 
 
       for (const set of userSets) {
@@ -109,10 +109,22 @@ export class DashboardStatsService {
         // For weeklyUserMuscleVolumes
         if (exerciseDetails) {
           for (const detail of exerciseDetails) {
-            const effectiveVolume = set.volume * detail.tensionRatio * detail.tensionFactor;
-            const weeklyMuscleMap = weeklyVolumeByMuscle.get(weekStart) || new Map<number, number>();
-            const currentMuscleVolume = weeklyMuscleMap.get(detail.muscleId) || 0;
-            weeklyMuscleMap.set(detail.muscleId, currentMuscleVolume + effectiveVolume);
+            const effectiveVolume = set.volume * (detail.relativeShare / 1000) * detail.tensionFactor;
+            const weeklyMuscleMap = weeklyVolumeByMuscle.get(weekStart) || new Map<number, { volume: number; setCount: number; e1rmSum: number; e1rmCount: number }>();
+            const currentMuscleStats = weeklyMuscleMap.get(detail.muscleId) || { volume: 0, setCount: 0, e1rmSum: 0, e1rmCount: 0 };
+            
+            currentMuscleStats.volume += effectiveVolume;
+            currentMuscleStats.setCount += 1; // 各筋肉への分配において、このセットを1としてカウント
+
+            if (set.weight !== null && set.reps !== null && set.weight > 0 && set.reps > 0) {
+              const estimated1RMForSet = calculateEpley1RM(set.weight, set.reps);
+              // 筋肉への貢献度（relativeShare）に応じて1RMも分配する考え方もできるが、
+              // ここでは、その筋肉が使われたセットの1RMを単純に加算し、セット数で割る方針とする。
+              // より正確には、1RMはエクササイズ単位で考えるべきだが、ここでは筋肉ごと。
+              currentMuscleStats.e1rmSum += estimated1RMForSet; 
+              currentMuscleStats.e1rmCount += 1;
+            }
+            weeklyMuscleMap.set(detail.muscleId, currentMuscleStats);
             weeklyVolumeByMuscle.set(weekStart, weeklyMuscleMap);
           }
         }
@@ -147,31 +159,34 @@ export class DashboardStatsService {
       // weeklyVolumeByMuscle Map には targetWeekMonday のデータのみが含まれるはず
       if (weeklyVolumeByMuscle.has(targetWeekMonday)) {
         const newWeeklyUserMuscleVolumesData = [];
-        const now = new Date(); 
-        const muscleMap = weeklyVolumeByMuscle.get(targetWeekMonday); // targetWeekMonday のデータがあることは確認済み
+        const now = new Date();
+        const muscleMap = weeklyVolumeByMuscle.get(targetWeekMonday);
         if (!muscleMap) {
           console.error(`No muscle volume data for user ${userId.value} for week ${targetWeekMonday}.`);
           return;
         }
-        for (const [muscleIdNum, volume] of muscleMap) {
+        for (const [muscleIdNum, stats] of muscleMap) {
           newWeeklyUserMuscleVolumesData.push({
             userId: userId.value,
             muscleId: muscleIdNum,
-            weekStart: targetWeekMonday, // weekStart は targetWeekMonday
-            volume: volume,
-            updatedAt: now.toISOString(), 
+            weekStart: targetWeekMonday,
+            volume: stats.volume,
+            setCount: stats.setCount,
+            e1rmSum: stats.e1rmSum,
+            e1rmCount: stats.e1rmCount,
+            updatedAt: now.toISOString(),
           });
         }
 
         if (newWeeklyUserMuscleVolumesData.length > 0) {
           console.log(`Upserting ${newWeeklyUserMuscleVolumesData.length} weekly user muscle volume records for user ${userId.value} for week ${targetWeekMonday}.`);
-          await this.db.insert(schema.weeklyUserMuscleVolumes) 
+          await this.db.insert(schema.weeklyUserMuscleVolumes)
             .values(newWeeklyUserMuscleVolumesData)
             .onConflictDoUpdate({
               target: [
                 schema.weeklyUserMuscleVolumes.userId,
                 schema.weeklyUserMuscleVolumes.muscleId,
-                schema.weeklyUserMuscleVolumes.weekStart 
+                schema.weeklyUserMuscleVolumes.weekStart
               ],
               set: {
                 volume: sql`excluded.volume`,
@@ -364,4 +379,13 @@ export class DashboardStatsService {
   }
 
   // (オプション) aggregateWorkoutSession メソッドの実装
+}
+
+function calcEffectiveVolume(
+  rawVolume: number,
+  relShare: number,      // 0-1000
+  tension: number,       // 0-∞
+  modifierMult = 1       // 修飾子倍率 (0-2)
+) {
+  return rawVolume * (relShare / 1000) * tension * modifierMult;
 }
