@@ -1,4 +1,4 @@
-openapi: 3.0.3
+openapi: 3.1.1
 info:
   title: Bulktrack API
   version: 1.0.0
@@ -75,22 +75,30 @@ paths:
   # ---------------- Exercises ---------------- #
   /v1/exercises:
     get:
-      summary: Search or list recent exercises
+      summary: Search available exercises or list all available exercises.
       tags: [Exercises]
       parameters:
         - name: Accept-Language
           in: header
           required: false
-          description: "取得するエクササイズ名の優先言語を指定します (例: en, ja)。指定されない場合はサーバーのデフォルト言語が使用されます。"
+          description: "Preferred language for exercise names (e.g., en, ja). If not specified, the server's default language will be used."
           schema: { type: string }
         - in: query
           name: q
           schema: { type: string }
           description: Prefix search string
         - in: query
-          name: locale
-          schema: { type: string, default: ja }
-          description: "エクササイズ名のロケールを指定します。Accept-Languageヘッダーが指定されている場合はそちらが優先されます。 (例: 'en', 'ja')"
+          name: limit
+          schema:
+            type: integer
+            default: 20
+          description: Maximum number of exercises to return.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+          description: Offset for pagination.
       responses:
         '200': { description: List, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Exercise' } } } } }
     post:
@@ -121,12 +129,6 @@ paths:
             type: integer
             default: 0
           description: Offset for pagination.
-        - in: query
-          name: locale
-          schema:
-            type: string
-            default: ja
-          description: Locale for exercise names (e.g., 'en', 'ja').
       responses:
         '200':
           description: A list of recently used exercises.
@@ -141,7 +143,7 @@ paths:
       security:
         - BearerAuth: []
 
-  # ---------------- Sets (formerly Sessions & Sets) ---------------- #
+  # ---------------- Sets ---------------- #
   /v1/sets:
     post:
       summary: Add set
@@ -161,6 +163,11 @@ paths:
       summary: List sets for the authenticated user
       tags: [Sets]
       parameters:
+        - name: Accept-Language
+          in: header
+          required: false
+          description: "Preferred language for exercise names (e.g., en, ja). If not specified, the server's default language will be used."
+          schema: { type: string }
         - in: query
           name: limit
           schema: { type: integer, default: 20 }
@@ -175,6 +182,13 @@ paths:
           name: exerciseId
           schema: { type: string, format: uuid }
           description: Filter sets by exercise ID.
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            enum: [performedAt_asc, performedAt_desc]
+            default: performedAt_desc
+          description: "Sort order for the sets. Defaults to 'performedAt_desc' (most recent first)."
       responses:
         '200': { description: List, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/WorkoutSet' } } } } }
         '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
@@ -186,6 +200,11 @@ paths:
       summary: Update a specific workout set
       tags: [Sets]
       parameters:
+        - name: Accept-Language
+          in: header
+          required: false
+          description: "Preferred language for exercise names (e.g., en, ja). If not specified, the server's default language will be used."
+          schema: { type: string }
         - name: setId
           in: path
           required: true
@@ -232,6 +251,11 @@ paths:
       summary: Fetch dashboard aggregates
       tags: [Dashboard]
       parameters:
+        - name: Accept-Language
+          in: header
+          required: false
+          description: "Preferred language for translatable strings like muscle group names (e.g., en, ja). If not specified, the server's default language will be used."
+          schema: { type: string }
         - in: query
           name: span
           schema:
@@ -259,7 +283,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  message: { type: string, example: pong }
+                  message: { type: string, examples: ["pong"] }
       security: []
 
 components:
@@ -282,6 +306,18 @@ components:
 
   # ---- Schemas (same as previous version, trimmed) ---- #
   schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          description: An error code identifying the type of error.
+        message:
+          type: string
+          description: A human-readable message providing more details about the error.
+      required:
+        - code
+        - message
     TokenResponse:
       type: object
       properties:
@@ -329,22 +365,23 @@ components:
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        lastUsedAt: { type: string, format: date-time, nullable: true }
-        useCount: { type: integer, nullable: true }
+        isOfficial: { type: boolean, description: "Indicates if the exercise is an official (system-defined) one or a user-custom one. True for official, false for custom." }
+        lastUsedAt: { type: [string, "null"], format: date-time }
+        useCount: { type: [integer, "null"] }
     SessionStart:
       type: object
       required: [startedAt]
       properties:
         startedAt: { type: string, format: date-time }
-        notes: { type: string, nullable: true }
+        notes: { type: [string, "null"] }
     WorkoutSession:
       type: object
       properties:
         id: { type: string, format: uuid }
         userId: { type: string, format: uuid }
         startedAt: { type: string, format: date-time }
-        finishedAt: { type: string, format: date-time, nullable: true }
-        notes: { type: string, nullable: true }
+        finishedAt: { type: [string, "null"], format: date-time }
+        notes: { type: [string, "null"] }
     SessionDetail:
       allOf:
         - $ref: '#/components/schemas/WorkoutSession'
@@ -372,25 +409,14 @@ components:
         reps:
           type: integer
           description: Number of repetitions performed.
-        # distance:
-        #   type: number
-        #   format: float
-        #   nullable: true
-        #   description: Distance covered (e.g., for cardio exercises, in km or miles).
-        # duration:
-        #   type: integer
-        #   nullable: true
-        #   description: Duration of the set (e.g., for timed exercises, in seconds).
         rpe:
-          type: number
+          type: [number, "null"]
           format: float
-          nullable: true
           minimum: 1
           maximum: 10
           description: Rating of Perceived Exertion (1-10).
         notes:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Additional notes for the set.
         performedAt:
           type: string
@@ -400,67 +426,49 @@ components:
       type: object
       properties:
         id: { type: string, format: uuid }
-        sessionId: { type: string, format: uuid }
         exerciseId: { type: string, format: uuid }
         setNumber: { type: integer, description: "The order of the set in the session." }
         exerciseName: { type: string, description: Name of the exercise, potentially translated }
         weight: { type: number, format: float }
         reps: { type: integer }
-        # distance: { type: number, format: float, nullable: true }
-        # duration: { type: integer, nullable: true }
-        rpe: { type: number, format: float, nullable: true, minimum: 1, maximum: 10 }
-        notes: { type: string, nullable: true }
+        rpe: { type: [number, "null"], format: float, minimum: 1, maximum: 10 }
+        notes: { type: [string, "null"] }
         performedAt: { type: string, format: date-time }
     SetUpdate:
       type: object
       properties:
         exerciseId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          nullable: true
           description: ID of the exercise for this set.
         weight:
-          type: number
+          type: [number, "null"]
           format: float
-          nullable: true
           description: Weight used for the set (e.g., in kg or lbs).
         reps:
-          type: integer
-          nullable: true
+          type: [integer, "null"]
           description: Number of repetitions performed.
-        # distance:
-        #   type: number
-        #   format: float
-        #   nullable: true
-        #   description: Distance covered (e.g., for cardio exercises, in km or miles).
-        # duration:
-        #   type: integer
-        #   nullable: true
-        #   description: Duration of the set (e.g., for timed exercises, in seconds).
         rpe:
-          type: number
+          type: [number, "null"]
           format: float
-          nullable: true
           minimum: 1
           maximum: 10
           description: Rating of Perceived Exertion (1-10).
         notes:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Additional notes for the set.
         performedAt:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: Timestamp when the set was performed.
     WeekPoint:
       type: object
       required: [weekStart, totalVolume]
       properties:
-        weekStart: { type: string, example: '2025-05-05' }
-        totalVolume: { type: number, example: 12500 }
-        avgSetVolume: { type: number, example: 180 }
-        e1rmAvg: { type: number, nullable: true, example: 110 }
+        weekStart: { type: string, format: date, examples: ['2025-05-05'] }
+        totalVolume: { type: number, examples: [12500] }
+        avgSetVolume: { type: number, examples: [180] }
+        e1rmAvg: { type: [number, "null"], examples: [110] }
 
     MuscleGroupSeries:
       type: object
@@ -476,32 +484,30 @@ components:
       type: object
       required: [weekStart, totalVolume, setCount]
       properties:
-        weekStart: { type: string, example: '2025-05-05' }
-        totalVolume: { type: number, example: 2500 }
-        setCount: { type: integer, example: 20 }
-        avgE1rm: { type: number, nullable: true, example: 80.0 }
+        weekStart: { type: string, format: date, examples: ['2025-05-05'] }
+        totalVolume: { type: number, examples: [2500] }
+        setCount: { type: integer, examples: [20] }
+        avgE1rm: { type: [number, "null"], examples: [80.0] }
 
     MetricSeries:
       type: object
       required: [metricKey, unit, points]
       properties:
-        metricKey: { type: string, example: body_weight }
-        unit: { type: string, example: kg }
+        metricKey: { type: string, examples: ["body_weight"] }
+        unit: { type: string, examples: ["kg"] }
         points:
           type: array
           items:
             type: object
             required: [weekStart, value]
             properties:
-              weekStart: { type: string, example: '2025-05-05' }
-              value: { type: number, example: 70.4 }
+              weekStart: { type: string, format: date, examples: ['2025-05-05'] }
+              value: { type: number, examples: [70.4] }
 
     DashboardResponse:
       type: object
-      required: [userId, span, thisWeek, lastWeek, trend, muscleGroups, metrics]
+      required: [thisWeek, lastWeek, trend, muscleGroups, metrics]
       properties:
-        userId: { type: string, format: uuid }
-        span: { type: string, example: 4w }
         thisWeek: { $ref: '#/components/schemas/WeekPoint' }
         lastWeek: { $ref: '#/components/schemas/WeekPoint' }
         trend:
