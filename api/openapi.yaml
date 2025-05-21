@@ -270,22 +270,6 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/DashboardResponse' }
 
-  # ---------------- Utility ---------------- #
-  /v1/ping:
-    get:
-      summary: Health check
-      tags: [Utility]
-      responses:
-        '200':
-          description: pong
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message: { type: string, examples: ["pong"] }
-      security: []
-
 components:
   securitySchemes:
     BearerAuth:

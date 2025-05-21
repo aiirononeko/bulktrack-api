@@ -1,6 +1,6 @@
 import type { Hono } from 'hono';
 
-import type { AppEnv } from '../../router'; // Assuming router.ts exports AppEnv
+import type { AppEnv } from '../../main.router'; // Corrected path to main.router.ts
 import type { FtsService } from '../../../../application/service/FtsService';
 
 // Hono v4では Context型が変更されている可能性があります。
@@ -36,4 +36,4 @@ export const createPopulateFtsHandler = (app: Hono<AppEnv>) => {
       return c.json({ error: 'Failed to populate FTS table', details: errorMessage }, 500);
     }
   });
-}; 
+};
