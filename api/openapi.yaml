@@ -117,6 +117,11 @@ paths:
       summary: List recently used exercises for the authenticated user
       tags: [Exercises]
       parameters:
+        - name: Accept-Language
+          in: header
+          required: false
+          description: "Preferred language for exercise names (e.g., en, ja). If not specified, the server's default language will be used."
+          schema: { type: string }
         - in: query
           name: limit
           schema:

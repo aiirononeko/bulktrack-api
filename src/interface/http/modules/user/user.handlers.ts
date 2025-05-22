@@ -19,8 +19,12 @@ export function createListRecentExercisesHttpHandler() {
     }
     const userIdVO = new UserIdVO(jwtPayload.sub);
     
-    // Extract locale and pagination params from query, with defaults
-    const locale = c.req.query('locale') || 'en';
+    // Extract locale and pagination params
+    const acceptLanguageHeader = c.req.header('accept-language');
+    // TODO: Implement proper Accept-Language parsing if multiple languages/q-factors are supported.
+    // For now, take the first part if available, otherwise default.
+    const locale = acceptLanguageHeader ? acceptLanguageHeader.split(',')[0].split(';')[0].trim() : 'en';
+    
     const limitParam = c.req.query('limit');
     const offsetParam = c.req.query('offset');
 
