@@ -9,9 +9,11 @@ export interface IExerciseRepository {
    * 実装では、ExerciseエンティティにexerciseMusclesの情報も適切に含める必要があります。
    * @param query 検索クエリ文字列 (部分一致、前方一致など実装に依存)
    * @param locale ユーザーのロケール (例: 'ja', 'en')
+   * @param limit 取得する最大件数 (オプショナル)
+   * @param offset 結果のオフセット (オプショナル)
    * @returns 条件に一致するエクササイズの配列
    */
-  search(query: string | null, locale: string): Promise<Exercise[]>;
+  search(query: string | null, locale: string, limit?: number, offset?: number): Promise<Exercise[]>;
 
   /**
    * 指定されたIDのエクササイズを取得します。
@@ -85,4 +87,4 @@ export interface IExerciseRepository {
 
   // 必要に応じて、更新 (update) や削除 (delete) メソッドも定義できますが、
   // 今回のGETエンドポイント実装には直接関係しないため、一旦含めません。
-} 
+}

@@ -118,11 +118,52 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
     return mappedExercises.length > 0 ? mappedExercises[0] : null;
   }
 
-  async search(query: string | null, locale = 'ja', limit: number = DEFAULT_SEARCH_LIMIT): Promise<Exercise[]> {
-    console.debug(`[ExerciseRepository.search_FTS] Start: query="${query}", locale="${locale}", limit=${limit}`);
+  async search(query: string | null, locale = 'ja', limit: number = DEFAULT_SEARCH_LIMIT, offset = 0): Promise<Exercise[]> {
+    console.debug(`[ExerciseRepository.search] Start: query="${query}", locale="${locale}", limit=${limit}, offset=${offset}`);
 
-    if (!query || query.trim().length < 2) {
-      console.debug('[ExerciseRepository.search_FTS] Query is too short (less than 2 chars). Returning empty array.');
+    if (!query || query.trim() === "") {
+      console.debug('[ExerciseRepository.search] No query provided. Listing all exercises.');
+      // クエリがない場合は全件取得 (limit/offset を考慮)
+      const allExerciseRows: DbExerciseRow[] = await this.db
+        .select({
+          id: this.tables.exercises.id,
+          canonicalName: this.tables.exercises.canonicalName,
+          defaultMuscleId: this.tables.exercises.defaultMuscleId,
+          isCompound: this.tables.exercises.isCompound,
+          isOfficial: this.tables.exercises.isOfficial,
+          authorUserId: this.tables.exercises.authorUserId,
+          lastUsedAt: this.tables.exercises.lastUsedAt,
+          createdAt: this.tables.exercises.createdAt,
+          // 特定ロケールの翻訳を取得するか、全翻訳を取得してmap側でフィルタリングするか検討
+          // ここでは指定ロケールのみ取得 (mapDbRowsToExerciseEntitiesは複数ロケールを扱えるが、
+          // 全件取得時は特定ロケールのみで十分な場合が多い)
+          // もし全翻訳が必要なら、ここのJOIN条件とmapDbRowsToExerciseEntitiesのロジックを確認
+          translationLocale: this.tables.exerciseTranslations.locale,
+          translationName: this.tables.exerciseTranslations.name,
+          translationAliases: this.tables.exerciseTranslations.aliases,
+        })
+        .from(this.tables.exercises)
+        .leftJoin(
+          this.tables.exerciseTranslations,
+          and(
+            eq(this.tables.exercises.id, this.tables.exerciseTranslations.exerciseId),
+            eq(this.tables.exerciseTranslations.locale, locale) // 指定ロケールの翻訳のみJOIN
+          )
+        )
+        // TODO: 必要であれば isOfficial = true のような条件を追加
+        .orderBy(this.tables.exercises.canonicalName) // 何らかの順序付け
+        .limit(limit)
+        .offset(offset)
+        .all();
+      
+      const mappedExercises = this.mapDbRowsToExerciseEntities(allExerciseRows);
+      console.debug(`[ExerciseRepository.search] Returning ${mappedExercises.length} exercises from all list.`);
+      return mappedExercises;
+    }
+    
+    // FTS検索のためのクエリ長チェック (2文字以上)
+    if (query.trim().length < 2) {
+      console.debug('[ExerciseRepository.search_FTS] Query is too short (less than 2 chars) for FTS. Returning empty array.');
       return [];
     }
 
@@ -154,7 +195,7 @@ export class DrizzleExerciseRepository implements IExerciseRepository {
       WHERE text_normalized MATCH ${keywords} -- 検索対象を text_normalized に変更
         AND locale IN ${targetLocales}
       ORDER BY score ASC 
-      LIMIT ${limit} 
+      LIMIT ${limit} OFFSET ${offset}
     `);
 
     console.debug(`[ExerciseRepository.search_FTS] Found ${ftsResults.length} exercises from FTS stage 1.`);

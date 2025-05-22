@@ -21,7 +21,7 @@ export class AuthService {
   private readonly jwtService: IJwtService;
 
   // 定数として有効期限を定義 (秒単位)
-  public static readonly ACCESS_TOKEN_TTL_SECONDS = 15 * 60; // 15 minutes
+  public static readonly ACCESS_TOKEN_TTL_SECONDS = 60 * 60; // 60 minutes
   public static readonly REFRESH_TOKEN_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days
 
   constructor(jwtService: IJwtService) {

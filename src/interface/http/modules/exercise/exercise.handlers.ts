@@ -34,18 +34,42 @@ export function createSearchExercisesHttpHandler() {
     }
 
     const queryParam = c.req.query('q');
-    // TODO: Locale should ideally be determined from request (e.g., header, query param)
-    const locale = c.req.query('locale') || 'en'; // Default to 'en' if not provided
+    const acceptLanguageHeader = c.req.header('accept-language');
+    // TODO: Implement proper Accept-Language parsing if multiple languages/q-factors are supported.
+    // For now, take the first part if available, otherwise default.
+    const locale = acceptLanguageHeader ? acceptLanguageHeader.split(',')[0].split(';')[0].trim() : 'en';
+
+    const limitParam = c.req.query('limit');
+    const offsetParam = c.req.query('offset');
+
+    const limit = limitParam ? parseInt(limitParam, 10) : 20; // Default limit 20
+    const offset = offsetParam ? parseInt(offsetParam, 10) : 0; // Default offset 0
+
+    if (isNaN(limit) || limit <= 0) {
+      throw new HTTPException(400, { message: "Invalid 'limit' parameter" });
+    }
+    if (isNaN(offset) || offset < 0) {
+      throw new HTTPException(400, { message: "Invalid 'offset' parameter" });
+    }
 
     const jwtPayload = c.get('jwtPayload');
     if (!jwtPayload || typeof jwtPayload.sub !== 'string') {
       // For public search, this might be optional. For user-specific search, it's required.
       // Assuming search is authenticated for now as per original logic.
+      // OpenAPI spec does not list security for this endpoint, implying it might be public.
+      // However, the current exercise.routes.ts applies jwtAuthMiddleware to all '*' routes.
+      // For now, let's keep the auth check. If it needs to be public, jwtAuthMiddleware should be removed
+      // or made conditional for this specific GET route in exercise.routes.ts.
       throw new HTTPException(401, { message: "Unauthorized: Missing or invalid user identifier for search" });
     }
     // const userId = jwtPayload.sub; // userId is not directly part of SearchExercisesQuery
 
-    const searchParams: SearchExercisesQuery = { q: queryParam || null, locale };
+    const searchParams: SearchExercisesQuery = { 
+      q: queryParam || null, 
+      locale,
+      limit,
+      offset
+    };
     const results = await handler.execute(searchParams);
     return c.json(results);
   };

@@ -25,8 +25,10 @@ export class ExerciseService {
   async searchExercises(
     query: string | null,
     locale: string,
+    limit?: number,
+    offset?: number,
   ): Promise<Exercise[]> {
-    return this.exerciseRepository.search(query, locale);
+    return this.exerciseRepository.search(query, locale, limit, offset);
   }
 
   /**

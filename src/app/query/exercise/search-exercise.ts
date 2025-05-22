@@ -5,8 +5,10 @@ import { toExerciseDtoList, type ExerciseDto } from '../../dto/exercise';
  * エクササイズ検索クエリのパラメータを表す型。
  */
 export type SearchExercisesQuery = {
-  q: string | null; // 検索文字列 (OpenAPIのクエリパラメータ q に対応)
-  locale: string;   // ロケール (OpenAPIのクエリパラメータ locale に対応)
+  q: string | null;    // 検索文字列 (OpenAPIのクエリパラメータ q に対応)
+  locale: string;      // ロケール (OpenAPIのAccept-Languageヘッダーに対応)
+  limit?: number;      // 取得件数 (OpenAPIのクエリパラメータ limit に対応)
+  offset?: number;     // オフセット (OpenAPIのクエリパラメータ offset に対応)
 };
 
 /**
@@ -21,9 +23,9 @@ export class SearchExercisesHandler {
    * @returns エクササイズDTOの配列
    */
   async execute(query: SearchExercisesQuery): Promise<ExerciseDto[]> {
-    const { q, locale } = query;
+    const { q, locale, limit, offset } = query;
 
-    const exercises = await this.exerciseService.searchExercises(q, locale);
+    const exercises = await this.exerciseService.searchExercises(q, locale, limit, offset);
 
     return toExerciseDtoList(exercises, locale);
   }
