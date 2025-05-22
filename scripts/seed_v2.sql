@@ -109,6 +109,7 @@ INSERT INTO exercises(id,canonical_name,default_muscle_id,is_compound,is_officia
  ('8d1c5c52-1111-4a1f-b111-1234567890ca', 'Machine Chest Press',102,1,1),                 -- マシンチェストプレス
  ('f1a0d333-3333-4acd-b333-1234567890cc', 'Pec-Deck Fly (Machine)',102,0,1),              -- ペックデックフライ (マシン)
  ('c5e7f444-4444-4bdf-b444-1234567890cd', 'Cable Fly (Standing)',102,0,1),                -- ケーブルフライ (スタンディング)
+ ('b2b19bba-aeaf-4c0e-b4c5-9e5f5d4e7b10', 'Dumbbell Bench Press',102,1,1),                -- ダンベルベンチプレス
  -- Shoulder Exercises (肩のエクササイズ)
  ('2504cbb2-7b95-4237-931d-c9ab080a1910','Overhead Press',301,1,1),                       -- オーバーヘッドプレス
  ('ecc4d9e3-678b-4ba5-9df2-a2cdb9b741e5','Seated DB Shoulder Press',301,1,1),             -- シーテッドダンベルショルダープレス
@@ -154,7 +155,7 @@ INSERT INTO exercises(id,canonical_name,default_muscle_id,is_compound,is_officia
 --    各エクササイズがどの筋肉にどの程度の負荷を与えるかを示します。
 --    relative_share: 筋肉への相対的な負荷の割合 (合計で1000になるように調整)
 --    source_id: 負荷割合の根拠となる参考文献ID (exercise_sources.id を参照)
---    source_details: 参考文献内の詳細情報 (例: "30deg" は30度のインクライン)
+--    notes: 参考文献内の詳細情報 (例: "30deg" は30度のインクライン)
 --
 --    ※主要なコンパウンド種目を中心に、エビデンスに基づいたデータを登録。
 --    ※アイソレーション種目は、主にターゲットとする筋肉に1000を割り当てるか、
@@ -162,32 +163,32 @@ INSERT INTO exercises(id,canonical_name,default_muscle_id,is_compound,is_officia
 ------------------------------------------------------------
 
 -- Bench Press (flat) -- DOI: 10.1519/JSC.0000000000004629
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
- ('437c3738-b98d-4647-badf-2800da6653e8',102,600,'10.1519/JSC.0000000000004629',''), -- Pectoralis Major - Sternal
- ('437c3738-b98d-4647-badf-2800da6653e8',401,250,'10.1519/JSC.0000000000004629',''), -- Triceps Brachii
- ('437c3738-b98d-4647-badf-2800da6653e8',301,150,'10.1519/JSC.0000000000004629',''); -- Deltoid Anterior
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id) VALUES
+ ('437c3738-b98d-4647-badf-2800da6653e8',102,600,'10.1519/JSC.0000000000004629'), -- Pectoralis Major - Sternal
+ ('437c3738-b98d-4647-badf-2800da6653e8',401,250,'10.1519/JSC.0000000000004629'), -- Triceps Brachii
+ ('437c3738-b98d-4647-badf-2800da6653e8',301,150,'10.1519/JSC.0000000000004629'); -- Deltoid Anterior
 
 -- Incline Bench Press (30°) -- DOI: 10.1519/JSC.0000000000004629
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('62d5e1af-7c34-463b-8d3b-1c4d16fc5f77',101,550,'10.1519/JSC.0000000000004629','30deg'), -- Pectoralis Major - Clavicular
  ('62d5e1af-7c34-463b-8d3b-1c4d16fc5f77',102,200,'10.1519/JSC.0000000000004629',''),    -- Pectoralis Major - Sternal
  ('62d5e1af-7c34-463b-8d3b-1c4d16fc5f77',401,150,'10.1519/JSC.0000000000004629',''),    -- Triceps Brachii
  ('62d5e1af-7c34-463b-8d3b-1c4d16fc5f77',301,100,'10.1519/JSC.0000000000004629','');    -- Deltoid Anterior
 
 -- Decline Bench Press -- (仮データ: 主に大胸筋下部)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('d0f1c4c6-2700-47d9-a7ab-011e5e5b0001',102,1000,NULL,''); -- Pectoralis Major - Sternal (主に下部線維)
 
 -- Push-up -- (仮データ: ベンチプレスに類似)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('d0f1c4c6-2700-47d9-a7ab-011e5e5b0002',102,1000,NULL,''); -- Pectoralis Major - Sternal
 
 -- Weighted Dip -- (仮データ: 大胸筋下部、上腕三頭筋)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('2f1b44c9-1fcf-4db2-927e-5b1b6b14c539',102,1000,NULL,''); -- Pectoralis Major - Sternal (主に下部線維)
 
 -- Dumbbell Fly -- (アイソレーション: 大胸筋)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('a0b29be0-3a9e-4f57-8c93-34d9faebcdc9',102,1000,NULL,''); -- Pectoralis Major - Sternal
 
 -- Machine Chest Press -- DOI: 10.3390/app13085203
@@ -208,36 +209,41 @@ INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id)
   ('c5e7f444-4444-4bdf-b444-1234567890cd', 301, 180, '10.3390/app13085203'), -- Deltoid Anterior
   ('c5e7f444-4444-4bdf-b444-1234567890cd', 203,  70, '10.3390/app13085203'); -- Trapezius Upper (安定筋として)
 
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id) VALUES
+ ('b2b19bba-aeaf-4c0e-b4c5-9e5f5d4e7b10',102,600,'10.1519/JSC.0000000000004629'), -- Pectoralis Major - Sternal
+ ('b2b19bba-aeaf-4c0e-b4c5-9e5f5d4e7b10',401,250,'10.1519/JSC.0000000000004629'), -- Triceps Brachii
+ ('b2b19bba-aeaf-4c0e-b4c5-9e5f5d4e7b10',301,150,'10.1519/JSC.0000000000004629'); -- Deltoid Anterior
+
 -- Overhead Press (Standing) -- DOI: 10.1519/JSC.0000000000003953
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('2504cbb2-7b95-4237-931d-c9ab080a1910',301,450,'10.1519/JSC.0000000000003953','standing'), -- Deltoid Anterior
  ('2504cbb2-7b95-4237-931d-c9ab080a1910',401,300,'10.1519/JSC.0000000000003953',''),          -- Triceps Brachii
  ('2504cbb2-7b95-4237-931d-c9ab080a1910',302,150,'10.1519/JSC.0000000000003953',''),          -- Deltoid Lateral
  ('2504cbb2-7b95-4237-931d-c9ab080a1910',503,100,'10.1519/JSC.0000000000003953','');          -- Erector Spinae (体幹安定)
 
 -- Seated Dumbbell Shoulder Press -- (仮データ: OHPに類似、体幹安定の負荷減)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('ecc4d9e3-678b-4ba5-9df2-a2cdb9b741e5',301,1000,NULL,''); -- Deltoid Anterior
 
 -- Arnold Press -- (仮データ: 三角筋全体)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('f3e67011-2f4f-444d-8e75-0b99c9000001',301,1000,NULL,''); -- Deltoid Anterior (前部・中部中心)
 
 -- Lateral Raise -- DOI: 10.1519/JSC.0000000000002742
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('e3d0acd9-5573-4db5-af8c-4a9fa5f60437',302,800,'10.1519/JSC.0000000000002742',''), -- Deltoid Lateral
  ('e3d0acd9-5573-4db5-af8c-4a9fa5f60437',303,200,'10.1519/JSC.0000000000002742',''); -- Deltoid Posterior (補助的に)
 
 -- Cable Lateral Raise -- DOI: 10.1519/JSC.0000000000002742 (ダンベルと比較)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('f3e67011-2f4f-444d-8e75-0b99c9000002',302,1000,'10.1519/JSC.0000000000002742',''); -- Deltoid Lateral
 
 -- Face Pull -- (仮データ: 三角筋後部、僧帽筋中部・下部)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('67d80b5b-d3f4-4e58-9b95-3147d119c73a',303,1000,NULL,''); -- Deltoid Posterior
 
 -- Upright Row -- DOI: 10.1519/JSC.0000000000002878
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('f3e67011-2f4f-444d-8e75-0b99c9000003',302,500,'10.1519/JSC.0000000000002878',''), -- Deltoid Lateral
  ('f3e67011-2f4f-444d-8e75-0b99c9000003',301,300,'10.1519/JSC.0000000000002878',''), -- Deltoid Anterior
  ('f3e67011-2f4f-444d-8e75-0b99c9000003',203,200,'10.1519/JSC.0000000000002878',''); -- Trapezius Upper (文献では僧帽筋全体として評価されている場合あり)
@@ -255,44 +261,44 @@ INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id)
   ('e9c9f666-6666-4def-b666-1234567890cf', 203, 150, '10.5604/17342260.1055261'); -- Trapezius Upper
 
 -- Bent-Over Row -- (仮データ: 広背筋、僧帽筋、菱形筋)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('4505171d-9d3d-4656-9947-e3fd7c57d4c5',201,1000,NULL,''); -- Latissimus Dorsi
 
 -- Seated Cable Row -- (仮データ: 広背筋、僧帽筋中部、菱形筋)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('b61e9d06-49ba-4b22-af26-32cf9152e7c7',202,1000,NULL,''); -- Rhomboids (僧帽筋中部も含む)
 
 -- Lat Pulldown -- (仮データ: 広背筋)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('f37f0c6f-bd6a-4df3-9d10-dae2db0e6d92',201,1000,NULL,''); -- Latissimus Dorsi
 
 -- Pull-up (Pronated grip) -- DOI: 10.1519/JSC.0000000000003158
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('14d4665b-6f3b-4c78-afb4-9a466a97a6d0',201,550,'10.1519/JSC.0000000000003158','pronated'), -- Latissimus Dorsi
  ('14d4665b-6f3b-4c78-afb4-9a466a97a6d0',402,250,'10.1519/JSC.0000000000003158',''),          -- Biceps Brachii
  ('14d4665b-6f3b-4c78-afb4-9a466a97a6d0',202,100,'10.1519/JSC.0000000000003158',''),          -- Rhomboids
  ('14d4665b-6f3b-4c78-afb4-9a466a97a6d0',203,100,'10.1519/JSC.0000000000003158','');          -- Trapezius Upper (文献では僧帽筋全体として評価されている場合あり)
 
 -- Chin-up (Supinated grip) -- DOI: 10.1519/JSC.0000000000003158
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('97a4ac5f-62e5-43ba-b618-12f7a4c0913e',201,450,'10.1519/JSC.0000000000003158','supinated'), -- Latissimus Dorsi
  ('97a4ac5f-62e5-43ba-b618-12f7a4c0913e',402,350,'10.1519/JSC.0000000000003158',''),           -- Biceps Brachii
  ('97a4ac5f-62e5-43ba-b618-12f7a4c0913e',202,100,'10.1519/JSC.0000000000003158',''),           -- Rhomboids
  ('97a4ac5f-62e5-43ba-b618-12f7a4c0913e',203,100,'10.1519/JSC.0000000000003158','');           -- Trapezius Upper
 
 -- Back Squat -- DOI: 10.1080/14763141.2020.1820355
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('3a60bb2d-48a0-4409-81c9-102999355d73',701,500,'10.1080/14763141.2020.1820355',''), -- Quadriceps
  ('3a60bb2d-48a0-4409-81c9-102999355d73',601,250,'10.1080/14763141.2020.1820355',''), -- Gluteus Maximus
  ('3a60bb2d-48a0-4409-81c9-102999355d73',702,200,'10.1080/14763141.2020.1820355',''), -- Hamstrings
  ('3a60bb2d-48a0-4409-81c9-102999355d73',703, 50,'10.1080/14763141.2020.1820355',''); -- Gastrocnemius (腓腹筋)
 
 -- Front Squat -- (仮データ: バックスクワットに類似、大腿四頭筋への比重増)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('f8a76177-21a7-4db9-bf08-0d9e40000001',701,1000,NULL,''); -- Quadriceps
 
 -- Barbell Deadlift -- DOI: 10.1080/15438627.2019.1586700
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('e21bd027-0b23-4d33-a6b0-29e2f878cd75',702,350,'10.1080/15438627.2019.1586700',''), -- Hamstrings
  ('e21bd027-0b23-4d33-a6b0-29e2f878cd75',601,250,'10.1080/15438627.2019.1586700',''), -- Gluteus Maximus
  ('e21bd027-0b23-4d33-a6b0-29e2f878cd75',503,200,'10.1080/15438627.2019.1586700',''), -- Erector Spinae
@@ -300,23 +306,23 @@ INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id,
  ('e21bd027-0b23-4d33-a6b0-29e2f878cd75',703,100,'10.1080/15438627.2019.1586700',''); -- Gastrocnemius
 
 -- Romanian Deadlift -- DOI: 10.1519/JSC.0000000000003738
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('b0a4d29e-d640-4bfb-808f-9a2621c99ceb',702,600,'10.1519/JSC.0000000000003738',''), -- Hamstrings
  ('b0a4d29e-d640-4bfb-808f-9a2621c99ceb',601,200,'10.1519/JSC.0000000000003738',''), -- Gluteus Maximus
  ('b0a4d29e-d640-4bfb-808f-9a2621c99ceb',503,200,'10.1519/JSC.0000000000003738',''); -- Erector Spinae
 
 -- Hip Thrust -- DOI: 10.1080/10826084.2022.2029960
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('a50de2f8-2ecb-4ed4-b108-793d842c698c',601,700,'10.1080/10826084.2022.2029960',''), -- Gluteus Maximus
  ('a50de2f8-2ecb-4ed4-b108-793d842c698c',602,200,'10.1080/10826084.2022.2029960',''), -- Gluteus Medius/Min
  ('a50de2f8-2ecb-4ed4-b108-793d842c698c',702,100,'10.1080/10826084.2022.2029960',''); -- Hamstrings
 
 -- Leg Press -- (仮データ: スクワットに類似、大腿四頭筋中心)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('ab8ff6c9-1481-4d3a-8b71-5f9bd64e2003',701,1000,NULL,''); -- Quadriceps
 
 -- Leg Extension -- (アイソレーション: 大腿四頭筋)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('90f54f9f-76a2-4d29-bc87-ebd9d2d9c34d',701,1000,NULL,''); -- Quadriceps
 
 -- Seated Leg Curl -- DOI: 10.1519/JSC.0000000000005829
@@ -334,26 +340,26 @@ INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id)
   ('aa1b2c3d-4e5f-6789-aaaa-bbccccddeeff', 704,  50, '10.1519/JSC.0000000000005829'); -- Soleus
 
 -- Standing Calf Raise -- (アイソレーション: 腓腹筋、ヒラメ筋)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('6762571e-62af-4254-b260-043e496f8ea0',703,600,NULL,''), -- Gastrocnemius
  ('6762571e-62af-4254-b260-043e496f8ea0',704,400,NULL,''); -- Soleus
 
 -- Seated Calf Raise -- (アイソレーション: ヒラメ筋、腓腹筋)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('7fd0722e-3b4b-4dbc-a2df-538659168e49',704,700,NULL,''), -- Soleus
  ('7fd0722e-3b4b-4dbc-a2df-538659168e49',703,300,NULL,''); -- Gastrocnemius
 
 -- Barbell Curl -- (アイソレーション: 上腕二頭筋、前腕)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('c352b06d-4aed-4cf9-9c4b-d3779542c56e',402,700,NULL,''), -- Biceps Brachii
  ('c352b06d-4aed-4cf9-9c4b-d3779542c56e',403,300,NULL,''); -- Forearm Flex-Ext
 
 -- Dumbbell Curl -- (アイソレーション: 上腕二頭筋)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('4f8e4523-053e-422c-8bed-6efa8b78c123',402,1000,NULL,''); -- Biceps Brachii
 
 -- Incline Dumbbell Curl -- (アイソレーション: 上腕二頭筋 長頭)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('47062dbe-d70f-4477-9734-2bcd6c05e662',402,1000,NULL,''); -- Biceps Brachii
 
 -- Preacher Curl -- DOI: 10.1055/a-2517-0509
@@ -363,23 +369,23 @@ INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id)
   ('d6b8e555-5555-4ccf-b555-1234567890ce', 301,  30, '10.1055/a-2517-0509'); -- Deltoid Anterior (補助的に)
 
 -- Skull Crusher -- (アイソレーション: 上腕三頭筋)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('5641b19d-1acf-4e59-8a00-bbde7077c8c1',401,1000,NULL,''); -- Triceps Brachii
 
 -- Triceps Pushdown -- (アイソレーション: 上腕三頭筋)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('f8a76177-21a7-4db9-bf08-0d9e40000002',401,1000,NULL,''); -- Triceps Brachii
 
 -- Plank -- (アイソレーション: 腹直筋、体幹深層筋)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('d675c8f0-d542-4bfb-9de4-3772fe8a70be',501,1000,NULL,''); -- Rectus Abdominis
 
 -- Ab Wheel Rollout -- (コンパウンド: 腹直筋、腹斜筋、広背筋など)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('47e2c2aa-5bce-44c7-9ec7-d596cb8f1791',501,1000,NULL,''); -- Rectus Abdominis
 
 -- Russian Twist -- (アイソレーション: 腹斜筋)
-INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, source_details) VALUES
+INSERT INTO exercise_muscles (exercise_id, muscle_id, relative_share, source_id, notes) VALUES
  ('28c69121-3ef7-49d2-bb5a-5a6cc9e04202',502,1000,NULL,''); -- Obliques
 
 ------------------------------------------------------------
@@ -397,8 +403,9 @@ INSERT INTO exercise_translations(exercise_id,locale,name,aliases) VALUES
  ('3a60bb2d-48a0-4409-81c9-102999355d73','ja','バックスクワット','スクワット'),
  ('e21bd027-0b23-4d33-a6b0-29e2f878cd75','ja','デッドリフト',''),
  ('2504cbb2-7b95-4237-931d-c9ab080a1910','ja','オーバーヘッドプレス','ショルダープレス,ミリタリープレス'),
- ('14d4665b-6f3b-4c78-afb4-9a466a97a6d0','ja','プルアップ','懸垂'),
- ('97a4ac5f-62e5-43ba-b618-12f7a4c0913e','ja','チンアップ','チンニング,逆手懸垂'),
+ ('14d4665b-6f3b-4c78-afb4-9a466a97a6d0','ja','チンニング','懸垂'),
+ ('97a4ac5f-62e5-43ba-b618-12f7a4c0913e','ja','チンアップ','チンニング（逆手）'),
+ ('b2b19bba-aeaf-4c0e-b4c5-9e5f5d4e7b10','ja','ダンベルベンチプレス','ベンチプレス')
  -- 胸
  ('d0f1c4c6-2700-47d9-a7ab-011e5e5b0001','ja','デクラインベンチプレス','デクラインBP'),
  ('d0f1c4c6-2700-47d9-a7ab-011e5e5b0002','ja','プッシュアップ','腕立て伏せ'),

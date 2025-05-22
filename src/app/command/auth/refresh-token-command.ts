@@ -27,7 +27,7 @@ import {
 
 // OpenAPI schema Ref: #/components/schemas/RefreshTokenRequest
 export const RefreshTokenRequestSchema = object({
-  refresh_token: pipe(string(), minLength(1, "Refresh token cannot be empty.")),
+  refreshToken: pipe(string(), minLength(1, "Refresh token cannot be empty.")),
 });
 export type RefreshTokenRequestInput = InferOutput<
   typeof RefreshTokenRequestSchema
@@ -65,7 +65,7 @@ export class RefreshTokenCommand {
       }
     })();
 
-    const refreshTokenString = validatedInput.refresh_token;
+    const refreshTokenString = validatedInput.refreshToken;
 
     const verifiedTokenPayload: RefreshTokenPayload = await (async () => {
       try {
