@@ -55,8 +55,6 @@ export function createAddSetHttpHandler() {
         notes: validatedBody.notes,
         performedAt: performedAtDate,
         rpe: validatedBody.rpe,
-        restSec: validatedBody.restSec,
-        setNo: validatedBody.setNo
       };
 
       const resultDto = await workoutService.addWorkoutSet(commandData);

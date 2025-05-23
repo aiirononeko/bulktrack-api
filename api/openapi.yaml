@@ -417,7 +417,6 @@ components:
         id: { type: string, format: uuid }
         exerciseId: { type: string, format: uuid }
         setNumber: { type: integer, description: "The order of the set in the session." }
-        exerciseName: { type: string, description: Name of the exercise, potentially translated }
         weight: { type: number, format: float }
         reps: { type: integer }
         rpe: { type: [number, "null"], format: float, minimum: 1, maximum: 10 }

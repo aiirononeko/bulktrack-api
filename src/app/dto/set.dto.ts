@@ -10,9 +10,7 @@ export const AddSetRequestSchema = v.objectAsync({
     v.string(),
     v.isoTimestamp("PerformedAt must be a valid ISO 8601 timestamp string.")
   ))),
-  setNo: v.optional(v.nullable(v.pipe(v.number(), v.integer(), v.minValue(1)))),
   rpe: v.optional(v.nullable(v.pipe(v.number(), v.minValue(0), v.maxValue(10)))),
-  restSec: v.optional(v.nullable(v.pipe(v.number(), v.integer(), v.minValue(0)))),
 });
 
 export type AddSetRequestDto = v.InferInput<typeof AddSetRequestSchema>;
@@ -26,10 +24,7 @@ export interface WorkoutSetDto {
   weight?: number | null;
   notes?: string | null;
   performedAt: string; // ISO 8601 date-time string
-  volume?: number;
-  createdAt?: string;
   rpe?: number | null;
-  restSec?: number | null;
 }
 
 export const SetUpdateRequestSchema = v.objectAsync({

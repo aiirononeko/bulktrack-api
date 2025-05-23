@@ -27,10 +27,8 @@ export interface WorkoutSetDto { // Define based on what API should return, like
   weight?: number | null;
   notes?: string | null;
   performedAt: string;
-  createdAt: string;
   rpe?: number | null;
-  restSec?: number | null;
-  volume?: number;
+  // createdAt, restSec, volume removed to align with OpenAPI spec as per user request
 }
 
 export interface DeleteWorkoutSetCommand {
@@ -90,10 +88,8 @@ export class WorkoutService {
       weight: addedSetPrimitives.weight,
       notes: addedSetPrimitives.notes,
       performedAt: addedSetPrimitives.performedAt,
-      createdAt: addedSetPrimitives.createdAt,
       rpe: addedSetPrimitives.rpe,
-      restSec: addedSetPrimitives.restSec,
-      volume: addedSetPrimitives.volume,
+      // createdAt, restSec, volume removed
     };
 
     return dto;
@@ -141,10 +137,8 @@ export class WorkoutService {
         weight: updatedSetPrimitives.weight,
         notes: updatedSetPrimitives.notes,
         performedAt: updatedSetPrimitives.performedAt,
-        createdAt: updatedSetPrimitives.createdAt,
         rpe: updatedSetPrimitives.rpe,
-        restSec: updatedSetPrimitives.restSec,
-        volume: updatedSetPrimitives.volume,
+        // createdAt, restSec, volume removed
     };
 
     return dto;
