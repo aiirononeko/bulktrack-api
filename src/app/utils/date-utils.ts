@@ -68,4 +68,33 @@ export function getISOWeekSundayString(dateInput: Date | string): string {
 
   return `${year}-${month}-${day}`;
 }
+
+/**
+ * 指定されたspan（例: "4w"）に基づいて、現在の週を基準とした週次日付範囲を生成します。
+ * 各週は月曜日を開始日とし、YYYY-MM-DD形式の文字列のリストを返します。
+ * @param span 期間指定文字列（例: "1w", "4w", "12w"）
+ * @returns 週開始日のリスト（古い順にソート）
+ */
+export function generateWeeklyDateRange(span: string): string[] {
+  const now = new Date();
+  const currentWeekMonday = getISOWeekMondayString(now);
   
+  let weeksCount = 1; // デフォルトは1週間
+  const spanMatch = /(\d+)w/.exec(span);
+  if (spanMatch?.[1]) {
+    weeksCount = Number.parseInt(spanMatch[1], 10);
+  }
+  
+  const weekStartDates: string[] = [];
+  
+  for (let i = 0; i < weeksCount; i++) {
+    const currentMondayDate = new Date(`${currentWeekMonday}T00:00:00Z`);
+    currentMondayDate.setUTCDate(currentMondayDate.getUTCDate() - (i * 7));
+    
+    const weekStartString = getISOWeekMondayString(currentMondayDate);
+    weekStartDates.push(weekStartString);
+  }
+  
+  // 古い順にソート
+  return weekStartDates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+}

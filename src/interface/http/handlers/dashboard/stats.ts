@@ -9,7 +9,7 @@ import type { DashboardDataDto, WeeklyUserVolumeDto, WeeklyUserMuscleVolumeDto, 
 // import type { IDashboardRepository } from '../../../../domain/dashboard/repository';
 // import { DashboardRepository } from '../../../../infrastructure/db/repository/dashboard-repository';
 // import { authenticate } from '../../middleware/auth'; // Assuming auth middleware
-import { getISOWeekMondayString as getUtilsIsoWeekMondayString } from '../../../../app/utils/date-utils';
+import { getISOWeekMondayString as getUtilsIsoWeekMondayString, generateWeeklyDateRange } from '../../../../app/utils/date-utils';
 
 // The HonoEnv specific to this file can be removed if AppEnv from router.ts is accessible
 // or if Hono can infer it. For clarity, if AppEnv is not directly imported, 
@@ -329,8 +329,17 @@ dashboardStatsApp.get('/', /* authenticate, */ async (c) => { // authenticate wi
 
     const aggregatedDto: DashboardDataDto = aggregationService.aggregateLegMuscleGroups(dashboardDto, preferredLocale);
 
+    // Apply data completion service to fill missing weeks with default values
+    const completionService = c.var.dashboardDataCompletionService;
+    if (!completionService) {
+        console.error("Dashboard data completion service not initialized. This should be set by upstream middleware.");
+        return c.json({ error: "Internal server error: Completion service not available." }, 500);
+    }
+
+    const completedDto: DashboardDataDto = await completionService.completeWeeklyData(aggregatedDto, requestedSpan, userId, preferredLocale);
+
     // Map DTO to the OpenAPI response structure
-    const responsePayload: DashboardResponse = mapDtoToResponse(aggregatedDto, userId, requestedSpan);
+    const responsePayload: DashboardResponse = mapDtoToResponse(completedDto, userId, requestedSpan);
 
     return c.json(responsePayload);
   } catch (error) {

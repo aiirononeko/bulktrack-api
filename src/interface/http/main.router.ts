@@ -31,6 +31,7 @@ import type * as tablesSchema from "../../infrastructure/db/schema";
 import type { GetDashboardDataQueryHandler } from "../../app/query/dashboard/get-dashboard-data";
 import type { DashboardStatsService } from "../../app/services/dashboard-stats-service";
 import type { DashboardMuscleGroupAggregationService } from "../../app/services/dashboard-muscle-group-aggregation.service";
+import type { DashboardDataCompletionService } from "../../app/services/dashboard-data-completion.service";
 import type { FtsService } from "../../application/service/FtsService";
 
 export type AppEnv = {
@@ -47,6 +48,7 @@ export type AppEnv = {
     // Dashboard
     dashboardQueryHandler?: GetDashboardDataQueryHandler;
     dashboardMuscleGroupAggregationService?: DashboardMuscleGroupAggregationService;
+    dashboardDataCompletionService?: DashboardDataCompletionService;
     statsUpdateService?: DashboardStatsService; // For updating stats after set creation
     // Admin
     ftsService?: FtsService;

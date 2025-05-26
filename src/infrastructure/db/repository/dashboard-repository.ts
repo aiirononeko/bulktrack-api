@@ -10,6 +10,11 @@ import { UserIdVO, MuscleIdVO } from "../../../domain/shared/vo/identifier";
 
 import * as schema from "../schema";
 
+export interface MuscleGroupInfo {
+  id: number;
+  name: string;
+}
+
 export class DashboardRepository implements IDashboardRepository {
   constructor(private readonly db: DrizzleD1Database<typeof schema>) {}
 
@@ -202,5 +207,29 @@ export class DashboardRepository implements IDashboardRepository {
         updatedAt: new Date(r.updatedAt),
       };
     });
+  }
+
+  async findAllMuscleGroups(preferredLocale?: string): Promise<MuscleGroupInfo[]> {
+    const locale = preferredLocale || 'en';
+
+    const results = await this.db
+      .select({
+        id: schema.muscleGroups.id,
+        name: sql<string>`COALESCE(${schema.muscleGroupTranslations.name}, ${schema.muscleGroups.name})`.as('name'),
+      })
+      .from(schema.muscleGroups)
+      .leftJoin(
+        schema.muscleGroupTranslations,
+        and(
+          eq(schema.muscleGroups.id, schema.muscleGroupTranslations.muscleGroupId),
+          eq(schema.muscleGroupTranslations.locale, locale)
+        )
+      )
+      .orderBy(schema.muscleGroups.id);
+
+    return results.map((r) => ({
+      id: r.id,
+      name: r.name,
+    }));
   }
 }
