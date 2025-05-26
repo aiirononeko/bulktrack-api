@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 // Import AppEnv from router.ts to correctly type c.var
 // This might create a circular dependency if AppEnv itself imports this file.
 // If so, AppEnv should be moved to a shared types file.
-import type { AppEnv } from '../../router'; // Assuming router.ts exports AppEnv
+import type { AppEnv } from '../../main.router'; // Correct path to main.router.ts
 import { type GetDashboardDataQueryHandler, GetDashboardDataQuery } from '../../../../app/query/dashboard/get-dashboard-data';
 import type { DashboardDataDto, WeeklyUserVolumeDto, WeeklyUserMuscleVolumeDto, WeeklyUserMetricDto } from '../../../../app/query/dashboard/dto';
 // IDashboardRepository and DashboardRepository imports are no longer needed here as DI is handled upstream.
@@ -303,7 +303,11 @@ dashboardStatsApp.get('/', /* authenticate, */ async (c) => { // authenticate wi
         if (metricKeys.length === 0) metricKeys = undefined;
     }
 
-    const query = new GetDashboardDataQuery(userId, queryStartDate, queryEndDate, metricKeys);
+    // Extract preferred language from Accept-Language header
+    const acceptLanguage = c.req.header('Accept-Language');
+    const preferredLocale = acceptLanguage?.split(',')[0]?.split('-')[0]?.toLowerCase() || 'en';
+
+    const query = new GetDashboardDataQuery(userId, queryStartDate, queryEndDate, metricKeys, preferredLocale);
     
     // dashboardQueryHandler should be populated by DI middleware in router.ts
     // The type for c.var.dashboardQueryHandler will come from AppEnv in router.ts.
@@ -316,8 +320,17 @@ dashboardStatsApp.get('/', /* authenticate, */ async (c) => { // authenticate wi
     
     const dashboardDto: DashboardDataDto = await handler.execute(query);
 
+    // Apply muscle group aggregation service to combine Hip & Glutes (6) and Legs (7) into Legs
+    const aggregationService = c.var.dashboardMuscleGroupAggregationService;
+    if (!aggregationService) {
+        console.error("Dashboard muscle group aggregation service not initialized. This should be set by upstream middleware.");
+        return c.json({ error: "Internal server error: Aggregation service not available." }, 500);
+    }
+
+    const aggregatedDto: DashboardDataDto = aggregationService.aggregateLegMuscleGroups(dashboardDto, preferredLocale);
+
     // Map DTO to the OpenAPI response structure
-    const responsePayload: DashboardResponse = mapDtoToResponse(dashboardDto, userId, requestedSpan);
+    const responsePayload: DashboardResponse = mapDtoToResponse(aggregatedDto, userId, requestedSpan);
 
     return c.json(responsePayload);
   } catch (error) {

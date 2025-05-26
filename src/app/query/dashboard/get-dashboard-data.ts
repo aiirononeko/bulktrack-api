@@ -18,6 +18,7 @@ export class GetDashboardDataQuery {
     public readonly startDate?: string, // Optional: YYYY-MM-DD
     public readonly endDate?: string,   // Optional: YYYY-MM-DD
     public readonly metricKeys?: string[],
+    public readonly preferredLocale?: string, // Optional: 'en', 'ja', etc.
   ) {}
 }
 
@@ -34,6 +35,7 @@ export class GetDashboardDataQueryHandler {
       endDate: query.endDate,
       metricKeys: query.metricKeys,
       currentWeekStart: currentWeekStart, // For fetching current week data
+      preferredLocale: query.preferredLocale,
     };
 
     // 1. Fetch current week summary
@@ -44,6 +46,7 @@ export class GetDashboardDataQueryHandler {
     const currentMuscleVolumesPromise = this.dashboardRepository.findCurrentWeeklyUserMuscleVolumes(
       userIdVo,
       currentWeekStart,
+      query.preferredLocale,
     );
 
     // 2. Fetch historical data if date range is provided
@@ -57,6 +60,7 @@ export class GetDashboardDataQueryHandler {
         startDate: query.startDate,
         endDate: query.endDate,
         metricKeys: query.metricKeys, // Pass metricKeys for historical metrics too
+        preferredLocale: query.preferredLocale,
       };
       historicalWeeklyVolumesPromise = this.dashboardRepository.findWeeklyUserVolumes(historicalFilters);
       historicalWeeklyMuscleVolumesPromise = this.dashboardRepository.findWeeklyUserMuscleVolumes(historicalFilters);

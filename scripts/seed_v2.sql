@@ -47,6 +47,16 @@ INSERT INTO muscle_groups(id,name) VALUES
  (6,'Hip & Glutes'), -- 股関節・臀部
  (7,'Legs');          -- 脚
 
+INSERT INTO muscle_group_translations (muscle_group_id, locale, name) VALUES
+-- Based on scripts/seed_v2.sql muscle_groups definition
+(1, 'ja', '胸'),            -- Chest
+(2, 'ja', '背中'),          -- Back  
+(3, 'ja', '肩'),            -- Shoulders
+(4, 'ja', '腕'),            -- Arms
+(5, 'ja', '体幹'),          -- Core
+(6, 'ja', '股関節・臀部'),   -- Hip & Glutes
+(7, 'ja', '脚');            -- Legs
+
 ------------------------------------------------------------
 -- 2. Muscles (個別筋肉)
 --    より詳細な個別の筋肉 (筋頭レベル) を定義します。

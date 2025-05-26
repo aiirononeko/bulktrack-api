@@ -47,6 +47,9 @@ export class DashboardRepository implements IDashboardRepository {
       conditions.push(lte(schema.weeklyUserMuscleVolumes.weekStart, filters.endDate));
     }
 
+    // Determine the locale to use for muscle group translations
+    const locale = filters.preferredLocale || 'en';
+
     const results = await this.db
       .select({
         userId: schema.weeklyUserMuscleVolumes.userId,
@@ -54,7 +57,7 @@ export class DashboardRepository implements IDashboardRepository {
         muscleId: schema.weeklyUserMuscleVolumes.muscleId,
         muscleName: schema.muscles.name,
         muscleGroupId: schema.muscles.muscleGroupId,
-        muscleGroupName: schema.muscleGroups.name,
+        muscleGroupName: sql<string>`COALESCE(${schema.muscleGroupTranslations.name}, ${schema.muscleGroups.name})`.as('muscleGroupName'),
         volume: schema.weeklyUserMuscleVolumes.volume,
         setCount: schema.weeklyUserMuscleVolumes.setCount,
         e1rmSum: schema.weeklyUserMuscleVolumes.e1rmSum,
@@ -64,8 +67,15 @@ export class DashboardRepository implements IDashboardRepository {
       .from(schema.weeklyUserMuscleVolumes)
       .leftJoin(schema.muscles, eq(schema.weeklyUserMuscleVolumes.muscleId, schema.muscles.id))
       .leftJoin(schema.muscleGroups, eq(schema.muscles.muscleGroupId, schema.muscleGroups.id))
+      .leftJoin(
+        schema.muscleGroupTranslations,
+        and(
+          eq(schema.muscleGroups.id, schema.muscleGroupTranslations.muscleGroupId),
+          eq(schema.muscleGroupTranslations.locale, locale)
+        )
+      )
       .where(and(...conditions))
-      .orderBy(desc(schema.weeklyUserMuscleVolumes.weekStart), schema.muscleGroups.name, schema.muscles.name);
+      .orderBy(desc(schema.weeklyUserMuscleVolumes.weekStart), sql`COALESCE(${schema.muscleGroupTranslations.name}, ${schema.muscleGroups.name})`, schema.muscles.name);
 
     return results.map((r) => {
       if (r.userId === null || r.weekStart === null || r.muscleId === null || r.volume === null || r.updatedAt === null || r.setCount === null || r.e1rmSum === null || r.e1rmCount === null) {
@@ -142,7 +152,11 @@ export class DashboardRepository implements IDashboardRepository {
   async findCurrentWeeklyUserMuscleVolumes(
     userId: UserIdVO,
     currentWeekStart: string,
+    preferredLocale?: string,
   ): Promise<WeeklyUserMuscleVolume[]> {
+    // Determine the locale to use for muscle group translations
+    const locale = preferredLocale || 'en';
+
     const results = await this.db
       .select({
         userId: schema.weeklyUserMuscleVolumes.userId,
@@ -150,7 +164,7 @@ export class DashboardRepository implements IDashboardRepository {
         muscleId: schema.weeklyUserMuscleVolumes.muscleId,
         muscleName: schema.muscles.name,
         muscleGroupId: schema.muscles.muscleGroupId,
-        muscleGroupName: schema.muscleGroups.name,
+        muscleGroupName: sql<string>`COALESCE(${schema.muscleGroupTranslations.name}, ${schema.muscleGroups.name})`.as('muscleGroupName'),
         volume: schema.weeklyUserMuscleVolumes.volume,
         setCount: schema.weeklyUserMuscleVolumes.setCount,
         e1rmSum: schema.weeklyUserMuscleVolumes.e1rmSum,
@@ -160,8 +174,15 @@ export class DashboardRepository implements IDashboardRepository {
       .from(schema.weeklyUserMuscleVolumes)
       .leftJoin(schema.muscles, eq(schema.weeklyUserMuscleVolumes.muscleId, schema.muscles.id))
       .leftJoin(schema.muscleGroups, eq(schema.muscles.muscleGroupId, schema.muscleGroups.id))
+      .leftJoin(
+        schema.muscleGroupTranslations,
+        and(
+          eq(schema.muscleGroups.id, schema.muscleGroupTranslations.muscleGroupId),
+          eq(schema.muscleGroupTranslations.locale, locale)
+        )
+      )
       .where(and(eq(schema.weeklyUserMuscleVolumes.userId, userId.value), eq(schema.weeklyUserMuscleVolumes.weekStart, currentWeekStart)))
-      .orderBy(schema.muscleGroups.name, schema.muscles.name);
+      .orderBy(sql`COALESCE(${schema.muscleGroupTranslations.name}, ${schema.muscleGroups.name})`, schema.muscles.name);
 
     return results.map((r) => {
       if (r.userId === null || r.weekStart === null || r.muscleId === null || r.volume === null || r.updatedAt === null || r.setCount === null || r.e1rmSum === null || r.e1rmCount === null) {

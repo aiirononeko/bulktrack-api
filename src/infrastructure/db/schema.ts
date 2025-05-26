@@ -34,9 +34,24 @@ export const userDevices = sqliteTable("user_devices", {
 // ------------------------------------------------
 export const muscleGroups = sqliteTable("muscle_groups", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull().unique(), // e.g., "Chest", "Back", "Shoulders", "Arms", "Legs", "Core"
+  name: text("name").notNull().unique(),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+export const muscleGroupTranslations = sqliteTable(
+  "muscle_group_translations",
+  {
+    muscleGroupId: integer("muscle_group_id")
+      .notNull()
+      .references(() => muscleGroups.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    locale: text("locale").notNull(), // 'en', 'ja', etc.
+    name: text("name").notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.muscleGroupId, table.locale] }),
+    idxMuscleGroupLocale: index("idx_muscle_group_translations_locale").on(table.locale),
+  }),
+);
 
 export const muscles = sqliteTable("muscles", {
   id: integer("id").primaryKey({ autoIncrement: true }),

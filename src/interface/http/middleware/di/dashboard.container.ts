@@ -6,6 +6,7 @@ import type { AppEnv } from '../../main.router'; // Adjust if AppEnv is moved
 import * as tablesSchema from '../../../../infrastructure/db/schema';
 import { GetDashboardDataQueryHandler } from '../../../../app/query/dashboard/get-dashboard-data';
 import { DashboardRepository } from '../../../../infrastructure/db/repository/dashboard-repository';
+import { DashboardMuscleGroupAggregationService } from '../../../../app/services/dashboard-muscle-group-aggregation.service';
 
 export function setupDashboardDependencies(env: AppEnv['Bindings'], c: Context<AppEnv>) {
   if (!env.DB) {
@@ -19,7 +20,9 @@ export function setupDashboardDependencies(env: AppEnv['Bindings'], c: Context<A
   
   const dashboardRepository = new DashboardRepository(db as DrizzleD1Database<typeof tablesSchema>); 
   const dashboardQueryHandler = new GetDashboardDataQueryHandler(dashboardRepository);
+  const dashboardMuscleGroupAggregationService = new DashboardMuscleGroupAggregationService();
 
   c.set("db", db); 
   c.set("dashboardQueryHandler", dashboardQueryHandler);
+  c.set("dashboardMuscleGroupAggregationService", dashboardMuscleGroupAggregationService);
 }

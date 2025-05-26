@@ -15,6 +15,8 @@ export type DashboardFilters = {
   metricKeys?: string[];
   /** 現在の週の開始日 (YYYY-MM-DD) */
   currentWeekStart?: string;
+  /** 優先言語ロケール (例: 'en', 'ja') */
+  preferredLocale?: string;
 };
 
 export interface IDashboardRepository {
@@ -56,10 +58,12 @@ export interface IDashboardRepository {
    * 指定されたユーザーの現在の週の部位別ボリュームを取得します。
    * @param userId ユーザーID
    * @param currentWeekStart 現在の週の開始日 (YYYY-MM-DD)
+   * @param preferredLocale 優先言語ロケール (例: 'en', 'ja')
    * @returns WeeklyUserMuscleVolume の配列
    */
   findCurrentWeeklyUserMuscleVolumes(
     userId: UserIdVO,
     currentWeekStart: string,
+    preferredLocale?: string,
   ): Promise<WeeklyUserMuscleVolume[]>;
 }
