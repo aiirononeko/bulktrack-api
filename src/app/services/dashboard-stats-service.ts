@@ -126,36 +126,65 @@ export class DashboardStatsService {
       const setIds = userSets.map(s => s.id).filter(id => id !== null) as string[];
       const setModifierMap = new Map<string, number>();
       if (setIds.length > 0) {
-        const modifierRows = await this.db
-          .select({
-            setId: schema.setModifiers.setId,
-            relMult: schema.exerciseModifierValues.relShareMultiplier,
-          })
-          .from(schema.setModifiers)
-          .innerJoin(
-            schema.exerciseModifierValues,
-            eq(schema.setModifiers.exerciseModifierValueId, schema.exerciseModifierValues.id) // Join on ID as per schema
-          )
-          .where(inArray(schema.setModifiers.setId, setIds));
+        // SQLiteの変数制限（999）を回避するため、バッチ処理で実行
+        const BATCH_SIZE = 900; // 余裕を持って900に設定
+        console.log(`Fetching set modifiers for ${setIds.length} sets in batches of ${BATCH_SIZE}`);
         
-        for (const r of modifierRows) {
-          if(r.setId) {
-            setModifierMap.set(r.setId, r.relMult ?? 1); 
+        for (let i = 0; i < setIds.length; i += BATCH_SIZE) {
+          const batchSetIds = setIds.slice(i, i + BATCH_SIZE);
+          console.log(`Processing set modifiers batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(setIds.length / BATCH_SIZE)}, size: ${batchSetIds.length}`);
+          
+          const modifierRows = await this.db
+            .select({
+              setId: schema.setModifiers.setId,
+              relMult: schema.exerciseModifierValues.relShareMultiplier,
+            })
+            .from(schema.setModifiers)
+            .innerJoin(
+              schema.exerciseModifierValues,
+              eq(schema.setModifiers.exerciseModifierValueId, schema.exerciseModifierValues.id) // Join on ID as per schema
+            )
+            .where(inArray(schema.setModifiers.setId, batchSetIds));
+          
+          for (const r of modifierRows) {
+            if(r.setId) {
+              setModifierMap.set(r.setId, r.relMult ?? 1); 
+            }
           }
         }
       }
 
       const exerciseIds = [...new Set(userSets.map(set => set.exerciseId).filter(id => id !== null))] as string[];
-      const exerciseMuscleMappings = exerciseIds.length > 0 ? await this.db
-        .select({
-          exerciseId: schema.exerciseMuscles.exerciseId,
-          muscleId: schema.exerciseMuscles.muscleId,
-          relativeShare: schema.exerciseMuscles.relativeShare,
-          tensionFactor: schema.muscles.tensionFactor,
-        })
-        .from(schema.exerciseMuscles)
-        .innerJoin(schema.muscles, eq(schema.exerciseMuscles.muscleId, schema.muscles.id))
-        .where(inArray(schema.exerciseMuscles.exerciseId, exerciseIds)) : [];
+      let exerciseMuscleMappings: Array<{
+        exerciseId: string | null;
+        muscleId: number | null;
+        relativeShare: number | null;
+        tensionFactor: number | null;
+      }> = [];
+      
+      if (exerciseIds.length > 0) {
+        // SQLiteの変数制限（999）を回避するため、バッチ処理で実行
+        const BATCH_SIZE = 900; // 余裕を持って900に設定
+        console.log(`Fetching exercise muscle mappings for ${exerciseIds.length} exercises in batches of ${BATCH_SIZE}`);
+        
+        for (let i = 0; i < exerciseIds.length; i += BATCH_SIZE) {
+          const batchExerciseIds = exerciseIds.slice(i, i + BATCH_SIZE);
+          console.log(`Processing exercise mappings batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(exerciseIds.length / BATCH_SIZE)}, size: ${batchExerciseIds.length}`);
+          
+          const batchMappings = await this.db
+            .select({
+              exerciseId: schema.exerciseMuscles.exerciseId,
+              muscleId: schema.exerciseMuscles.muscleId,
+              relativeShare: schema.exerciseMuscles.relativeShare,
+              tensionFactor: schema.muscles.tensionFactor,
+            })
+            .from(schema.exerciseMuscles)
+            .innerJoin(schema.muscles, eq(schema.exerciseMuscles.muscleId, schema.muscles.id))
+            .where(inArray(schema.exerciseMuscles.exerciseId, batchExerciseIds));
+          
+          exerciseMuscleMappings.push(...batchMappings);
+        }
+      }
       
       const exerciseDetailsMap = new Map<string, { muscleId: number, relativeShare: number, tensionFactor: number }[]>();
       for (const mapping of exerciseMuscleMappings) {
