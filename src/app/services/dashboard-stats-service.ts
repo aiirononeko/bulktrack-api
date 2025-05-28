@@ -59,6 +59,21 @@ export class DashboardStatsService {
     }
   }
 
+  /**
+   * 全期間再集計前に既存データをクリアして重複を防ぐ
+   */
+  async clearAndRecalculateAllStats(userId: UserIdVO): Promise<void> {
+    console.log(`Starting clean recalculation for user: ${userId.value}`);
+
+    // まず既存の全データをクリア
+    await this.clearAllUserStats(userId);
+
+    // その後、全期間のデータを再集計
+    await this.updateStatsForUser(userId, new Date());
+
+    console.log(`Clean recalculation completed for user: ${userId.value}`);
+  }
+
   // オリジナルの週ごとの集計処理（復元用に保存）
   async _originalUpdateStatsForUser(
     userId: UserIdVO,
@@ -113,6 +128,9 @@ export class DashboardStatsService {
     console.log(
       `Starting full history dashboard stats update for user: ${userId.value}.`,
     );
+    console.log(
+      `[DEBUG] User ID: ${userId.value}, Target Date: ${targetDate.toISOString()}`,
+    );
 
     // 指定された日付の週の情報も取得（UIで当該週を表示する際に必要）
     const targetWeekMonday = getISOWeekMondayString(targetDate);
@@ -122,16 +140,19 @@ export class DashboardStatsService {
       console.log(`Fetching ALL workout sets for user ${userId.value}.`);
 
       // 日付フィルターを削除して全てのセットを取得
+      console.log(`[DEBUG] Fetching workout sets for user ${userId.value}...`);
       const userSets = await this.db
         .select()
         .from(schema.workoutSets)
         .where(eq(schema.workoutSets.userId, userId.value))
         .orderBy(schema.workoutSets.performedAt);
+      console.log(`[DEBUG] Found ${userSets.length} workout sets`);
 
       if (!userSets || userSets.length === 0) {
         console.log(
           `No workout sets found for user ${userId.value} in the week of ${targetWeekMonday}. Clearing existing aggregation data.`,
         );
+        console.log(`[DEBUG] No sets found, executing cleanup...`);
         await this.db
           .delete(schema.weeklyUserMuscleVolumes)
           .where(
@@ -417,8 +438,8 @@ export class DashboardStatsService {
           );
 
           // データをより小さなバッチに分割（SQLite変数の制限を回避するため）
-          // 各レコードが8フィールド + ON CONFLICT DO UPDATEで追加の変数が必要なため、安全マージンを持たせて10に設定
-          const BATCH_SIZE = 10; // SQLite変数の制限を考慮したバッチサイズ
+          // 各レコードが8フィールド + ON CONFLICT DO UPDATEで追加の変数が必要なため、安全マージンを持たせて50に設定
+          const BATCH_SIZE = 50; // SQLite変数の制限を考慮したバッチサイズ（10から50に増加）
 
           for (
             let i = 0;
@@ -457,6 +478,11 @@ export class DashboardStatsService {
                 `Error upserting muscle volumes batch for week ${weekStart}:`,
                 error,
               );
+              console.error(
+                `[DEBUG] Batch data that failed:`,
+                JSON.stringify(batch, null, 2),
+              );
+              console.error(`[DEBUG] Error details:`, error);
               // 処理を継続するため、エラーはスローせず次のバッチに進む
             }
           }
@@ -507,6 +533,11 @@ export class DashboardStatsService {
             `Error upserting user volumes for week ${weekStart}:`,
             error,
           );
+          console.error(
+            `[DEBUG] User volume data that failed:`,
+            JSON.stringify(newWeeklyUserVolumesData, null, 2),
+          );
+          console.error(`[DEBUG] Error details:`, error);
           // 処理を継続するため、エラーはスローせず次の週に進む
         }
       }
@@ -589,8 +620,8 @@ export class DashboardStatsService {
               );
 
             // バッチサイズを小さくして処理
-            // 各レコードが6フィールド + ON CONFLICT DO UPDATEで追加の変数が必要なため、安全マージンを持たせて10に設定
-            const BATCH_SIZE = 10;
+            // 各レコードが6フィールド + ON CONFLICT DO UPDATEで追加の変数が必要なため、安全マージンを持たせて50に設定
+            const BATCH_SIZE = 50;
             console.log(
               `Upserting ${newMetricsData.length} 1RM metrics for user ${userId.value} for week ${weekStart} in batches`,
             );
@@ -622,6 +653,11 @@ export class DashboardStatsService {
                   `Error upserting 1RM metrics batch for week ${weekStart}:`,
                   batchError,
                 );
+                console.error(
+                  `[DEBUG] 1RM batch data that failed:`,
+                  JSON.stringify(batch, null, 2),
+                );
+                console.error(`[DEBUG] Error details:`, batchError);
                 // バッチエラーでも次に進む
               }
             }
@@ -698,6 +734,12 @@ export class DashboardStatsService {
               `Error upserting active days metric for week ${weekStart}:`,
               error,
             );
+            console.error(`[DEBUG] Active days data that failed:`, {
+              userId: userId.value,
+              weekStart,
+              totalActiveDays,
+            });
+            console.error(`[DEBUG] Error details:`, error);
             // 処理を継続
           }
         }
@@ -714,6 +756,8 @@ export class DashboardStatsService {
         `Error updating dashboard stats for user ${userId.value} for week of ${targetDate.toISOString()}:`,
         error,
       );
+      console.error(`[DEBUG] Final error in updateStatsForUser:`, error);
+      console.error(`[DEBUG] Error stack:`, (error as Error).stack);
       throw error;
     }
   }
