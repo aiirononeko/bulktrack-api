@@ -1,27 +1,27 @@
-import { Hono } from 'hono';
-import type { AppEnv } from '../../main.router';
-import { setupExerciseDependencies } from '../../middleware/di/exercise.container';
-import { jwtAuthMiddleware } from '../../middleware/auth.middleware';
-import { 
+import { Hono } from "hono";
+import type { AppEnv } from "../../main.router";
+import { jwtAuthMiddleware } from "../../middleware/auth.middleware";
+import { setupExerciseDependencies } from "../../middleware/di/exercise.container";
+import {
+  createCreateExerciseHttpHandler,
   createSearchExercisesHttpHandler,
-  createCreateExerciseHttpHandler 
-} from './exercise.handlers';
+} from "./exercise.handlers";
 
 const exerciseApp = new Hono<AppEnv>();
 
 // Apply DI middleware for all routes in this exercise module
-exerciseApp.use('*', async (c, next) => {
+exerciseApp.use("*", async (c, next) => {
   setupExerciseDependencies(c.env, c);
   await next();
 });
 
 // Apply JWT authentication for all exercise routes
-exerciseApp.use('*', jwtAuthMiddleware);
+exerciseApp.use("*", jwtAuthMiddleware);
 
 // GET /v1/exercises - Search exercises
-exerciseApp.get('/', createSearchExercisesHttpHandler());
+exerciseApp.get("/", createSearchExercisesHttpHandler());
 
 // POST /v1/exercises - Create new exercise
-exerciseApp.post('/', createCreateExerciseHttpHandler());
+exerciseApp.post("/", createCreateExerciseHttpHandler());
 
 export default exerciseApp;

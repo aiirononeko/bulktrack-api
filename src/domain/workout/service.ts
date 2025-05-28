@@ -1,7 +1,7 @@
-import { WorkoutSession } from "./entities/workout-session.entity";
-import type { UserIdVO, MenuIdVO } from "../shared/vo/identifier";
-import { WorkoutSessionIdVO } from "../shared/vo/identifier";
 import { v7 as uuidv7 } from "uuid";
+import type { MenuIdVO, UserIdVO } from "../shared/vo/identifier";
+import { WorkoutSessionIdVO } from "../shared/vo/identifier";
+import { WorkoutSession } from "./entities/workout-session.entity";
 import type { IWorkoutSessionRepository } from "./workout-set-repository";
 
 function generateNewWorkoutSessionId(): WorkoutSessionIdVO {
@@ -9,7 +9,9 @@ function generateNewWorkoutSessionId(): WorkoutSessionIdVO {
 }
 
 export class WorkoutSessionService {
-  constructor(private readonly workoutSessionRepository: IWorkoutSessionRepository) {}
+  constructor(
+    private readonly workoutSessionRepository: IWorkoutSessionRepository,
+  ) {}
 
   public startSession(params: {
     userId: UserIdVO;
@@ -17,7 +19,9 @@ export class WorkoutSessionService {
     customSessionIdGenerator?: () => WorkoutSessionIdVO;
     customDateProvider?: () => Date;
   }): WorkoutSession {
-    const now = params.customDateProvider ? params.customDateProvider() : new Date();
+    const now = params.customDateProvider
+      ? params.customDateProvider()
+      : new Date();
     const sessionId = params.customSessionIdGenerator
       ? params.customSessionIdGenerator()
       : generateNewWorkoutSessionId();
@@ -37,7 +41,9 @@ export class WorkoutSessionService {
     userId: UserIdVO;
     customDateProvider?: () => Date;
   }): Promise<WorkoutSession> {
-    const session = await this.workoutSessionRepository.findById(params.sessionId);
+    const session = await this.workoutSessionRepository.findById(
+      params.sessionId,
+    );
 
     if (!session) {
       throw new Error("Workout session not found.");
@@ -47,7 +53,9 @@ export class WorkoutSessionService {
       throw new Error("Forbidden to finish this workout session.");
     }
 
-    const now = params.customDateProvider ? params.customDateProvider() : new Date();
+    const now = params.customDateProvider
+      ? params.customDateProvider()
+      : new Date();
     session.finish(now);
 
     return session;

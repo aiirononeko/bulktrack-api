@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 
 export class EntityId {
   readonly value: string;
@@ -37,7 +37,8 @@ export class WorkoutSetIdVO extends EntityId {}
 export class MuscleIdVO {
   readonly value: number;
 
-  constructor(value: number) { // Made constructor public for direct instantiation if needed, or keep private with static create only
+  constructor(value: number) {
+    // Made constructor public for direct instantiation if needed, or keep private with static create only
     if (!Number.isInteger(value) || value <= 0) {
       throw new Error("Muscle ID must be a positive integer.");
     }
@@ -63,4 +64,3 @@ export class MuscleIdVO {
     return String(this.value);
   }
 }
- 

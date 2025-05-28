@@ -1,14 +1,15 @@
-import { toHiragana } from 'wanakana';
 // D1データベース用の型をインポート
-import type { DrizzleD1Database } from 'drizzle-orm/d1'; 
-import * as schema from '../../infrastructure/db/schema';
+import type { DrizzleD1Database } from "drizzle-orm/d1";
+import { toHiragana } from "wanakana";
+import * as schema from "../../infrastructure/db/schema";
 
 // DrizzleのDBインスタンスの型を DrizzleD1Database に変更
 type DrizzleDBInstance = DrizzleD1Database<typeof schema>;
 
 // スキーマから推論される型エイリアス
 type ExerciseSelect = typeof schema.exercises.$inferSelect;
-type ExerciseTranslationSelect = typeof schema.exerciseTranslations.$inferSelect;
+type ExerciseTranslationSelect =
+  typeof schema.exerciseTranslations.$inferSelect;
 
 // トランザクションスコープの型を正しく取得するために、
 // db.transactionのコールバック関数の引数の型を取得します。
@@ -33,28 +34,34 @@ export class FtsService {
     this.db = db;
   }
 
-  async populateFtsTable(): Promise<{count: number, message: string}> {
-    console.log('Fetching exercises and translations using Drizzle for FTS population...');
-    const allExercises: ExerciseSelect[] = await this.db.select().from(schema.exercises);
-    const allTranslations: ExerciseTranslationSelect[] = await this.db.select().from(schema.exerciseTranslations);
+  async populateFtsTable(): Promise<{ count: number; message: string }> {
+    console.log(
+      "Fetching exercises and translations using Drizzle for FTS population...",
+    );
+    const allExercises: ExerciseSelect[] = await this.db
+      .select()
+      .from(schema.exercises);
+    const allTranslations: ExerciseTranslationSelect[] = await this.db
+      .select()
+      .from(schema.exerciseTranslations);
 
     const ftsEntries: Array<typeof schema.exercisesFts.$inferInsert> = [];
 
-    console.log('Normalizing and preparing FTS data with Drizzle...');
+    console.log("Normalizing and preparing FTS data with Drizzle...");
 
     for (const trans of allTranslations) {
-      const exercise = allExercises.find((e: ExerciseSelect) => e.id === trans.exerciseId);
+      const exercise = allExercises.find(
+        (e: ExerciseSelect) => e.id === trans.exerciseId,
+      );
       if (!exercise || !exercise.canonicalName) continue;
 
-      const originalText = [
-        exercise.canonicalName,
-        trans.name,
-        trans.aliases,
-      ]
+      const originalText = [exercise.canonicalName, trans.name, trans.aliases]
         .filter(Boolean)
-        .join(' ');
-      
-      const normalizedText = toHiragana(originalText, { passRomaji: true }).toLowerCase();
+        .join(" ");
+
+      const normalizedText = toHiragana(originalText, {
+        passRomaji: true,
+      }).toLowerCase();
 
       ftsEntries.push({
         exerciseId: trans.exerciseId,
@@ -66,15 +73,19 @@ export class FtsService {
 
     for (const ex of allExercises) {
       if (!ex.canonicalName) continue;
-      const hasTranslation = allTranslations.some((t: ExerciseTranslationSelect) => t.exerciseId === ex.id);
+      const hasTranslation = allTranslations.some(
+        (t: ExerciseTranslationSelect) => t.exerciseId === ex.id,
+      );
       if (hasTranslation) continue;
 
       const originalText = ex.canonicalName;
-      const normalizedText = toHiragana(originalText, { passRomaji: true }).toLowerCase();
+      const normalizedText = toHiragana(originalText, {
+        passRomaji: true,
+      }).toLowerCase();
 
       ftsEntries.push({
         exerciseId: ex.id,
-        locale: 'unknown',
+        locale: "unknown",
         text: originalText,
         textNormalized: normalizedText,
       });
@@ -83,7 +94,7 @@ export class FtsService {
     console.log(`Prepared ${ftsEntries.length} FTS entries for Drizzle.`);
 
     if (ftsEntries.length === 0) {
-      const message = 'No data to insert into FTS table.';
+      const message = "No data to insert into FTS table.";
       console.log(message);
       return { count: 0, message };
     }
@@ -92,22 +103,26 @@ export class FtsService {
     try {
       const statements = [];
       // DELETE文を statements 配列に追加
-      statements.push(this.db.delete(schema.exercisesFts)); 
+      statements.push(this.db.delete(schema.exercisesFts));
 
       for (const entry of ftsEntries) {
         // INSERT文を statements 配列に追加
-        statements.push(this.db.insert(schema.exercisesFts).values(entry)); 
+        statements.push(this.db.insert(schema.exercisesFts).values(entry));
       }
 
-      console.log(`Executing batch of ${statements.length} statements on D1...`);
+      console.log(
+        `Executing batch of ${statements.length} statements on D1...`,
+      );
       await this.db.batch(statements as any);
 
       const message = `Successfully populated exercises_fts table with ${ftsEntries.length} entries using batch operation.`;
       console.log(message);
       return { count: ftsEntries.length, message };
-
     } catch (error) {
-      console.error("Error during D1 batch operation for FTS population:", error);
+      console.error(
+        "Error during D1 batch operation for FTS population:",
+        error,
+      );
       throw error;
     }
   }

@@ -2,7 +2,6 @@ import { ValiError, parse } from "valibot";
 
 import type { DeviceId, User, UserDevice } from "../../../domain/auth/entity";
 import { DeviceIdSchema } from "../../../domain/auth/entity";
-import { UserIdVO } from "../../../domain/shared/vo/identifier";
 import { StorageError, TokenError } from "../../../domain/auth/errors";
 import type {
   IDeviceRepository,
@@ -10,6 +9,7 @@ import type {
   IUserRepository,
 } from "../../../domain/auth/repository";
 import { AuthService } from "../../../domain/auth/service";
+import { UserIdVO } from "../../../domain/shared/vo/identifier";
 import type { AuthTokensDTO } from "../../dto/auth-tokens-dto";
 import {
   ApplicationError,
@@ -59,7 +59,10 @@ export class ActivateDeviceCommand {
         try {
           return await this.deviceRepository.findByDeviceId(validatedDeviceId);
         } catch (dbError) {
-          console.error(`Error finding device by ID ${validatedDeviceId}:`, dbError);
+          console.error(
+            `Error finding device by ID ${validatedDeviceId}:`,
+            dbError,
+          );
           throw new RepositoryError(
             "Failed to query device information.",
             dbError instanceof Error ? dbError : undefined,
@@ -68,61 +71,66 @@ export class ActivateDeviceCommand {
       })();
 
       if (existingDevice) {
-        console.log(`Existing device found for deviceId ${validatedDeviceId}, using userId ${existingDevice.userId}`);
-        return new UserIdVO(existingDevice.userId); 
+        console.log(
+          `Existing device found for deviceId ${validatedDeviceId}, using userId ${existingDevice.userId}`,
+        );
+        return new UserIdVO(existingDevice.userId);
       }
 
-      console.log(`No existing device found for deviceId ${validatedDeviceId}. Creating new user and device.`);
+      console.log(
+        `No existing device found for deviceId ${validatedDeviceId}. Creating new user and device.`,
+      );
       const newUser: User = await (async () => {
-      try {
-        return await this.userRepository.createAnonymousUser("anonymous");
-      } catch (dbError) {
-        if (dbError instanceof StorageError) {
+        try {
+          return await this.userRepository.createAnonymousUser("anonymous");
+        } catch (dbError) {
+          if (dbError instanceof StorageError) {
+            throw new RepositoryError(
+              `User creation failed: ${dbError.message}`,
+              dbError,
+            );
+          }
           throw new RepositoryError(
-            `User creation failed: ${dbError.message}`,
-            dbError,
+            "Failed to initialize user profile.",
+            dbError instanceof Error ? dbError : undefined,
           );
         }
-        throw new RepositoryError(
-          "Failed to initialize user profile.",
-          dbError instanceof Error ? dbError : undefined,
-        );
-      }
-    })();
+      })();
 
       const newUserId = newUser.id;
 
       const newUserDeviceData: UserDevice = {
-      deviceId: validatedDeviceId,
+        deviceId: validatedDeviceId,
         userId: newUserId,
-      platform: input.platform || "unknown",
-      linkedAt: new Date().toISOString(),
-    };
-    try {
+        platform: input.platform || "unknown",
+        linkedAt: new Date().toISOString(),
+      };
+      try {
         await this.deviceRepository.save(newUserDeviceData);
-    } catch (dbError) {
-      if (dbError instanceof StorageError) {
+      } catch (dbError) {
+        if (dbError instanceof StorageError) {
+          throw new RepositoryError(
+            `Device registration failed: ${dbError.message}`,
+            dbError,
+          );
+        }
         throw new RepositoryError(
-          `Device registration failed: ${dbError.message}`,
-          dbError,
+          "Failed to register device.",
+          dbError instanceof Error ? dbError : undefined,
         );
       }
-      throw new RepositoryError(
-        "Failed to register device.",
-        dbError instanceof Error ? dbError : undefined,
+      console.log(
+        `New user created with userId ${newUserId} and device ${validatedDeviceId} registered.`,
       );
-    }
-      console.log(`New user created with userId ${newUserId} and device ${validatedDeviceId} registered.`);
       return new UserIdVO(newUserId);
     })();
 
     const finalAuthTokens: AuthTokensDTO = await (async () => {
       try {
-        const newAuthTokens =
-          await this.authService.issueAuthTokens(userIdVO);
-        
+        const newAuthTokens = await this.authService.issueAuthTokens(userIdVO);
+
         await this.tokenRepository.saveRefreshToken(
-          userIdVO, 
+          userIdVO,
           newAuthTokens.refreshToken,
           AuthService.REFRESH_TOKEN_TTL_SECONDS,
         );

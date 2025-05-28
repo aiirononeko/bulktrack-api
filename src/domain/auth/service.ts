@@ -1,5 +1,5 @@
-import type { AuthToken, RefreshTokenPayload } from "./entity";
 import type { UserIdVO } from "../shared/vo/identifier";
+import type { AuthToken, RefreshTokenPayload } from "./entity";
 
 // JWTサービスへのインターフェース (Port)
 // このインターフェースは Infrastructure 層で実装されます。

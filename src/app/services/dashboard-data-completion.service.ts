@@ -1,6 +1,14 @@
-import type { DashboardDataDto, WeeklyUserVolumeDto, WeeklyUserMuscleVolumeDto, WeeklyUserMetricDto } from '../query/dashboard/dto';
-import { generateWeeklyDateRange } from '../utils/date-utils';
-import type { DashboardRepository, MuscleGroupInfo } from '../../infrastructure/db/repository/dashboard-repository';
+import type {
+  DashboardRepository,
+  MuscleGroupInfo,
+} from "../../infrastructure/db/repository/dashboard-repository";
+import type {
+  DashboardDataDto,
+  WeeklyUserMetricDto,
+  WeeklyUserMuscleVolumeDto,
+  WeeklyUserVolumeDto,
+} from "../query/dashboard/dto";
+import { generateWeeklyDateRange } from "../utils/date-utils";
 
 /**
  * ダッシュボードデータのデータ補完サービス
@@ -16,14 +24,32 @@ export class DashboardDataCompletionService {
    * @param preferredLocale 優先言語
    * @returns 補完されたダッシュボードデータDTO
    */
-  async completeWeeklyData(dto: DashboardDataDto, span: string, userId: string, preferredLocale?: string): Promise<DashboardDataDto> {
+  async completeWeeklyData(
+    dto: DashboardDataDto,
+    span: string,
+    userId: string,
+    preferredLocale?: string,
+  ): Promise<DashboardDataDto> {
     const weekStartDates = generateWeeklyDateRange(span);
 
     return {
       ...dto,
-      historicalWeeklyVolumes: this.completeWeeklyVolumes(dto.historicalWeeklyVolumes || [], weekStartDates, userId),
-      historicalWeeklyMuscleVolumes: await this.completeWeeklyMuscleVolumes(dto.historicalWeeklyMuscleVolumes || [], weekStartDates, userId, preferredLocale),
-      historicalMetrics: this.completeWeeklyMetrics(dto.historicalMetrics || [], weekStartDates, userId),
+      historicalWeeklyVolumes: this.completeWeeklyVolumes(
+        dto.historicalWeeklyVolumes || [],
+        weekStartDates,
+        userId,
+      ),
+      historicalWeeklyMuscleVolumes: await this.completeWeeklyMuscleVolumes(
+        dto.historicalWeeklyMuscleVolumes || [],
+        weekStartDates,
+        userId,
+        preferredLocale,
+      ),
+      historicalMetrics: this.completeWeeklyMetrics(
+        dto.historicalMetrics || [],
+        weekStartDates,
+        userId,
+      ),
     };
   }
 
@@ -33,15 +59,15 @@ export class DashboardDataCompletionService {
   private completeWeeklyVolumes(
     existingVolumes: WeeklyUserVolumeDto[],
     weekStartDates: string[],
-    userId: string
+    userId: string,
   ): WeeklyUserVolumeDto[] {
     const volumeMap = new Map<string, WeeklyUserVolumeDto>();
-    
+
     // 既存データをマップに格納
     for (const volume of existingVolumes) {
       volumeMap.set(volume.weekStart, volume);
     }
-    
+
     // 全期間分のデータを生成（データがない週は初期値）
     const completedVolumes: WeeklyUserVolumeDto[] = [];
     for (const weekStart of weekStartDates) {
@@ -59,8 +85,11 @@ export class DashboardDataCompletionService {
         });
       }
     }
-    
-    return completedVolumes.sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime());
+
+    return completedVolumes.sort(
+      (a, b) =>
+        new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime(),
+    );
   }
 
   /**
@@ -71,28 +100,39 @@ export class DashboardDataCompletionService {
     existingMuscleVolumes: WeeklyUserMuscleVolumeDto[],
     weekStartDates: string[],
     userId: string,
-    preferredLocale?: string
+    preferredLocale?: string,
   ): Promise<WeeklyUserMuscleVolumeDto[]> {
     // すべての筋肉グループを取得
-    const allMuscleGroups = await this.dashboardRepository.findAllMuscleGroups(preferredLocale);
-    
+    const allMuscleGroups =
+      await this.dashboardRepository.findAllMuscleGroups(preferredLocale);
+
     // 筋肉グループ6（Hip & Glutes）は筋肉グループ7（Legs）に統合されているため除外
-    const filteredMuscleGroups = allMuscleGroups.filter(mg => mg.id !== 6);
-    
+    const filteredMuscleGroups = allMuscleGroups.filter((mg) => mg.id !== 6);
+
     // 筋肉グループIDごとにデータを整理
-    const muscleGroupMap = new Map<number, Map<string, WeeklyUserMuscleVolumeDto>>();
-    const muscleGroupMetadata = new Map<number, { muscleName?: string; muscleGroupName?: string }>();
+    const muscleGroupMap = new Map<
+      number,
+      Map<string, WeeklyUserMuscleVolumeDto>
+    >();
+    const muscleGroupMetadata = new Map<
+      number,
+      { muscleName?: string; muscleGroupName?: string }
+    >();
 
     for (const muscleVolume of existingMuscleVolumes) {
-      if (muscleVolume.muscleGroupId === undefined || muscleVolume.muscleGroupId === null) continue;
+      if (
+        muscleVolume.muscleGroupId === undefined ||
+        muscleVolume.muscleGroupId === null
+      )
+        continue;
 
       if (!muscleGroupMap.has(muscleVolume.muscleGroupId)) {
         muscleGroupMap.set(muscleVolume.muscleGroupId, new Map());
       }
-      
+
       const weekMap = muscleGroupMap.get(muscleVolume.muscleGroupId)!;
       const existingData = weekMap.get(muscleVolume.weekStart);
-      
+
       if (existingData) {
         // 同じ週に複数の筋肉データがある場合は集約
         existingData.volume += muscleVolume.volume;
@@ -102,7 +142,7 @@ export class DashboardDataCompletionService {
       } else {
         weekMap.set(muscleVolume.weekStart, { ...muscleVolume });
       }
-      
+
       // メタデータを保存
       muscleGroupMetadata.set(muscleVolume.muscleGroupId, {
         muscleName: muscleVolume.muscleName,
@@ -112,11 +152,11 @@ export class DashboardDataCompletionService {
 
     // 全期間分のデータを生成 - 統合後の筋肉グループについて
     const completedMuscleVolumes: WeeklyUserMuscleVolumeDto[] = [];
-    
+
     for (const muscleGroup of filteredMuscleGroups) {
       const weekMap = muscleGroupMap.get(muscleGroup.id) || new Map();
       const metadata = muscleGroupMetadata.get(muscleGroup.id);
-      
+
       for (const weekStart of weekStartDates) {
         const existingData = weekMap.get(weekStart);
         if (existingData) {
@@ -126,7 +166,7 @@ export class DashboardDataCompletionService {
             userId,
             weekStart,
             muscleId: 0, // ダミー値
-            muscleName: metadata?.muscleName || 'Unknown Muscle',
+            muscleName: metadata?.muscleName || "Unknown Muscle",
             muscleGroupId: muscleGroup.id,
             muscleGroupName: metadata?.muscleGroupName || muscleGroup.name,
             volume: 0,
@@ -138,8 +178,11 @@ export class DashboardDataCompletionService {
         }
       }
     }
-    
-    return completedMuscleVolumes.sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime());
+
+    return completedMuscleVolumes.sort(
+      (a, b) =>
+        new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime(),
+    );
   }
 
   /**
@@ -148,7 +191,7 @@ export class DashboardDataCompletionService {
   private completeWeeklyMetrics(
     existingMetrics: WeeklyUserMetricDto[],
     weekStartDates: string[],
-    userId: string
+    userId: string,
   ): WeeklyUserMetricDto[] {
     // メトリクスキーごとにデータを整理
     const metricKeyMap = new Map<string, Map<string, WeeklyUserMetricDto>>();
@@ -158,10 +201,10 @@ export class DashboardDataCompletionService {
       if (!metricKeyMap.has(metric.metricKey)) {
         metricKeyMap.set(metric.metricKey, new Map());
       }
-      
+
       const weekMap = metricKeyMap.get(metric.metricKey)!;
       weekMap.set(metric.weekStart, metric);
-      
+
       // メタデータを保存
       metricKeyMetadata.set(metric.metricKey, {
         metricUnit: metric.metricUnit,
@@ -170,10 +213,10 @@ export class DashboardDataCompletionService {
 
     // 全期間分のデータを生成
     const completedMetrics: WeeklyUserMetricDto[] = [];
-    
+
     for (const [metricKey, weekMap] of metricKeyMap.entries()) {
       const metadata = metricKeyMetadata.get(metricKey);
-      
+
       for (const weekStart of weekStartDates) {
         const existingData = weekMap.get(weekStart);
         if (existingData) {
@@ -190,7 +233,10 @@ export class DashboardDataCompletionService {
         }
       }
     }
-    
-    return completedMetrics.sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime());
+
+    return completedMetrics.sort(
+      (a, b) =>
+        new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime(),
+    );
   }
 }

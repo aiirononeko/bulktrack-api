@@ -1,8 +1,14 @@
-import { Exercise, type ExerciseTranslation } from './entity';
-import { ExerciseIdVO } from '../shared/vo/identifier';
-import type { IExerciseRepository } from './repository';
-import { ExerciseNameVO, type ExerciseMuscle, type RelativeShare, type ExerciseSourceId, type SourceDetails } from './vo';
-import type { MuscleId } from '../muscle/vo';
+import type { MuscleId } from "../muscle/vo";
+import { ExerciseIdVO } from "../shared/vo/identifier";
+import { Exercise, type ExerciseTranslation } from "./entity";
+import type { IExerciseRepository } from "./repository";
+import {
+  type ExerciseMuscle,
+  ExerciseNameVO,
+  type ExerciseSourceId,
+  type RelativeShare,
+  type SourceDetails,
+} from "./vo";
 
 // ExerciseMuscle から exerciseId を除いた入力用インターフェースを定義
 export interface ExerciseMuscleInput {
@@ -65,10 +71,12 @@ export class ExerciseService {
       });
     }
 
-    const exerciseMusclesForEntity: ExerciseMuscle[] = exerciseMusclesInput.map(input => ({
-      ...input,
-      exerciseId: exerciseIdVo,
-    }));
+    const exerciseMusclesForEntity: ExerciseMuscle[] = exerciseMusclesInput.map(
+      (input) => ({
+        ...input,
+        exerciseId: exerciseIdVo,
+      }),
+    );
 
     const newExercise = new Exercise(
       exerciseIdVo,
@@ -100,7 +108,12 @@ export class ExerciseService {
     limit: number,
     offset: number,
   ): Promise<Exercise[]> {
-    return this.exerciseRepository.findRecentByUserId(userId, locale, limit, offset);
+    return this.exerciseRepository.findRecentByUserId(
+      userId,
+      locale,
+      limit,
+      offset,
+    );
   }
 
   /**
@@ -111,12 +124,21 @@ export class ExerciseService {
    * @param sessionFinishedAt The timestamp when the session finished.
    * @returns Promise<void>
    */
-  async recordExerciseUsageForSession(userId: string, exerciseIds: string[], sessionFinishedAt: Date): Promise<void> {
+  async recordExerciseUsageForSession(
+    userId: string,
+    exerciseIds: string[],
+    sessionFinishedAt: Date,
+  ): Promise<void> {
     if (exerciseIds.length === 0) {
       return;
     }
-    const promises = exerciseIds.map(id => 
-      this.exerciseRepository.upsertExerciseUsage(userId, new ExerciseIdVO(id), sessionFinishedAt, true)
+    const promises = exerciseIds.map((id) =>
+      this.exerciseRepository.upsertExerciseUsage(
+        userId,
+        new ExerciseIdVO(id),
+        sessionFinishedAt,
+        true,
+      ),
     );
     await Promise.all(promises);
   }
@@ -140,7 +162,10 @@ export class ExerciseService {
     exerciseId: ExerciseIdVO,
     translation: ExerciseTranslation,
   ): Promise<Exercise | null> {
-    await this.exerciseRepository.saveExerciseTranslation(exerciseId, translation);
+    await this.exerciseRepository.saveExerciseTranslation(
+      exerciseId,
+      translation,
+    );
     return this.exerciseRepository.findById(exerciseId);
   }
 
@@ -209,18 +234,23 @@ export class ExerciseService {
       return null;
     }
 
-    const exerciseMusclesForUpdate: ExerciseMuscle[] | undefined = details.exerciseMuscles
-      ? details.exerciseMuscles.map(input => ({
-          ...input,
-          exerciseId: exerciseId,
-        }))
-      : exercise.exerciseMuscles;
+    const exerciseMusclesForUpdate: ExerciseMuscle[] | undefined =
+      details.exerciseMuscles
+        ? details.exerciseMuscles.map((input) => ({
+            ...input,
+            exerciseId: exerciseId,
+          }))
+        : exercise.exerciseMuscles;
 
     const updatedExercise = new Exercise(
       exercise.id,
       exercise.canonicalName,
-      details.defaultMuscleId !== undefined ? details.defaultMuscleId : exercise.defaultMuscleId,
-      details.isCompound !== undefined ? details.isCompound : exercise.isCompound,
+      details.defaultMuscleId !== undefined
+        ? details.defaultMuscleId
+        : exercise.defaultMuscleId,
+      details.isCompound !== undefined
+        ? details.isCompound
+        : exercise.isCompound,
       exercise.isOfficial,
       exercise.authorUserId,
       exercise.lastUsedAt,

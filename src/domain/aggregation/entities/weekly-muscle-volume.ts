@@ -1,4 +1,4 @@
-import type { UserIdVO, MuscleIdVO } from "../../shared/vo/identifier";
+import type { MuscleIdVO, UserIdVO } from "../../shared/vo/identifier";
 
 export interface IWeeklyMuscleVolumeProps {
   userId: UserIdVO;

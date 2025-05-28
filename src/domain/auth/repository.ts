@@ -1,5 +1,5 @@
-import type { DeviceId, User, UserDevice, UserId } from "./entity";
 import type { UserIdVO } from "../shared/vo/identifier";
+import type { DeviceId, User, UserDevice, UserId } from "./entity";
 
 /**
  * リフレッシュトークンを永続化および取得するためのリポジトリインターフェース (Port)。

@@ -1,14 +1,14 @@
-import type { ExerciseService } from '../../../domain/exercise/service';
-import { toExerciseDtoList, type ExerciseDto } from '../../dto/exercise';
+import type { ExerciseService } from "../../../domain/exercise/service";
+import { type ExerciseDto, toExerciseDtoList } from "../../dto/exercise";
 
 /**
  * エクササイズ検索クエリのパラメータを表す型。
  */
 export type SearchExercisesQuery = {
-  q: string | null;    // 検索文字列 (OpenAPIのクエリパラメータ q に対応)
-  locale: string;      // ロケール (OpenAPIのAccept-Languageヘッダーに対応)
-  limit?: number;      // 取得件数 (OpenAPIのクエリパラメータ limit に対応)
-  offset?: number;     // オフセット (OpenAPIのクエリパラメータ offset に対応)
+  q: string | null; // 検索文字列 (OpenAPIのクエリパラメータ q に対応)
+  locale: string; // ロケール (OpenAPIのAccept-Languageヘッダーに対応)
+  limit?: number; // 取得件数 (OpenAPIのクエリパラメータ limit に対応)
+  offset?: number; // オフセット (OpenAPIのクエリパラメータ offset に対応)
 };
 
 /**
@@ -25,7 +25,12 @@ export class SearchExercisesHandler {
   async execute(query: SearchExercisesQuery): Promise<ExerciseDto[]> {
     const { q, locale, limit, offset } = query;
 
-    const exercises = await this.exerciseService.searchExercises(q, locale, limit, offset);
+    const exercises = await this.exerciseService.searchExercises(
+      q,
+      locale,
+      limit,
+      offset,
+    );
 
     return toExerciseDtoList(exercises, locale);
   }

@@ -105,6 +105,13 @@ src/
 - Auto-organize imports
 - Run `npx biome check --write` before committing
 
+### Post-Task Requirements
+**IMPORTANT**: After completing any coding task, Claude MUST run the following command to ensure code quality:
+```bash
+npx biome check --write
+```
+This is mandatory for all tasks involving code changes and should be the final step before marking tasks as complete.
+
 ### Testing Commands
 No specific test runner configured in package.json. Test files should be placed in:
 - `tests/unit/` - Unit tests

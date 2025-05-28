@@ -1,5 +1,5 @@
-import type { Exercise, ExerciseTranslation } from "./entity";
 import type { ExerciseIdVO, UserIdVO } from "../shared/vo/identifier";
+import type { Exercise, ExerciseTranslation } from "./entity";
 import type { ExerciseId } from "./entity";
 
 export interface IExerciseRepository {
@@ -13,7 +13,12 @@ export interface IExerciseRepository {
    * @param offset 結果のオフセット (オプショナル)
    * @returns 条件に一致するエクササイズの配列
    */
-  search(query: string | null, locale: string, limit?: number, offset?: number): Promise<Exercise[]>;
+  search(
+    query: string | null,
+    locale: string,
+    limit?: number,
+    offset?: number,
+  ): Promise<Exercise[]>;
 
   /**
    * 指定されたIDのエクササイズを取得します。
@@ -38,7 +43,12 @@ export interface IExerciseRepository {
    * @param offset 結果のオフセット
    * @returns 条件に一致するエクササイズの配列
    */
-  findRecentByUserId(userId: string, locale: string, limit: number, offset: number): Promise<Exercise[]>;
+  findRecentByUserId(
+    userId: string,
+    locale: string,
+    limit: number,
+    offset: number,
+  ): Promise<Exercise[]>;
 
   /**
    * Records or updates the usage of an exercise by a user.
@@ -50,7 +60,12 @@ export interface IExerciseRepository {
    * @param incrementUseCount Whether to increment the useCount (defaults to true).
    * @returns Promise<void>
    */
-  upsertExerciseUsage(userId: string, exerciseId: ExerciseId, usedAt: Date, incrementUseCount?: boolean): Promise<void>;
+  upsertExerciseUsage(
+    userId: string,
+    exerciseId: ExerciseId,
+    usedAt: Date,
+    incrementUseCount?: boolean,
+  ): Promise<void>;
 
   // --- FTS対応で追加/変更が必要になる可能性のあるメソッド群 ---
   /**
@@ -74,7 +89,10 @@ export interface IExerciseRepository {
    * @param exerciseId 対象のエクササイズID (VO)
    * @param translation 保存する翻訳情報
    */
-  saveExerciseTranslation(exerciseId: ExerciseId, translation: ExerciseTranslation): Promise<void>;
+  saveExerciseTranslation(
+    exerciseId: ExerciseId,
+    translation: ExerciseTranslation,
+  ): Promise<void>;
 
   /**
    * エクササイズから指定されたロケールの翻訳情報を削除します。
@@ -82,8 +100,11 @@ export interface IExerciseRepository {
    * @param exerciseId 対象のエクササイズID (VO)
    * @param locale 削除する翻訳のロケール
    */
-  deleteExerciseTranslation(exerciseId: ExerciseId, locale: string): Promise<void>;
-  // --- ここまで追加 --- 
+  deleteExerciseTranslation(
+    exerciseId: ExerciseId,
+    locale: string,
+  ): Promise<void>;
+  // --- ここまで追加 ---
 
   // 必要に応じて、更新 (update) や削除 (delete) メソッドも定義できますが、
   // 今回のGETエンドポイント実装には直接関係しないため、一旦含めません。

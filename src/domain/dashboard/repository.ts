@@ -1,14 +1,14 @@
-import type {
-  WeeklyUserVolume,
-  WeeklyUserMuscleVolume,
-  WeeklyUserMetric,
-} from "./entity";
 import type { UserIdVO } from "../shared/vo/identifier";
+import type {
+  WeeklyUserMetric,
+  WeeklyUserMuscleVolume,
+  WeeklyUserVolume,
+} from "./entity";
 
 export type DashboardFilters = {
   userId: UserIdVO;
   /** ISO 8601形式の週の開始日 (YYYY-MM-DD) */
-  startDate?: string; 
+  startDate?: string;
   /** ISO 8601形式の週の終了日 (YYYY-MM-DD) */
   endDate?: string;
   /** 特定のメトリクスキューの配列 (例: ['body_weight', 'sleep_hours']) */

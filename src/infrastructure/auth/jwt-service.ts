@@ -1,12 +1,12 @@
 import { sign, verify } from "hono/jwt";
 import type { RefreshTokenPayload } from "../../domain/auth/entity";
-import type { UserIdVO } from "../../domain/shared/vo/identifier";
 import {
   InvalidTokenError,
   TokenError,
   TokenExpiredError,
 } from "../../domain/auth/errors";
 import type { IJwtService } from "../../domain/auth/service";
+import type { UserIdVO } from "../../domain/shared/vo/identifier";
 
 interface JwtServiceConstructorParams {
   jwtSecret: string;

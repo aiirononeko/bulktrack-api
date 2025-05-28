@@ -9,7 +9,6 @@ import {
 } from "valibot";
 
 import type { RefreshTokenPayload } from "../../../domain/auth/entity";
-import { UserIdVO } from "../../../domain/shared/vo/identifier"; // UserIdVOをインポート
 import {
   InvalidTokenError,
   StorageError,
@@ -18,6 +17,7 @@ import {
 } from "../../../domain/auth/errors";
 import type { ITokenRepository } from "../../../domain/auth/repository";
 import { AuthService, type IJwtService } from "../../../domain/auth/service";
+import { UserIdVO } from "../../../domain/shared/vo/identifier"; // UserIdVOをインポート
 import type { AuthTokensDTO } from "../../dto/auth-tokens-dto";
 import {
   ApplicationError,

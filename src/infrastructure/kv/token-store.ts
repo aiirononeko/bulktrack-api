@@ -1,7 +1,7 @@
 import type { KVNamespace } from "@cloudflare/workers-types";
-import type { UserIdVO } from "../../domain/shared/vo/identifier";
 import { StorageError } from "../../domain/auth/errors";
 import type { ITokenRepository } from "../../domain/auth/repository";
+import type { UserIdVO } from "../../domain/shared/vo/identifier";
 
 interface KvTokenStoreConstructorParams {
   kv: KVNamespace;

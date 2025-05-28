@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import type { StatusCode } from "hono/utils/http-status";
-import type { JWTPayload } from 'hono/utils/jwt/types';
+import type { JWTPayload } from "hono/utils/jwt/types";
 
 import { ApplicationError } from "../../app/errors";
 
@@ -11,28 +11,28 @@ import { ApplicationError } from "../../app/errors";
 // This might be better in a shared types file if used elsewhere, but for now, keep it close.
 interface PathItem {
   type: string;
-  origin: 'key' | 'value';
+  origin: "key" | "value";
   input: unknown;
   key?: unknown;
   value: unknown;
 }
 
+import type { DrizzleD1Database } from "drizzle-orm/d1";
 // --- AppEnv Definition ---
 // Import specific command/handler/service types as they are defined in their respective DI containers/modules
 // For now, keep the structure from the original router.ts and refine later.
 import type { ActivateDeviceCommand } from "../../app/command/auth/activate-device-command";
 import type { RefreshTokenCommand } from "../../app/command/auth/refresh-token-command";
-import type { SearchExercisesHandler } from "../../app/query/exercise/search-exercise";
-import type { ListRecentExercisesHandler } from "../../app/query/exercise/list-recent-exercises";
-import type { ExerciseService } from "../../domain/exercise/service";
-import type { WorkoutService } from "../../application/services/workout.service";
-import type { DrizzleD1Database } from 'drizzle-orm/d1';
-import type * as tablesSchema from "../../infrastructure/db/schema";
 import type { GetDashboardDataQueryHandler } from "../../app/query/dashboard/get-dashboard-data";
-import type { DashboardStatsService } from "../../app/services/dashboard-stats-service";
-import type { DashboardMuscleGroupAggregationService } from "../../app/services/dashboard-muscle-group-aggregation.service";
+import type { ListRecentExercisesHandler } from "../../app/query/exercise/list-recent-exercises";
+import type { SearchExercisesHandler } from "../../app/query/exercise/search-exercise";
 import type { DashboardDataCompletionService } from "../../app/services/dashboard-data-completion.service";
+import type { DashboardMuscleGroupAggregationService } from "../../app/services/dashboard-muscle-group-aggregation.service";
+import type { DashboardStatsService } from "../../app/services/dashboard-stats-service";
 import type { FtsService } from "../../application/service/FtsService";
+import type { WorkoutService } from "../../application/services/workout.service";
+import type { ExerciseService } from "../../domain/exercise/service";
+import type * as tablesSchema from "../../infrastructure/db/schema";
 
 export type AppEnv = {
   Variables: {
@@ -71,7 +71,12 @@ app.use(
   "*",
   cors({
     origin: "*", // Adjust as per your security requirements
-    allowHeaders: ["X-Device-Id", "Content-Type", "X-Platform", "Authorization"],
+    allowHeaders: [
+      "X-Device-Id",
+      "Content-Type",
+      "X-Platform",
+      "Authorization",
+    ],
     allowMethods: ["POST", "GET", "PUT", "DELETE", "OPTIONS"],
   }),
 );
@@ -94,22 +99,24 @@ app.onError((err, c) => {
       },
     });
   }
-  
+
   // Handle Valibot errors specifically if they reach here
   // Note: Individual route handlers should ideally catch and format Valibot errors.
   // This is a fallback.
-  if (err.name === 'ValiError' && 'issues' in err) { // Basic check for Valibot error
+  if (err.name === "ValiError" && "issues" in err) {
+    // Basic check for Valibot error
     const valibotError = err as any; // Cast to any to access issues
     c.status(400);
     return c.json({
       error: {
-        message: 'Validation failed',
-        code: 'VALIDATION_ERROR',
-        details: valibotError.issues.map((issue: any) => ({ // Use any for issue type
-            path: issue.path?.map((p: PathItem) => p.key).join('.'), 
-            message: issue.message 
+        message: "Validation failed",
+        code: "VALIDATION_ERROR",
+        details: valibotError.issues.map((issue: any) => ({
+          // Use any for issue type
+          path: issue.path?.map((p: PathItem) => p.key).join("."),
+          message: issue.message,
         })),
-      }
+      },
     });
   }
 
@@ -123,20 +130,20 @@ app.onError((err, c) => {
   });
 });
 
+import adminApp from "./modules/admin/admin.routes";
 // --- Feature Routers ---
-import authApp from './modules/auth/auth.routes';
-import exerciseApp from './modules/exercise/exercise.routes';
-import setApp from './modules/set/set.routes';
-import userApp from './modules/user/user.routes'; // For /v1/me routes
-import dashboardApp from './modules/dashboard/dashboard.routes';
-import adminApp from './modules/admin/admin.routes';
+import authApp from "./modules/auth/auth.routes";
+import dashboardApp from "./modules/dashboard/dashboard.routes";
+import exerciseApp from "./modules/exercise/exercise.routes";
+import setApp from "./modules/set/set.routes";
+import userApp from "./modules/user/user.routes"; // For /v1/me routes
 
-app.route('/v1/auth', authApp);
-app.route('/v1/exercises', exerciseApp);
-app.route('/v1/sets', setApp);
-app.route('/v1/me', userApp);
-app.route('/v1/dashboard', dashboardApp);
-app.route('/v1/admin', adminApp);
+app.route("/v1/auth", authApp);
+app.route("/v1/exercises", exerciseApp);
+app.route("/v1/sets", setApp);
+app.route("/v1/me", userApp);
+app.route("/v1/dashboard", dashboardApp);
+app.route("/v1/admin", adminApp);
 
 // --- Root Path ---
 app.get("/", (c) => {

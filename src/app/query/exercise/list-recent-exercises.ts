@@ -1,6 +1,6 @@
-import type { ExerciseService } from '../../../domain/exercise/service';
-import { toExerciseDtoList, type ExerciseDto } from '../../dto/exercise'; 
-import type { UserIdVO } from '../../../domain/shared/vo/identifier'; 
+import type { ExerciseService } from "../../../domain/exercise/service";
+import type { UserIdVO } from "../../../domain/shared/vo/identifier";
+import { type ExerciseDto, toExerciseDtoList } from "../../dto/exercise";
 
 /**
  * Parameters for the List Recent Exercises query.
@@ -27,10 +27,10 @@ export class ListRecentExercisesHandler {
     const { userId, locale, limit, offset } = query;
 
     const exercises = await this.exerciseService.getRecentExercisesForUser(
-      userId.value, 
+      userId.value,
       locale,
       limit,
-      offset
+      offset,
     );
 
     return toExerciseDtoList(exercises, locale);

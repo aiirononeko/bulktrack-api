@@ -1,5 +1,5 @@
-import { ExerciseIdVO, WorkoutSetIdVO } from "../../shared/vo/identifier"; // パス階層変更, WorkoutSessionIdVOを削除
 import { v7 as uuidv7 } from "uuid";
+import { ExerciseIdVO, WorkoutSetIdVO } from "../../shared/vo/identifier"; // パス階層変更, WorkoutSessionIdVOを削除
 
 export interface WorkoutSetProps {
   id: WorkoutSetIdVO;
@@ -62,7 +62,13 @@ export class WorkoutSet {
     this._restSec = props.restSec;
   }
 
-  public static create(props: Omit<WorkoutSetProps, 'id' | 'performedAt' | 'createdAt'> & { id?: WorkoutSetIdVO, performedAt?: Date, createdAt?: Date }): WorkoutSet {
+  public static create(
+    props: Omit<WorkoutSetProps, "id" | "performedAt" | "createdAt"> & {
+      id?: WorkoutSetIdVO;
+      performedAt?: Date;
+      createdAt?: Date;
+    },
+  ): WorkoutSet {
     if (props.setNumber <= 0) {
       throw new Error("Set number must be positive.");
     }
@@ -81,24 +87,27 @@ export class WorkoutSet {
     let createdAtDate: Date;
     const rawCreatedAt = data.createdAt;
 
-    if (typeof rawCreatedAt === 'string') {
-      if (rawCreatedAt.toLowerCase() === 'undefined') {
+    if (typeof rawCreatedAt === "string") {
+      if (rawCreatedAt.toLowerCase() === "undefined") {
         console.warn(
-          `[WorkoutSet.fromPersistence] Found "undefined" string for createdAt. WorkoutSet ID: ${data.id}. Using current date as fallback.`
+          `[WorkoutSet.fromPersistence] Found "undefined" string for createdAt. WorkoutSet ID: ${data.id}. Using current date as fallback.`,
         );
         createdAtDate = new Date();
       } else {
         let parsedDate = new Date(rawCreatedAt);
-        if (parsedDate.toString() === 'Invalid Date' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(rawCreatedAt)) {
+        if (
+          parsedDate.toString() === "Invalid Date" &&
+          /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(rawCreatedAt)
+        ) {
           console.warn(
-            `[WorkoutSet.fromPersistence] Attempting to parse "${rawCreatedAt}" as UTC by adding 'T' and 'Z'. WorkoutSet ID: ${data.id}`
+            `[WorkoutSet.fromPersistence] Attempting to parse "${rawCreatedAt}" as UTC by adding 'T' and 'Z'. WorkoutSet ID: ${data.id}`,
           );
-          parsedDate = new Date(`${rawCreatedAt.replace(' ', 'T')}Z`);
+          parsedDate = new Date(`${rawCreatedAt.replace(" ", "T")}Z`);
         }
 
-        if (parsedDate.toString() === 'Invalid Date') {
+        if (parsedDate.toString() === "Invalid Date") {
           console.warn(
-            `[WorkoutSet.fromPersistence] Invalid createdAt string from DB: "${rawCreatedAt}" for WorkoutSet ID: ${data.id}. Using current date as fallback.`
+            `[WorkoutSet.fromPersistence] Invalid createdAt string from DB: "${rawCreatedAt}" for WorkoutSet ID: ${data.id}. Using current date as fallback.`,
           );
           createdAtDate = new Date();
         } else {
@@ -107,20 +116,24 @@ export class WorkoutSet {
       }
     } else if (rawCreatedAt === null || rawCreatedAt === undefined) {
       console.warn(
-        `[WorkoutSet.fromPersistence] createdAt is null or undefined in DB for WorkoutSet ID: ${data.id}. Using current date as fallback.`
+        `[WorkoutSet.fromPersistence] createdAt is null or undefined in DB for WorkoutSet ID: ${data.id}. Using current date as fallback.`,
       );
       createdAtDate = new Date();
     } else {
       console.warn(
-        `[WorkoutSet.fromPersistence] Unexpected type for createdAt from DB: ${typeof rawCreatedAt} (value: ${rawCreatedAt}) for WorkoutSet ID: ${data.id}. Using current date as fallback.`
+        `[WorkoutSet.fromPersistence] Unexpected type for createdAt from DB: ${typeof rawCreatedAt} (value: ${rawCreatedAt}) for WorkoutSet ID: ${data.id}. Using current date as fallback.`,
       );
       createdAtDate = new Date();
     }
 
     const performedAtDate = new Date(data.performedAt);
     if (Number.isNaN(performedAtDate.getTime())) {
-      console.error(`[WorkoutSet.fromPersistence] Invalid performedAt string from DB: ${data.performedAt} for WorkoutSet ID: ${data.id}`);
-      throw new Error(`Failed to parse performedAt from persistence for WorkoutSet ID: ${data.id}. Value: "${data.performedAt}"`);
+      console.error(
+        `[WorkoutSet.fromPersistence] Invalid performedAt string from DB: ${data.performedAt} for WorkoutSet ID: ${data.id}`,
+      );
+      throw new Error(
+        `Failed to parse performedAt from persistence for WorkoutSet ID: ${data.id}. Value: "${data.performedAt}"`,
+      );
     }
 
     return new WorkoutSet({
@@ -161,16 +174,30 @@ export class WorkoutSet {
     }
   }
 
-  get setNumber(): number { return this._setNumber; }
-  get reps(): number | undefined | null { return this._reps; }
-  get weight(): number | undefined | null { return this._weight; }
-  get notes(): string | undefined | null { return this._notes; }
-  get performedAt(): Date { return this._performedAt; }
-  get rpe(): number | undefined | null { return this._rpe; }
-  get restSec(): number | undefined | null { return this._restSec; }
+  get setNumber(): number {
+    return this._setNumber;
+  }
+  get reps(): number | undefined | null {
+    return this._reps;
+  }
+  get weight(): number | undefined | null {
+    return this._weight;
+  }
+  get notes(): string | undefined | null {
+    return this._notes;
+  }
+  get performedAt(): Date {
+    return this._performedAt;
+  }
+  get rpe(): number | undefined | null {
+    return this._rpe;
+  }
+  get restSec(): number | undefined | null {
+    return this._restSec;
+  }
 
   get volume(): number | null {
-    if (typeof this._reps === 'number' && typeof this._weight === 'number') {
+    if (typeof this._reps === "number" && typeof this._weight === "number") {
       return this._reps * this._weight;
     }
     return null;
@@ -181,16 +208,30 @@ export class WorkoutSet {
     if (this._performedAt && !Number.isNaN(this._performedAt.getTime())) {
       performedAtISO = this._performedAt.toISOString();
     } else {
-      console.error('[WorkoutSet.toPrimitives] Invalid _performedAt date object for WorkoutSet ID:', this.id.value, 'Value:', this._performedAt);
-      throw new RangeError(`[Debug] Invalid _performedAt in WorkoutSet id ${this.id.value}`);
+      console.error(
+        "[WorkoutSet.toPrimitives] Invalid _performedAt date object for WorkoutSet ID:",
+        this.id.value,
+        "Value:",
+        this._performedAt,
+      );
+      throw new RangeError(
+        `[Debug] Invalid _performedAt in WorkoutSet id ${this.id.value}`,
+      );
     }
 
     let createdAtISO: string;
     if (this.createdAt && !Number.isNaN(this.createdAt.getTime())) {
       createdAtISO = this.createdAt.toISOString();
     } else {
-      console.error('[WorkoutSet.toPrimitives] Invalid createdAt date object for WorkoutSet ID:', this.id.value, 'Value:', this.createdAt);
-      throw new RangeError(`[Debug] Invalid createdAt in WorkoutSet id ${this.id.value}`);
+      console.error(
+        "[WorkoutSet.toPrimitives] Invalid createdAt date object for WorkoutSet ID:",
+        this.id.value,
+        "Value:",
+        this.createdAt,
+      );
+      throw new RangeError(
+        `[Debug] Invalid createdAt in WorkoutSet id ${this.id.value}`,
+      );
     }
 
     return {

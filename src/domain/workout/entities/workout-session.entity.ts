@@ -1,6 +1,14 @@
-import { UserIdVO, WorkoutSessionIdVO, MenuIdVO } from "../../shared/vo/identifier";
-import type { WorkoutSetIdVO, ExerciseIdVO } from "../../shared/vo/identifier";
-import { WorkoutSet, type WorkoutSetProps, type WorkoutSetRawData } from "./workout-set.entity";
+import {
+  MenuIdVO,
+  UserIdVO,
+  WorkoutSessionIdVO,
+} from "../../shared/vo/identifier";
+import type { ExerciseIdVO, WorkoutSetIdVO } from "../../shared/vo/identifier";
+import {
+  WorkoutSet,
+  type WorkoutSetProps,
+  type WorkoutSetRawData,
+} from "./workout-set.entity";
 
 export interface WorkoutSessionProps {
   id: WorkoutSessionIdVO;
@@ -92,7 +100,17 @@ export class WorkoutSession {
     this._finishedAt = finishedAt;
   }
 
-  public addSet(setCreationProps: Omit<WorkoutSetProps, 'id' | 'sessionId' | 'performedAt' | 'createdAt'> & { exerciseId: ExerciseIdVO, id?: WorkoutSetIdVO, performedAt?: Date, setNumber?: number | null }): WorkoutSet {
+  public addSet(
+    setCreationProps: Omit<
+      WorkoutSetProps,
+      "id" | "sessionId" | "performedAt" | "createdAt"
+    > & {
+      exerciseId: ExerciseIdVO;
+      id?: WorkoutSetIdVO;
+      performedAt?: Date;
+      setNumber?: number | null;
+    },
+  ): WorkoutSet {
     if (this._finishedAt) {
       throw new Error("Cannot add sets to a finished session.");
     }
@@ -101,9 +119,11 @@ export class WorkoutSession {
     if (setCreationProps.setNumber != null && setCreationProps.setNumber > 0) {
       setNumberToUse = setCreationProps.setNumber;
     } else {
-      const exerciseSets = this._sets.filter(s => s.exerciseId.equals(setCreationProps.exerciseId));
+      const exerciseSets = this._sets.filter((s) =>
+        s.exerciseId.equals(setCreationProps.exerciseId),
+      );
       if (exerciseSets.length > 0) {
-        setNumberToUse = Math.max(...exerciseSets.map(s => s.setNumber)) + 1;
+        setNumberToUse = Math.max(...exerciseSets.map((s) => s.setNumber)) + 1;
       } else {
         setNumberToUse = 1;
       }
@@ -124,8 +144,10 @@ export class WorkoutSession {
       userId: this.userId.value,
       menuId: this._menuId?.value,
       startedAt: this._startedAt.toISOString(),
-      finishedAt: this._finishedAt ? this._finishedAt.toISOString() : this._finishedAt,
-      sets: this._sets.map(s => s.toPrimitives()),
+      finishedAt: this._finishedAt
+        ? this._finishedAt.toISOString()
+        : this._finishedAt,
+      sets: this._sets.map((s) => s.toPrimitives()),
     };
   }
 }

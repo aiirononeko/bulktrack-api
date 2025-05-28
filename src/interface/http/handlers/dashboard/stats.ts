@@ -1,18 +1,29 @@
-import { Hono } from 'hono';
-// Import AppEnv from router.ts to correctly type c.var
-// This might create a circular dependency if AppEnv itself imports this file.
-// If so, AppEnv should be moved to a shared types file.
-import type { AppEnv } from '../../main.router'; // Correct path to main.router.ts
-import { type GetDashboardDataQueryHandler, GetDashboardDataQuery } from '../../../../app/query/dashboard/get-dashboard-data';
-import type { DashboardDataDto, WeeklyUserVolumeDto, WeeklyUserMuscleVolumeDto, WeeklyUserMetricDto } from '../../../../app/query/dashboard/dto';
+import { Hono } from "hono";
+import type {
+  DashboardDataDto,
+  WeeklyUserMetricDto,
+  WeeklyUserMuscleVolumeDto,
+  WeeklyUserVolumeDto,
+} from "../../../../app/query/dashboard/dto";
+import {
+  GetDashboardDataQuery,
+  type GetDashboardDataQueryHandler,
+} from "../../../../app/query/dashboard/get-dashboard-data";
 // IDashboardRepository and DashboardRepository imports are no longer needed here as DI is handled upstream.
 // import type { IDashboardRepository } from '../../../../domain/dashboard/repository';
 // import { DashboardRepository } from '../../../../infrastructure/db/repository/dashboard-repository';
 // import { authenticate } from '../../middleware/auth'; // Assuming auth middleware
-import { getISOWeekMondayString as getUtilsIsoWeekMondayString, generateWeeklyDateRange } from '../../../../app/utils/date-utils';
+import {
+  generateWeeklyDateRange,
+  getISOWeekMondayString as getUtilsIsoWeekMondayString,
+} from "../../../../app/utils/date-utils";
+// Import AppEnv from router.ts to correctly type c.var
+// This might create a circular dependency if AppEnv itself imports this file.
+// If so, AppEnv should be moved to a shared types file.
+import type { AppEnv } from "../../main.router"; // Correct path to main.router.ts
 
 // The HonoEnv specific to this file can be removed if AppEnv from router.ts is accessible
-// or if Hono can infer it. For clarity, if AppEnv is not directly imported, 
+// or if Hono can infer it. For clarity, if AppEnv is not directly imported,
 // we can simplify or rely on inference. Assuming Hono<any> or Hono<{ Variables: { ... } } > if specific vars are accessed.
 // For now, let router.ts define the AppEnv and this app will implicitly use it when routed.
 
@@ -26,11 +37,11 @@ const dashboardStatsApp = new Hono<AppEnv>();
 type WeekPoint = {
   weekStart: string; // YYYY-MM-DD
   totalVolume: number;
-  avgSetVolume?: number | null; 
-  e1rmAvg?: number | null;    
+  avgSetVolume?: number | null;
+  e1rmAvg?: number | null;
   // ↓ MuscleSeriesのpointsでのみ使用するため、WeekPointの共通定義からは削除し、muscles.points作成時に直接追加する
-  // setCount?: number | null; 
-  // avgMuscleSetE1rm?: number | null; 
+  // setCount?: number | null;
+  // avgMuscleSetE1rm?: number | null;
 };
 
 // MuscleSeriesのpointsで使用する型を別途定義も検討できるが、今回は WeekPoint にオプショナルで含める形を維持
@@ -43,7 +54,7 @@ type WeekPoint = {
 // type MuscleSeries = { // MuscleGroupSeries に改名
 //   muscleId: number;
 //   name: string;
-//   points: MuscleWeekPoint[]; 
+//   points: MuscleWeekPoint[];
 // };
 
 type MuscleGroupWeekPoint = {
@@ -97,7 +108,10 @@ type DashboardResponse = {
 //   return date.toISOString().split('T')[0];
 // }
 
-function calculateDateRangeFromSpan(span: string): { startDate: string, endDate: string } {
+function calculateDateRangeFromSpan(span: string): {
+  startDate: string;
+  endDate: string;
+} {
   const now = new Date();
   // const currentWeekMonday = getWeekStartDate(now); // 削除
   const currentWeekMondayIsoString = getUtilsIsoWeekMondayString(now);
@@ -114,12 +128,14 @@ function calculateDateRangeFromSpan(span: string): { startDate: string, endDate:
 
   const startDateForPeriod = new Date(currentWeekMonday.valueOf()); // valueOf() を使ってコピー
   // startDateForPeriod.setUTCDate(startDateForPeriod.getUTCDate() - (weeksToSubtract - 1) * 7 * 24 * 60 * 60 * 1000); // UTCで日付操作
-  startDateForPeriod.setUTCDate(startDateForPeriod.getUTCDate() - (weeksToSubtract - 1) * 7); // Corrected: subtract days
+  startDateForPeriod.setUTCDate(
+    startDateForPeriod.getUTCDate() - (weeksToSubtract - 1) * 7,
+  ); // Corrected: subtract days
 
   return {
     startDate: getUtilsIsoWeekMondayString(startDateForPeriod), // YYYY-MM-DD文字列を直接使用
     // endDate: getUtilsIsoWeekMondayString(endDateForPeriod), // YYYY-MM-DD文字列を直接使用
-    endDate: endDateForPeriod.toISOString().split('T')[0], // Corrected: Use the actual Sunday's date string
+    endDate: endDateForPeriod.toISOString().split("T")[0], // Corrected: Use the actual Sunday's date string
   };
 }
 
@@ -138,7 +154,7 @@ function toWeekPoint(volumeDto?: WeeklyUserVolumeDto | null): WeekPoint | null {
   return {
     weekStart: volumeDto.weekStart,
     totalVolume: volumeDto.totalVolume,
-    avgSetVolume: volumeDto.avgSetVolume, 
+    avgSetVolume: volumeDto.avgSetVolume,
     e1rmAvg: volumeDto.e1rmAvg,
     // setCount や avgMuscleSetE1rm はここでは設定しない
   };
@@ -147,7 +163,7 @@ function toWeekPoint(volumeDto?: WeeklyUserVolumeDto | null): WeekPoint | null {
 function mapDtoToResponse(
   dto: DashboardDataDto,
   userIdInput: string,
-  requestedSpan: string
+  requestedSpan: string,
 ): DashboardResponse {
   // const currentIsoWeekStartDate = getISODateString(getWeekStartDate(new Date())); // 変更
   const currentIsoWeekStartDate = getUtilsIsoWeekMondayString(new Date());
@@ -156,10 +172,15 @@ function mapDtoToResponse(
   const allWeeklyVolumePoints: WeekPoint[] = (dto.historicalWeeklyVolumes ?? [])
     .map(toWeekPoint)
     .filter((wp): wp is WeekPoint => wp !== null) // Type guard to filter out nulls
-    .sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime());
+    .sort(
+      (a, b) =>
+        new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime(),
+    );
 
   // thisWeek - allWeeklyVolumePoints から今週のデータを検索
-  const thisWeekDataFromAllVolumes = allWeeklyVolumePoints.find(t => t.weekStart === currentIsoWeekStartDate);
+  const thisWeekDataFromAllVolumes = allWeeklyVolumePoints.find(
+    (t) => t.weekStart === currentIsoWeekStartDate,
+  );
   const thisWeek: WeekPoint = thisWeekDataFromAllVolumes ?? {
     weekStart: currentIsoWeekStartDate,
     totalVolume: 0,
@@ -169,9 +190,11 @@ function mapDtoToResponse(
 
   // lastWeek - allWeeklyVolumePoints から先週のデータを検索
   // const lastWeekStartDateStr = getPreviousWeekStartDateString(thisWeek.weekStart); // thisWeek.weekStartは上記で変動可能性あり
-  const lastWeekStartDateStr = getPreviousWeekStartDateString(currentIsoWeekStartDate); // currentIsoWeekStartDate を基準にする
+  const lastWeekStartDateStr = getPreviousWeekStartDateString(
+    currentIsoWeekStartDate,
+  ); // currentIsoWeekStartDate を基準にする
   const lastWeekDataFromAllVolumes = allWeeklyVolumePoints.find(
-    (v) => v.weekStart === lastWeekStartDateStr
+    (v) => v.weekStart === lastWeekStartDateStr,
   );
   const lastWeek: WeekPoint = lastWeekDataFromAllVolumes ?? {
     weekStart: lastWeekStartDateStr,
@@ -184,31 +207,43 @@ function mapDtoToResponse(
   const trend: WeekPoint[] = allWeeklyVolumePoints;
 
   // muscles から muscleGroups に変更
-  const muscleGroupsData: { 
+  const muscleGroupsData: {
     [groupId: number]: {
       groupName?: string;
-      pointsMap: Map<string, { weekStart: string; totalVolume: number; setCount: number; e1rmSum: number; e1rmCount: number; }>;
+      pointsMap: Map<
+        string,
+        {
+          weekStart: string;
+          totalVolume: number;
+          setCount: number;
+          e1rmSum: number;
+          e1rmCount: number;
+        }
+      >;
     };
   } = {};
 
-  for (const mVol of (dto.historicalWeeklyMuscleVolumes ?? [])) {
-    if (mVol.muscleGroupId === undefined || mVol.muscleGroupId === null) continue; // muscleGroupId がないデータはスキップ
+  for (const mVol of dto.historicalWeeklyMuscleVolumes ?? []) {
+    if (mVol.muscleGroupId === undefined || mVol.muscleGroupId === null)
+      continue; // muscleGroupId がないデータはスキップ
 
     if (!muscleGroupsData[mVol.muscleGroupId]) {
       muscleGroupsData[mVol.muscleGroupId] = {
         groupName: mVol.muscleGroupName,
-        pointsMap: new Map()
+        pointsMap: new Map(),
       };
     }
 
-    let pointData = muscleGroupsData[mVol.muscleGroupId].pointsMap.get(mVol.weekStart);
+    let pointData = muscleGroupsData[mVol.muscleGroupId].pointsMap.get(
+      mVol.weekStart,
+    );
     if (!pointData) {
-      pointData = { 
-        weekStart: mVol.weekStart, 
-        totalVolume: 0, 
-        setCount: 0, 
-        e1rmSum: 0, 
-        e1rmCount: 0 
+      pointData = {
+        weekStart: mVol.weekStart,
+        totalVolume: 0,
+        setCount: 0,
+        e1rmSum: 0,
+        e1rmCount: 0,
       };
     }
 
@@ -216,34 +251,46 @@ function mapDtoToResponse(
     pointData.setCount += mVol.setCount; // セット数も単純加算
     pointData.e1rmSum += mVol.e1rmSum;
     pointData.e1rmCount += mVol.e1rmCount;
-    
-    muscleGroupsData[mVol.muscleGroupId].pointsMap.set(mVol.weekStart, pointData);
+
+    muscleGroupsData[mVol.muscleGroupId].pointsMap.set(
+      mVol.weekStart,
+      pointData,
+    );
   }
 
-  const muscleGroups: MuscleGroupSeries[] = Object.entries(muscleGroupsData).map(([id, data]) => {
-    const points: MuscleGroupWeekPoint[] = Array.from(data.pointsMap.values()).map(p => {
-      let avgE1rm: number | null = null;
-      if (p.e1rmCount > 0 && p.e1rmSum !== null) {
-        avgE1rm = Number.parseFloat((p.e1rmSum / p.e1rmCount).toFixed(2));
-      }
-      return {
-        weekStart: p.weekStart,
-        totalVolume: p.totalVolume,
-        setCount: p.setCount,
-        avgE1rm: avgE1rm,
-      };
-    }).sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime());
-    
+  const muscleGroups: MuscleGroupSeries[] = Object.entries(
+    muscleGroupsData,
+  ).map(([id, data]) => {
+    const points: MuscleGroupWeekPoint[] = Array.from(data.pointsMap.values())
+      .map((p) => {
+        let avgE1rm: number | null = null;
+        if (p.e1rmCount > 0 && p.e1rmSum !== null) {
+          avgE1rm = Number.parseFloat((p.e1rmSum / p.e1rmCount).toFixed(2));
+        }
+        return {
+          weekStart: p.weekStart,
+          totalVolume: p.totalVolume,
+          setCount: p.setCount,
+          avgE1rm: avgE1rm,
+        };
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime(),
+      );
+
     return {
       muscleGroupId: Number.parseInt(id, 10),
-      groupName: data.groupName ?? 'Unknown Muscle Group',
+      groupName: data.groupName ?? "Unknown Muscle Group",
       points: points,
     };
   });
 
   // metrics
-  const metricsData: { [key: string]: { unit?: string | null, points: MetricPoint[] } } = {};
-  for (const metric of (dto.historicalMetrics ?? [])) {
+  const metricsData: {
+    [key: string]: { unit?: string | null; points: MetricPoint[] };
+  } = {};
+  for (const metric of dto.historicalMetrics ?? []) {
     if (!metricsData[metric.metricKey]) {
       metricsData[metric.metricKey] = { unit: metric.metricUnit, points: [] };
     }
@@ -252,11 +299,16 @@ function mapDtoToResponse(
       value: metric.metricValue,
     });
   }
-  const metrics: MetricSeries[] = Object.entries(metricsData).map(([key, data]) => ({
-    metricKey: key,
-    unit: data.unit ?? '',
-    points: data.points.sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime()),
-  }));
+  const metrics: MetricSeries[] = Object.entries(metricsData).map(
+    ([key, data]) => ({
+      metricKey: key,
+      unit: data.unit ?? "",
+      points: data.points.sort(
+        (a, b) =>
+          new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime(),
+      ),
+    }),
+  );
 
   return {
     userId: userIdInput,
@@ -270,85 +322,141 @@ function mapDtoToResponse(
 }
 // --- End Mapping Function ---
 
-dashboardStatsApp.get('/', /* authenticate, */ async (c) => { // authenticate will be applied in router.ts
-  try {
-    // userId should be populated by jwtAuthMiddleware in router.ts via jwtPayload
-    const jwtTokenPayload = c.var.jwtPayload; 
-    const userId = jwtTokenPayload?.sub || 'test-user-id-fallback'; 
-    
-    if (!userId) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
+dashboardStatsApp.get(
+  "/",
+  /* authenticate, */ async (c) => {
+    // authenticate will be applied in router.ts
+    try {
+      // userId should be populated by jwtAuthMiddleware in router.ts via jwtPayload
+      const jwtTokenPayload = c.var.jwtPayload;
+      const userId = jwtTokenPayload?.sub || "test-user-id-fallback";
 
-    // 'period' または 'span' クエリパラメータを取得し、それに基づいて日付範囲を計算
-    const periodOrSpanQuery = c.req.query('period') || c.req.query('span');
-    const requestedSpan = periodOrSpanQuery || '1w'; // APIレスポンスで使用するspan
+      if (!userId) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
 
-    let queryStartDate = c.req.query('startDate');
-    let queryEndDate = c.req.query('endDate');
+      // 'period' または 'span' クエリパラメータを取得し、それに基づいて日付範囲を計算
+      const periodOrSpanQuery = c.req.query("period") || c.req.query("span");
+      const requestedSpan = periodOrSpanQuery || "1w"; // APIレスポンスで使用するspan
 
-    if (periodOrSpanQuery && (!queryStartDate || !queryEndDate)) {
-      // period/span が指定されていて、かつ startDate/endDate が直接指定されていない場合、日付範囲を計算
-      const range = calculateDateRangeFromSpan(periodOrSpanQuery);
-      queryStartDate = range.startDate;
-      queryEndDate = range.endDate;
-    }
-    
-    const { metricKeys: metricKeysQuery } = c.req.query();
-    let metricKeys: string[] | undefined;
-    if (typeof metricKeysQuery === 'string' && metricKeysQuery.trim() !== '') {
-      metricKeys = metricKeysQuery.split(',').map(k => k.trim()).filter(k => k !== '');
-    } else if (Array.isArray(metricKeysQuery)) { 
-        metricKeys = metricKeysQuery.map(k => k.trim()).filter(k => k !== '');
+      let queryStartDate = c.req.query("startDate");
+      let queryEndDate = c.req.query("endDate");
+
+      if (periodOrSpanQuery && (!queryStartDate || !queryEndDate)) {
+        // period/span が指定されていて、かつ startDate/endDate が直接指定されていない場合、日付範囲を計算
+        const range = calculateDateRangeFromSpan(periodOrSpanQuery);
+        queryStartDate = range.startDate;
+        queryEndDate = range.endDate;
+      }
+
+      const { metricKeys: metricKeysQuery } = c.req.query();
+      let metricKeys: string[] | undefined;
+      if (
+        typeof metricKeysQuery === "string" &&
+        metricKeysQuery.trim() !== ""
+      ) {
+        metricKeys = metricKeysQuery
+          .split(",")
+          .map((k) => k.trim())
+          .filter((k) => k !== "");
+      } else if (Array.isArray(metricKeysQuery)) {
+        metricKeys = metricKeysQuery
+          .map((k) => k.trim())
+          .filter((k) => k !== "");
         if (metricKeys.length === 0) metricKeys = undefined;
+      }
+
+      // Extract preferred language from Accept-Language header
+      const acceptLanguage = c.req.header("Accept-Language");
+      const preferredLocale =
+        acceptLanguage?.split(",")[0]?.split("-")[0]?.toLowerCase() || "en";
+
+      const query = new GetDashboardDataQuery(
+        userId,
+        queryStartDate,
+        queryEndDate,
+        metricKeys,
+        preferredLocale,
+      );
+
+      // dashboardQueryHandler should be populated by DI middleware in router.ts
+      // The type for c.var.dashboardQueryHandler will come from AppEnv in router.ts.
+      const handler = c.var.dashboardQueryHandler;
+
+      if (!handler) {
+        console.error(
+          "Dashboard query handler not initialized. This should be set by upstream middleware.",
+        );
+        return c.json(
+          { error: "Internal server error: Handler not available." },
+          500,
+        );
+      }
+
+      const dashboardDto: DashboardDataDto = await handler.execute(query);
+
+      // Apply muscle group aggregation service to combine Hip & Glutes (6) and Legs (7) into Legs
+      const aggregationService = c.var.dashboardMuscleGroupAggregationService;
+      if (!aggregationService) {
+        console.error(
+          "Dashboard muscle group aggregation service not initialized. This should be set by upstream middleware.",
+        );
+        return c.json(
+          {
+            error: "Internal server error: Aggregation service not available.",
+          },
+          500,
+        );
+      }
+
+      const aggregatedDto: DashboardDataDto =
+        aggregationService.aggregateLegMuscleGroups(
+          dashboardDto,
+          preferredLocale,
+        );
+
+      // Apply data completion service to fill missing weeks with default values
+      const completionService = c.var.dashboardDataCompletionService;
+      if (!completionService) {
+        console.error(
+          "Dashboard data completion service not initialized. This should be set by upstream middleware.",
+        );
+        return c.json(
+          { error: "Internal server error: Completion service not available." },
+          500,
+        );
+      }
+
+      const completedDto: DashboardDataDto =
+        await completionService.completeWeeklyData(
+          aggregatedDto,
+          requestedSpan,
+          userId,
+          preferredLocale,
+        );
+
+      // Map DTO to the OpenAPI response structure
+      const responsePayload: DashboardResponse = mapDtoToResponse(
+        completedDto,
+        userId,
+        requestedSpan,
+      );
+
+      return c.json(responsePayload);
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      if (error instanceof Error) {
+        return c.json(
+          {
+            error: "Failed to fetch dashboard statistics",
+            details: error.message,
+          },
+          500,
+        );
+      }
+      return c.json({ error: "Failed to fetch dashboard statistics" }, 500);
     }
-
-    // Extract preferred language from Accept-Language header
-    const acceptLanguage = c.req.header('Accept-Language');
-    const preferredLocale = acceptLanguage?.split(',')[0]?.split('-')[0]?.toLowerCase() || 'en';
-
-    const query = new GetDashboardDataQuery(userId, queryStartDate, queryEndDate, metricKeys, preferredLocale);
-    
-    // dashboardQueryHandler should be populated by DI middleware in router.ts
-    // The type for c.var.dashboardQueryHandler will come from AppEnv in router.ts.
-    const handler = c.var.dashboardQueryHandler;
-
-    if (!handler) {
-        console.error("Dashboard query handler not initialized. This should be set by upstream middleware.");
-        return c.json({ error: "Internal server error: Handler not available." }, 500);
-    }
-    
-    const dashboardDto: DashboardDataDto = await handler.execute(query);
-
-    // Apply muscle group aggregation service to combine Hip & Glutes (6) and Legs (7) into Legs
-    const aggregationService = c.var.dashboardMuscleGroupAggregationService;
-    if (!aggregationService) {
-        console.error("Dashboard muscle group aggregation service not initialized. This should be set by upstream middleware.");
-        return c.json({ error: "Internal server error: Aggregation service not available." }, 500);
-    }
-
-    const aggregatedDto: DashboardDataDto = aggregationService.aggregateLegMuscleGroups(dashboardDto, preferredLocale);
-
-    // Apply data completion service to fill missing weeks with default values
-    const completionService = c.var.dashboardDataCompletionService;
-    if (!completionService) {
-        console.error("Dashboard data completion service not initialized. This should be set by upstream middleware.");
-        return c.json({ error: "Internal server error: Completion service not available." }, 500);
-    }
-
-    const completedDto: DashboardDataDto = await completionService.completeWeeklyData(aggregatedDto, requestedSpan, userId, preferredLocale);
-
-    // Map DTO to the OpenAPI response structure
-    const responsePayload: DashboardResponse = mapDtoToResponse(completedDto, userId, requestedSpan);
-
-    return c.json(responsePayload);
-  } catch (error) {
-    console.error('Error fetching dashboard stats:', error);
-    if (error instanceof Error) {
-        return c.json({ error: 'Failed to fetch dashboard statistics', details: error.message }, 500);
-    }
-    return c.json({ error: 'Failed to fetch dashboard statistics' }, 500);
-  }
-});
+  },
+);
 
 export default dashboardStatsApp;

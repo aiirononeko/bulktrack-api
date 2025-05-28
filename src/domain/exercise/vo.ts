@@ -1,5 +1,5 @@
-import type { ExerciseIdVO } from "../shared/vo/identifier";
 import type { MuscleId } from "../muscle/vo"; // MuscleId をインポート
+import type { ExerciseIdVO } from "../shared/vo/identifier";
 
 // export type ExerciseName = string; // 旧定義をコメントアウト
 

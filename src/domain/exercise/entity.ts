@@ -1,5 +1,5 @@
-import type { ExerciseIdVO } from "../shared/vo/identifier";
 import type { MuscleId } from "../muscle/vo";
+import type { ExerciseIdVO } from "../shared/vo/identifier";
 import type { ExerciseMuscle, ExerciseNameVO } from "./vo";
 
 export type ExerciseId = ExerciseIdVO;
@@ -16,10 +16,10 @@ export class Exercise {
     public readonly id: ExerciseId,
     public readonly canonicalName: ExerciseNameVO,
     public readonly defaultMuscleId: MuscleId | null,
-    public readonly isCompound: boolean,          // Corresponds to exercises.isCompound
-    public readonly isOfficial: boolean,          // Corresponds to exercises.isOfficial
-    public readonly authorUserId: string | null,    // Corresponds to exercises.authorUserId
-    public readonly lastUsedAt: Date | null,      // Corresponds to exercises.lastUsedAt and openapi Exercise.last_used_at
+    public readonly isCompound: boolean, // Corresponds to exercises.isCompound
+    public readonly isOfficial: boolean, // Corresponds to exercises.isOfficial
+    public readonly authorUserId: string | null, // Corresponds to exercises.authorUserId
+    public readonly lastUsedAt: Date | null, // Corresponds to exercises.lastUsedAt and openapi Exercise.last_used_at
     public readonly translations: ExerciseTranslation[] = [], // Populated from exerciseTranslations table
     public readonly exerciseMuscles: ExerciseMuscle[] = [],
   ) {}
@@ -29,7 +29,7 @@ export class Exercise {
    * 翻訳が見つからない場合は、canonicalNameを返します。
    */
   public getName(locale: string): string {
-    const translation = this.translations.find(t => t.locale === locale);
+    const translation = this.translations.find((t) => t.locale === locale);
     return translation?.name || this.canonicalName.value;
   }
 
@@ -38,7 +38,7 @@ export class Exercise {
    * 翻訳またはエイリアスが見つからない場合は、空の配列を返します。
    */
   public getAliases(locale: string): string[] {
-    const translation = this.translations.find(t => t.locale === locale);
+    const translation = this.translations.find((t) => t.locale === locale);
     // openapi.yamlではaliasesはstringだが、entityでは扱いやすいようにstring[]とする
     // DBのaliasesがCSVならパース処理がリポジトリ実装で必要になる
     return translation?.aliases || [];

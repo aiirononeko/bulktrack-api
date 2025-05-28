@@ -24,8 +24,9 @@ export class UserProgressMetric {
     if (!props.metricKey.trim()) {
       throw new Error("Metric key cannot be empty.");
     }
-    if (!props.metricValue.trim()) { // metricValueも必須と仮定
-        throw new Error("Metric value cannot be empty.");
+    if (!props.metricValue.trim()) {
+      // metricValueも必須と仮定
+      throw new Error("Metric value cannot be empty.");
     }
     this.userId = props.userId;
     this.metricKey = props.metricKey;

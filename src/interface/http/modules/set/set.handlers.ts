@@ -1,18 +1,25 @@
-import type { Context } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import * as v from 'valibot';
-import type { AppEnv } from '../../main.router';
-import type { WorkoutService, AddWorkoutSetCommand } from '../../../../application/services/workout.service';
-import { AddSetRequestSchema } from '../../../../app/dto/set.dto';
-import { UserIdVO, ExerciseIdVO, WorkoutSetIdVO } from '../../../../domain/shared/vo/identifier';
-import { ApplicationError } from '../../../../app/errors';
-import type { DashboardStatsService } from '../../../../app/services/dashboard-stats-service';
-import type { UpdateWorkoutSetCommand } from '../../../../application/services/workout.service'; // Added import
+import type { Context } from "hono";
+import { HTTPException } from "hono/http-exception";
+import * as v from "valibot";
+import { AddSetRequestSchema } from "../../../../app/dto/set.dto";
+import { ApplicationError } from "../../../../app/errors";
+import type { DashboardStatsService } from "../../../../app/services/dashboard-stats-service";
+import type {
+  AddWorkoutSetCommand,
+  WorkoutService,
+} from "../../../../application/services/workout.service";
+import type { UpdateWorkoutSetCommand } from "../../../../application/services/workout.service"; // Added import
+import {
+  ExerciseIdVO,
+  UserIdVO,
+  WorkoutSetIdVO,
+} from "../../../../domain/shared/vo/identifier";
+import type { AppEnv } from "../../main.router";
 
 // Copied from original router.ts for Valibot error formatting
 interface PathItem {
   type: string;
-  origin: 'key' | 'value';
+  origin: "key" | "value";
   input: unknown;
   key?: unknown;
   value: unknown;
@@ -22,7 +29,9 @@ interface PathItem {
 export function createAddSetHttpHandler() {
   return async (c: Context<AppEnv>) => {
     const workoutService = c.var.workoutService as WorkoutService | undefined;
-    const statsUpdateService = c.var.statsUpdateService as DashboardStatsService | undefined;
+    const statsUpdateService = c.var.statsUpdateService as
+      | DashboardStatsService
+      | undefined;
 
     if (!workoutService) {
       console.error("WorkoutService not found for POST /sets");
@@ -30,8 +39,10 @@ export function createAddSetHttpHandler() {
     }
 
     const jwtPayload = c.get("jwtPayload");
-    if (!jwtPayload || typeof jwtPayload.sub !== 'string') {
-      throw new HTTPException(401, { message: "Unauthorized: Missing or invalid user identifier in token" });
+    if (!jwtPayload || typeof jwtPayload.sub !== "string") {
+      throw new HTTPException(401, {
+        message: "Unauthorized: Missing or invalid user identifier in token",
+      });
     }
     const userIdString = jwtPayload.sub;
 
@@ -62,9 +73,15 @@ export function createAddSetHttpHandler() {
       // Stats update
       if (statsUpdateService) {
         try {
-          await statsUpdateService.updateStatsForUser(new UserIdVO(userIdString), performedAtDate);
+          await statsUpdateService.updateStatsForUser(
+            new UserIdVO(userIdString),
+            performedAtDate,
+          );
         } catch (statsError) {
-          console.error("Error updating dashboard stats after adding set:", statsError);
+          console.error(
+            "Error updating dashboard stats after adding set:",
+            statsError,
+          );
         }
       }
 
@@ -73,56 +90,71 @@ export function createAddSetHttpHandler() {
         await workoutService.recordExerciseUsage(
           new UserIdVO(userIdString),
           new ExerciseIdVO(validatedBody.exerciseId),
-          performedAtDate
+          performedAtDate,
         );
       } catch (usageError) {
-        console.error("Error recording exercise usage after adding set:", usageError);
+        console.error(
+          "Error recording exercise usage after adding set:",
+          usageError,
+        );
       }
 
       return c.json(resultDto, 201);
-
     } catch (error) {
       if (error instanceof v.ValiError) {
-        return c.json({
-          error: {
-            message: 'Validation failed',
-            code: 'VALIDATION_ERROR',
-            details: error.issues.map(issue => ({ 
-              path: issue.path?.map((p: PathItem) => p.key).join('.'), 
-              message: issue.message 
-            })),
-          }
-        }, 400);
+        return c.json(
+          {
+            error: {
+              message: "Validation failed",
+              code: "VALIDATION_ERROR",
+              details: error.issues.map((issue) => ({
+                path: issue.path?.map((p: PathItem) => p.key).join("."),
+                message: issue.message,
+              })),
+            },
+          },
+          400,
+        );
       }
       if (error instanceof ApplicationError) {
-        return c.json({
-          error: {
-            message: error.message,
-            code: error.code,
-            details: error.details,
+        return c.json(
+          {
+            error: {
+              message: error.message,
+              code: error.code,
+              details: error.details,
+            },
           },
-        }, error.statusCode as any);
+          error.statusCode as any,
+        );
       }
       console.error("Error in POST /sets:", error);
-      throw new HTTPException(500, { message: "Internal server error while adding set." });
+      throw new HTTPException(500, {
+        message: "Internal server error while adding set.",
+      });
     }
   };
 }
 
-import { SetUpdateRequestSchema, type SetUpdateRequestDto } from '../../../../app/dto/set.dto'; // For update handler
-import { NotFoundError, AuthorizationError } from '../../../../app/errors'; // For update/delete handlers
+import {
+  type SetUpdateRequestDto,
+  SetUpdateRequestSchema,
+} from "../../../../app/dto/set.dto"; // For update handler
+import { AuthorizationError, NotFoundError } from "../../../../app/errors"; // For update/delete handlers
 import type { DeleteWorkoutSetCommand } from "../../../../application/services/workout.service"; // For delete handler
 
 export function createUpdateSetHttpHandler() {
   return async (c: Context<AppEnv>): Promise<Response> => {
     try {
-      const jwtPayload = c.get('jwtPayload');
-      if (!jwtPayload || typeof jwtPayload.sub !== 'string') {
-        throw new HTTPException(401, { message: 'Unauthorized: Missing or invalid user ID in token' });
+      const jwtPayload = c.get("jwtPayload");
+      if (!jwtPayload || typeof jwtPayload.sub !== "string") {
+        throw new HTTPException(401, {
+          message: "Unauthorized: Missing or invalid user ID in token",
+        });
       }
       const userIdString = jwtPayload.sub;
 
-      const setIdParam = c.req.param('setId');
+      const setIdParam = c.req.param("setId");
 
       let requestBody: SetUpdateRequestDto;
       try {
@@ -131,35 +163,45 @@ export function createUpdateSetHttpHandler() {
       } catch (error) {
         if (error instanceof v.ValiError) {
           throw new HTTPException(400, {
-            message: 'Validation failed',
-            cause: error.issues.map(issue => ({ 
-              path: issue.path?.map((p: PathItem) => p.key).join('.'), 
-              message: issue.message 
+            message: "Validation failed",
+            cause: error.issues.map((issue) => ({
+              path: issue.path?.map((p: PathItem) => p.key).join("."),
+              message: issue.message,
             })),
           });
         }
-        throw new HTTPException(400, { message: 'Invalid JSON in request body' });
+        throw new HTTPException(400, {
+          message: "Invalid JSON in request body",
+        });
       }
 
       const workoutService = c.var.workoutService as WorkoutService | undefined;
       if (!workoutService) {
-        console.error('WorkoutService not found in context. DI middleware might not have run.');
-        throw new HTTPException(500, { message: 'Internal Server Configuration Error' });
+        console.error(
+          "WorkoutService not found in context. DI middleware might not have run.",
+        );
+        throw new HTTPException(500, {
+          message: "Internal Server Configuration Error",
+        });
       }
 
-      const commandData: UpdateWorkoutSetCommand['data'] = {};
+      const commandData: UpdateWorkoutSetCommand["data"] = {};
       if (requestBody.reps !== undefined) commandData.reps = requestBody.reps;
-      if (requestBody.weight !== undefined) commandData.weight = requestBody.weight;
-      if (requestBody.notes !== undefined) commandData.notes = requestBody.notes;
+      if (requestBody.weight !== undefined)
+        commandData.weight = requestBody.weight;
+      if (requestBody.notes !== undefined)
+        commandData.notes = requestBody.notes;
       if (requestBody.rpe !== undefined) commandData.rpe = requestBody.rpe;
       if (requestBody.performedAt !== undefined) {
-          commandData.performedAt = requestBody.performedAt === null ? undefined : requestBody.performedAt;
+        commandData.performedAt =
+          requestBody.performedAt === null
+            ? undefined
+            : requestBody.performedAt;
       }
       // requestBody (SetUpdateRequestDto) does not have restSec.
       // If restSec needs to be updatable, SetUpdateRequestSchema should be modified.
       // For now, we assume it's not part of the update DTO.
       // if (requestBody.restSec !== undefined) commandData.restSec = requestBody.restSec;
-
 
       const command: UpdateWorkoutSetCommand = {
         setId: setIdParam,
@@ -169,38 +211,49 @@ export function createUpdateSetHttpHandler() {
 
       const updatedSetDto = await workoutService.updateWorkoutSet(command);
 
-      const statsUpdater = c.var.statsUpdateService as DashboardStatsService | undefined;
+      const statsUpdater = c.var.statsUpdateService as
+        | DashboardStatsService
+        | undefined;
       const currentUserId = new UserIdVO(userIdString);
       let performedAtForStats: Date;
       if (updatedSetDto.performedAt) {
         performedAtForStats = new Date(updatedSetDto.performedAt);
         if (Number.isNaN(performedAtForStats.getTime())) {
-          console.warn('Invalid performedAt from DTO, falling back to current time for stats.');
+          console.warn(
+            "Invalid performedAt from DTO, falling back to current time for stats.",
+          );
           performedAtForStats = new Date();
         }
       } else {
-        console.warn('performedAt not found in DTO, falling back to current time for stats.');
+        console.warn(
+          "performedAt not found in DTO, falling back to current time for stats.",
+        );
         performedAtForStats = new Date();
       }
 
       if (statsUpdater) {
         try {
-          await statsUpdater.updateStatsForUser(currentUserId, performedAtForStats);
+          await statsUpdater.updateStatsForUser(
+            currentUserId,
+            performedAtForStats,
+          );
         } catch (statsError) {
-          console.error(`Error updating dashboard stats after updating set ${setIdParam}:`, statsError);
+          console.error(
+            `Error updating dashboard stats after updating set ${setIdParam}:`,
+            statsError,
+          );
         }
       }
 
       return c.json(updatedSetDto, 200);
-
     } catch (error: unknown) {
       if (error instanceof v.ValiError) {
         // This specific catch might be redundant if parseAsync above throws HTTPException directly
         throw new HTTPException(400, {
-          message: 'Validation failed',
-          cause: error.issues.map(issue => ({ 
-            path: issue.path?.map((p: PathItem) => p.key).join('.'), 
-            message: issue.message 
+          message: "Validation failed",
+          cause: error.issues.map((issue) => ({
+            path: issue.path?.map((p: PathItem) => p.key).join("."),
+            message: issue.message,
           })),
         });
       }
@@ -210,14 +263,18 @@ export function createUpdateSetHttpHandler() {
       if (error instanceof AuthorizationError) {
         throw new HTTPException(403, { message: error.message });
       }
-      if (error instanceof ApplicationError) { // Catch other application errors
-        throw new HTTPException(error.statusCode as any, { message: error.message, cause: error.details });
+      if (error instanceof ApplicationError) {
+        // Catch other application errors
+        throw new HTTPException(error.statusCode as any, {
+          message: error.message,
+          cause: error.details,
+        });
       }
       if (error instanceof HTTPException) {
         throw error;
       }
-      console.error('Error in updateSetHttpHandler:', error);
-      throw new HTTPException(500, { message: 'Internal server error' });
+      console.error("Error in updateSetHttpHandler:", error);
+      throw new HTTPException(500, { message: "Internal server error" });
     }
   };
 }
@@ -227,8 +284,10 @@ export function createDeleteSetHttpHandler() {
     const { setId } = c.req.param();
     const payload = c.get("jwtPayload");
 
-    if (!payload || typeof payload.sub !== 'string') {
-      throw new HTTPException(401, { message: "Unauthorized: Missing or invalid user ID in token" });
+    if (!payload || typeof payload.sub !== "string") {
+      throw new HTTPException(401, {
+        message: "Unauthorized: Missing or invalid user ID in token",
+      });
     }
     const userId = payload.sub;
 
@@ -238,8 +297,12 @@ export function createDeleteSetHttpHandler() {
 
     const workoutService = c.var.workoutService as WorkoutService | undefined;
     if (!workoutService) {
-      console.error("WorkoutService not found in context. DI middleware might not have run.");
-      throw new HTTPException(500, { message: "Internal Server Configuration Error" });
+      console.error(
+        "WorkoutService not found in context. DI middleware might not have run.",
+      );
+      throw new HTTPException(500, {
+        message: "Internal Server Configuration Error",
+      });
     }
 
     const command: DeleteWorkoutSetCommand = {
@@ -250,16 +313,21 @@ export function createDeleteSetHttpHandler() {
     try {
       await workoutService.deleteWorkoutSet(command);
 
-      const statsUpdater = c.var.statsUpdateService as DashboardStatsService | undefined;
+      const statsUpdater = c.var.statsUpdateService as
+        | DashboardStatsService
+        | undefined;
       const currentUserId = new UserIdVO(userId);
       // For delete, the exact performedAt might not be readily available or relevant for re-aggregation.
       // Using current time for stats update might be a pragmatic choice, or skip if not meaningful.
-      const performedAtDate = new Date(); 
+      const performedAtDate = new Date();
       if (statsUpdater) {
         try {
           await statsUpdater.updateStatsForUser(currentUserId, performedAtDate);
         } catch (statsError) {
-          console.error(`Error updating dashboard stats after deleting set ${setId}:`, statsError);
+          console.error(
+            `Error updating dashboard stats after deleting set ${setId}:`,
+            statsError,
+          );
         }
       }
 
@@ -272,7 +340,9 @@ export function createDeleteSetHttpHandler() {
         throw new HTTPException(403, { message: error.message });
       }
       console.error("Unexpected error in deleteSetHttpHandler:", error);
-      throw new HTTPException(500, { message: "An unexpected error occurred." });
+      throw new HTTPException(500, {
+        message: "An unexpected error occurred.",
+      });
     }
   };
 }

@@ -1,10 +1,16 @@
-import type { Context } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import type { AppEnv } from '../../main.router';
-import type { SearchExercisesHandler, SearchExercisesQuery } from '../../../../app/query/exercise/search-exercise';
-import type { ExerciseService, ExerciseMuscleInput } from '../../../../domain/exercise/service';
-import { UserIdVO } from '../../../../domain/shared/vo/identifier';
-import { toExerciseDto } from '../../../../app/dto/exercise';
+import type { Context } from "hono";
+import { HTTPException } from "hono/http-exception";
+import { toExerciseDto } from "../../../../app/dto/exercise";
+import type {
+  SearchExercisesHandler,
+  SearchExercisesQuery,
+} from "../../../../app/query/exercise/search-exercise";
+import type {
+  ExerciseMuscleInput,
+  ExerciseService,
+} from "../../../../domain/exercise/service";
+import { UserIdVO } from "../../../../domain/shared/vo/identifier";
+import type { AppEnv } from "../../main.router";
 
 // Based on src/interface/http/handlers/exercise/create.ts
 interface ExerciseMuscleInputDto {
@@ -27,23 +33,29 @@ export interface ExerciseCreateRequest {
 // Handler factory for searching exercises
 export function createSearchExercisesHttpHandler() {
   return async (c: Context<AppEnv>) => {
-    const handler = c.get("searchExercisesHandler") as SearchExercisesHandler | undefined;
+    const handler = c.get("searchExercisesHandler") as
+      | SearchExercisesHandler
+      | undefined;
     if (!handler) {
       console.error("SearchExercisesHandler not found for GET /v1/exercises");
-      throw new HTTPException(500, { message: "Search handler not configured" });
+      throw new HTTPException(500, {
+        message: "Search handler not configured",
+      });
     }
 
-    const queryParam = c.req.query('q');
-    const acceptLanguageHeader = c.req.header('accept-language');
+    const queryParam = c.req.query("q");
+    const acceptLanguageHeader = c.req.header("accept-language");
     // TODO: Implement proper Accept-Language parsing if multiple languages/q-factors are supported.
     // For now, take the first part if available, otherwise default.
-    const locale = acceptLanguageHeader ? acceptLanguageHeader.split(',')[0].split(';')[0].trim() : 'en';
+    const locale = acceptLanguageHeader
+      ? acceptLanguageHeader.split(",")[0].split(";")[0].trim()
+      : "en";
 
-    const limitParam = c.req.query('limit');
-    const offsetParam = c.req.query('offset');
+    const limitParam = c.req.query("limit");
+    const offsetParam = c.req.query("offset");
 
-    const limit = limitParam ? parseInt(limitParam, 10) : 20; // Default limit 20
-    const offset = offsetParam ? parseInt(offsetParam, 10) : 0; // Default offset 0
+    const limit = limitParam ? Number.parseInt(limitParam, 10) : 20; // Default limit 20
+    const offset = offsetParam ? Number.parseInt(offsetParam, 10) : 0; // Default offset 0
 
     if (isNaN(limit) || limit <= 0) {
       throw new HTTPException(400, { message: "Invalid 'limit' parameter" });
@@ -52,23 +64,25 @@ export function createSearchExercisesHttpHandler() {
       throw new HTTPException(400, { message: "Invalid 'offset' parameter" });
     }
 
-    const jwtPayload = c.get('jwtPayload');
-    if (!jwtPayload || typeof jwtPayload.sub !== 'string') {
+    const jwtPayload = c.get("jwtPayload");
+    if (!jwtPayload || typeof jwtPayload.sub !== "string") {
       // For public search, this might be optional. For user-specific search, it's required.
       // Assuming search is authenticated for now as per original logic.
       // OpenAPI spec does not list security for this endpoint, implying it might be public.
       // However, the current exercise.routes.ts applies jwtAuthMiddleware to all '*' routes.
       // For now, let's keep the auth check. If it needs to be public, jwtAuthMiddleware should be removed
       // or made conditional for this specific GET route in exercise.routes.ts.
-      throw new HTTPException(401, { message: "Unauthorized: Missing or invalid user identifier for search" });
+      throw new HTTPException(401, {
+        message: "Unauthorized: Missing or invalid user identifier for search",
+      });
     }
     // const userId = jwtPayload.sub; // userId is not directly part of SearchExercisesQuery
 
-    const searchParams: SearchExercisesQuery = { 
-      q: queryParam || null, 
+    const searchParams: SearchExercisesQuery = {
+      q: queryParam || null,
       locale,
       limit,
-      offset
+      offset,
     };
     const results = await handler.execute(searchParams);
     return c.json(results);
@@ -78,15 +92,21 @@ export function createSearchExercisesHttpHandler() {
 // Handler factory for creating an exercise
 export function createCreateExerciseHttpHandler() {
   return async (c: Context<AppEnv>) => {
-    const exerciseService = c.get('exerciseService') as ExerciseService | undefined;
-    const jwtPayload = c.get('jwtPayload');
+    const exerciseService = c.get("exerciseService") as
+      | ExerciseService
+      | undefined;
+    const jwtPayload = c.get("jwtPayload");
 
     if (!exerciseService) {
       console.error("ExerciseService not found for POST /v1/exercises");
-      throw new HTTPException(500, { message: "Exercise service not configured" });
+      throw new HTTPException(500, {
+        message: "Exercise service not configured",
+      });
     }
-    if (!jwtPayload || typeof jwtPayload.sub !== 'string') {
-      throw new HTTPException(401, { message: "Unauthorized: Missing or invalid user identifier" });
+    if (!jwtPayload || typeof jwtPayload.sub !== "string") {
+      throw new HTTPException(401, {
+        message: "Unauthorized: Missing or invalid user identifier",
+      });
     }
     const authorUserId = jwtPayload.sub;
 
@@ -94,12 +114,13 @@ export function createCreateExerciseHttpHandler() {
       const body = await c.req.json<ExerciseCreateRequest>();
       // TODO: Add Valibot validation for 'body' here for robustness
 
-      const exerciseMusclesDomain: ExerciseMuscleInput[] | undefined = body.exercise_muscles?.map(dto => ({
-        muscleId: dto.muscle_id, // Assuming MuscleId is number
-        relativeShare: dto.relative_share,
-        sourceId: dto.source_id,
-        sourceDetails: dto.source_details,
-      }));
+      const exerciseMusclesDomain: ExerciseMuscleInput[] | undefined =
+        body.exercise_muscles?.map((dto) => ({
+          muscleId: dto.muscle_id, // Assuming MuscleId is number
+          relativeShare: dto.relative_share,
+          sourceId: dto.source_id,
+          sourceDetails: dto.source_details,
+        }));
 
       const newExercise = await exerciseService.createCustomExercise(
         body.canonical_name,
@@ -109,9 +130,9 @@ export function createCreateExerciseHttpHandler() {
         authorUserId,
         body.default_muscle_id,
         body.is_compound ?? false,
-        exerciseMusclesDomain
+        exerciseMusclesDomain,
       );
-      
+
       // Convert domain entity to DTO for the response
       const exerciseDto = toExerciseDto(newExercise, body.locale);
       return c.json(exerciseDto, 201);

@@ -1,16 +1,18 @@
+import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
-import type { Context } from 'hono';
-import type { AppEnv } from "../../router";
+import { AuthorizationError, NotFoundError } from "../../../../app/errors";
 import type { DeleteWorkoutSetCommand } from "../../../../application/services/workout.service";
-import { NotFoundError, AuthorizationError } from "../../../../app/errors";
 import { UserIdVO } from "../../../../domain/shared/vo/identifier";
+import type { AppEnv } from "../../router";
 
 export const deleteSetHttpHandler = async (c: Context<AppEnv>) => {
   const { setId } = c.req.param();
   const payload = c.get("jwtPayload");
 
-  if (!payload || typeof payload.sub !== 'string') {
-    throw new HTTPException(401, { message: "Unauthorized: Missing or invalid user ID in token" });
+  if (!payload || typeof payload.sub !== "string") {
+    throw new HTTPException(401, {
+      message: "Unauthorized: Missing or invalid user ID in token",
+    });
   }
   const userId = payload.sub;
 
@@ -20,8 +22,12 @@ export const deleteSetHttpHandler = async (c: Context<AppEnv>) => {
 
   const workoutService = c.var.workoutService;
   if (!workoutService) {
-    console.error("WorkoutService not found in context. DI middleware might not have run.");
-    throw new HTTPException(500, { message: "Internal Server Configuration Error" });
+    console.error(
+      "WorkoutService not found in context. DI middleware might not have run.",
+    );
+    throw new HTTPException(500, {
+      message: "Internal Server Configuration Error",
+    });
   }
 
   const command: DeleteWorkoutSetCommand = {
@@ -39,7 +45,10 @@ export const deleteSetHttpHandler = async (c: Context<AppEnv>) => {
       try {
         await statsUpdater.updateStatsForUser(currentUserId, performedAtDate);
       } catch (statsError) {
-        console.error(`Error updating dashboard stats after deleting set ${setId}:`, statsError);
+        console.error(
+          `Error updating dashboard stats after deleting set ${setId}:`,
+          statsError,
+        );
       }
     }
 

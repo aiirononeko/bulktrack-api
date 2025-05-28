@@ -43,13 +43,18 @@ export const muscleGroupTranslations = sqliteTable(
   {
     muscleGroupId: integer("muscle_group_id")
       .notNull()
-      .references(() => muscleGroups.id, { onDelete: "cascade", onUpdate: "cascade" }),
+      .references(() => muscleGroups.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
     locale: text("locale").notNull(), // 'en', 'ja', etc.
     name: text("name").notNull(),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.muscleGroupId, table.locale] }),
-    idxMuscleGroupLocale: index("idx_muscle_group_translations_locale").on(table.locale),
+    idxMuscleGroupLocale: index("idx_muscle_group_translations_locale").on(
+      table.locale,
+    ),
   }),
 );
 
@@ -58,7 +63,10 @@ export const muscles = sqliteTable("muscles", {
   name: text("name").notNull().unique(), // e.g., "Pectoralis Major (Clavicular Head)", "Deltoid (Anterior Head)"
   muscleGroupId: integer("muscle_group_id")
     .notNull()
-    .references(() => muscleGroups.id, { onDelete: "no action", onUpdate: "cascade" }),
+    .references(() => muscleGroups.id, {
+      onDelete: "no action",
+      onUpdate: "cascade",
+    }),
   tensionFactor: real("tension_factor").notNull().default(1.0), // relative stimulus multiplier (legacy, might be reviewed later)
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -90,12 +98,18 @@ export const exerciseModifierValues = sqliteTable(
     /** FK: 種目 */
     exerciseId: text("exercise_id")
       .notNull()
-      .references(() => exercises.id, { onDelete: "cascade", onUpdate: "cascade" }),
+      .references(() => exercises.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
 
     /** FK: 修飾子 */
     modifierId: integer("modifier_id")
       .notNull()
-      .references(() => modifiers.id, { onDelete: "cascade", onUpdate: "cascade" }),
+      .references(() => modifiers.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
 
     /** 数値パラメータ（インクライン角=30° 等）——数値不要なら NULL */
     valueNum: real("value_num"),
@@ -125,8 +139,11 @@ export const exerciseModifierValues = sqliteTable(
       sql`${table.relShareMultiplier} >= 0 AND ${table.relShareMultiplier} <= 2`,
     ),
     idxModExercise: index("idx_mod_exercise").on(table.exerciseId),
-    unqExerciseModifierValue: uniqueIndex("unq_emv_eid_mid_vkey")
-      .on(table.exerciseId, table.modifierId, table.valueKey),
+    unqExerciseModifierValue: uniqueIndex("unq_emv_eid_mid_vkey").on(
+      table.exerciseId,
+      table.modifierId,
+      table.valueKey,
+    ),
   }),
 );
 
@@ -142,14 +159,18 @@ export const exerciseSources = sqliteTable("exercise_sources", {
 export const exercises = sqliteTable("exercises", {
   id: text("id").primaryKey(), // UUID v7
   canonicalName: text("canonical_name").notNull(), // fallback name (EN/JA any)
-  defaultMuscleId: integer("default_muscle_id").references(() => muscles.id, { onUpdate: "cascade" }),
+  defaultMuscleId: integer("default_muscle_id").references(() => muscles.id, {
+    onUpdate: "cascade",
+  }),
   isCompound: integer("is_compound", { mode: "boolean" })
     .notNull()
     .default(false),
   isOfficial: integer("is_official", { mode: "boolean" })
     .notNull()
     .default(false),
-  authorUserId: text("author_user_id").references(() => users.id, { onUpdate: "cascade" }),
+  authorUserId: text("author_user_id").references(() => users.id, {
+    onUpdate: "cascade",
+  }),
   lastUsedAt: text("last_used_at"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -159,13 +180,19 @@ export const exerciseMuscles = sqliteTable(
   {
     exerciseId: text("exercise_id")
       .notNull()
-      .references(() => exercises.id, { onDelete: "cascade", onUpdate: "cascade" }),
+      .references(() => exercises.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
     muscleId: integer("muscle_id")
       .notNull()
       .references(() => muscles.id, { onUpdate: "cascade" }),
     relativeShare: integer("relative_share").notNull(), // Changed to integer, 0-1000, sum for an exercise should be 1000
     peakEmgPct: real("peak_emg_pct"), // %MVIC, optional
-    sourceId: text("source_id").references(() => exerciseSources.id, { onDelete: "set null", onUpdate: "cascade" }), // Link to evidence
+    sourceId: text("source_id").references(() => exerciseSources.id, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }), // Link to evidence
     notes: text("notes"), // e.g., "Based on wide grip variation"
   },
   (table) => ({
@@ -184,7 +211,10 @@ export const exerciseTranslations = sqliteTable(
   {
     exerciseId: text("exercise_id")
       .notNull()
-      .references(() => exercises.id, { onDelete: "cascade", onUpdate: "cascade" }),
+      .references(() => exercises.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
     locale: text("locale").notNull(), // 'en', 'ja', …
     name: text("name").notNull(),
     aliases: text("aliases"), // CSV or JSON list
@@ -202,8 +232,8 @@ export const exercisesFts = sqliteTable("exercises_fts", {
   text: text("text").notNull(),
   textNormalized: text("text_normalized"), // For hiragana normalized search
   // rowid: integer('rowid').primaryKey(), // FTS5 virtual tables have a rowid, but it's usually managed by SQLite.
-                                           // Defining it here might be optional or depend on Drizzle's FTS handling.
-                                           // For now, omitting to let Drizzle/SQLite handle it by default.
+  // Defining it here might be optional or depend on Drizzle's FTS handling.
+  // For now, omitting to let Drizzle/SQLite handle it by default.
 });
 
 // ------------------------------------------------
@@ -258,7 +288,9 @@ export const workoutSets = sqliteTable(
     performedAt: text("performed_at").notNull(),
     rpe: real("rpe"),
     restSec: integer("rest_sec"),
-    volume: real("volume").generatedAlwaysAs(sql`(COALESCE(weight, 0) * COALESCE(reps, 0))`),
+    volume: real("volume").generatedAlwaysAs(
+      sql`(COALESCE(weight, 0) * COALESCE(reps, 0))`,
+    ),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
@@ -272,7 +304,10 @@ export const workoutSets = sqliteTable(
       table.userId,
       table.performedAt,
     ),
-    rpeCheck: check("ck_rpe_range", sql`${table.rpe} >= 1 AND ${table.rpe} <= 10`),
+    rpeCheck: check(
+      "ck_rpe_range",
+      sql`${table.rpe} >= 1 AND ${table.rpe} <= 10`,
+    ),
   }),
 );
 
@@ -332,13 +367,14 @@ export const weeklyUserVolumes = sqliteTable(
     // mean estimated 1RM of key lifts (optional, nullable)
     e1rmAvg: real("e1rm_avg"),
 
-    updatedAt: text("updated_at")
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.userId, table.weekStart] }),
-    idxUserWeek: index("idx_weekly_uv_user_week").on(table.userId, table.weekStart),
+    idxUserWeek: index("idx_weekly_uv_user_week").on(
+      table.userId,
+      table.weekStart,
+    ),
   }),
 );
 
@@ -356,7 +392,10 @@ export const weeklyUserMuscleVolumes = sqliteTable(
 
     muscleId: integer("muscle_id")
       .notNull()
-      .references(() => muscles.id, { onDelete: "cascade", onUpdate: "cascade" }),
+      .references(() => muscles.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
 
     // Σ(weight × reps × relativeShare) for that muscle
     volume: real("volume").notNull(),
@@ -364,12 +403,12 @@ export const weeklyUserMuscleVolumes = sqliteTable(
     e1rmSum: real("e1rm_sum").notNull().default(0),
     e1rmCount: integer("e1rm_count").notNull().default(0),
 
-    updatedAt: text("updated_at")
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.userId, table.weekStart, table.muscleId] }),
+    pk: primaryKey({
+      columns: [table.userId, table.weekStart, table.muscleId],
+    }),
     idxMuscleWeek: index("idx_weekly_umv").on(table.userId, table.weekStart),
   }),
 );
@@ -386,17 +425,20 @@ export const weeklyUserMetrics = sqliteTable(
 
     weekStart: text("week_start").notNull(),
 
-    metricKey: text("metric_key").notNull(),  // e.g. 'body_weight', 'sleep_h', 'avg_RPE'
+    metricKey: text("metric_key").notNull(), // e.g. 'body_weight', 'sleep_h', 'avg_RPE'
     metricValue: real("metric_value").notNull(),
-    metricUnit: text("metric_unit"),           // 'kg', 'h', etc.
+    metricUnit: text("metric_unit"), // 'kg', 'h', etc.
 
-    updatedAt: text("updated_at")
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.userId, table.weekStart, table.metricKey] }),
-    idxMetric: index("idx_wum_user_week_metric").on(table.userId, table.weekStart),
+    pk: primaryKey({
+      columns: [table.userId, table.weekStart, table.metricKey],
+    }),
+    idxMetric: index("idx_wum_user_week_metric").on(
+      table.userId,
+      table.weekStart,
+    ),
   }),
 );
 
@@ -408,16 +450,24 @@ export const setModifiers = sqliteTable(
   {
     setId: text("set_id") // workout_sets.id
       .notNull()
-      .references(() => workoutSets.id, { onDelete: "cascade", onUpdate: "cascade" }),
+      .references(() => workoutSets.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
     exerciseModifierValueId: integer("exercise_modifier_value_id") // exercise_modifier_values.id
       .notNull()
-      .references(() => exerciseModifierValues.id, { onDelete: "cascade", onUpdate: "cascade" }),
+      .references(() => exerciseModifierValues.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), // Optional
   },
   (table) => ({
     pk: primaryKey({ columns: [table.setId, table.exerciseModifierValueId] }),
     idxSetId: index("idx_set_modifiers_set_id").on(table.setId),
-    idxExerciseModifierValueId: index("idx_set_modifiers_emv_id").on(table.exerciseModifierValueId),
+    idxExerciseModifierValueId: index("idx_set_modifiers_emv_id").on(
+      table.exerciseModifierValueId,
+    ),
   }),
 );
 
