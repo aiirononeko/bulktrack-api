@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { JWTPayload } from "hono/utils/jwt/types"; // JWTPayloadをインポート
 import { validator } from "hono/validator";
-import { toExerciseDto } from "../../../../app/dto/exercise"; // DTO変換関数
+import { toExerciseDto } from "../../../../application/dto/exercise"; // DTO変換関数
 import { ExerciseIdVO } from "../../../../domain/shared/vo/identifier";
 import type { AppEnv } from "../../router"; // 相対パスを修正
 

@@ -1,11 +1,11 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 
-import type { ExerciseDto } from "../../../../app/dto/exercise";
+import type { ExerciseDto } from "../../../../application/dto/exercise";
 import type {
   SearchExercisesHandler,
   SearchExercisesQuery,
-} from "../../../../app/query/exercise/search-exercise"; // Adjusted path
+} from "../../../../application/query/exercise/search-exercise"; // Adjusted path
 
 // OpenAPIのデフォルトに従い、ロケールのデフォルト値を設定
 const DEFAULT_LOCALE = "ja";

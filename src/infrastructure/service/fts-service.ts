@@ -113,6 +113,7 @@ export class FtsService {
       console.log(
         `Executing batch of ${statements.length} statements on D1...`,
       );
+      // biome-ignore lint/suspicious/noExplicitAny: D1 batch() accepts array of statements
       await this.db.batch(statements as any);
 
       const message = `Successfully populated exercises_fts table with ${ftsEntries.length} entries using batch operation.`;

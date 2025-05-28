@@ -116,7 +116,8 @@ export class DashboardMuscleGroupAggregationService {
 
       if (aggregatedMap.has(key)) {
         // 既存データに加算
-        const existing = aggregatedMap.get(key)!;
+        const existing = aggregatedMap.get(key);
+        if (!existing) continue;
         existing.volume += mv.volume;
         existing.setCount += mv.setCount;
         existing.e1rmSum += mv.e1rmSum;

@@ -1,6 +1,9 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { AuthorizationError, NotFoundError } from "../../../../app/errors";
+import {
+  AuthorizationError,
+  NotFoundError,
+} from "../../../../application/errors";
 import type { DeleteWorkoutSetCommand } from "../../../../application/services/workout.service";
 import { UserIdVO } from "../../../../domain/shared/vo/identifier";
 import type { AppEnv } from "../../router";

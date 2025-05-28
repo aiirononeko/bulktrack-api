@@ -3,8 +3,8 @@ import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { AppEnv } from "../../main.router"; // Adjust if AppEnv is moved
 
-import { ListRecentExercisesHandler } from "../../../../app/query/exercise/list-recent-exercises"; // For /me/exercises/recent
-import { SearchExercisesHandler } from "../../../../app/query/exercise/search-exercise";
+import { ListRecentExercisesHandler } from "../../../../application/query/exercise/list-recent-exercises"; // For /me/exercises/recent
+import { SearchExercisesHandler } from "../../../../application/query/exercise/search-exercise";
 import { ExerciseService } from "../../../../domain/exercise/service";
 import { DrizzleExerciseRepository } from "../../../../infrastructure/db/repository/exercise-repository";
 import * as tablesSchema from "../../../../infrastructure/db/schema";

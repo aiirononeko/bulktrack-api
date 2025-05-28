@@ -1,7 +1,7 @@
 import { type SQL, and, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import type { SQLiteSelect } from "drizzle-orm/sqlite-core";
-import { normalizeToHiragana } from "../../../app/utils/text-processor";
+import { normalizeToHiragana } from "../../../application/utils/text-processor";
 import {
   Exercise,
   type ExerciseId,

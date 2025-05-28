@@ -1,8 +1,3 @@
-import {
-  ApplicationError,
-  AuthorizationError,
-  NotFoundError,
-} from "../../app/errors";
 import type { IExerciseUsageRepository } from "../../domain/exercise/repository/exercise-usage-repository";
 import { UserIdVO, WorkoutSetIdVO } from "../../domain/shared/vo/identifier";
 import type { ExerciseIdVO } from "../../domain/shared/vo/identifier";
@@ -11,6 +6,7 @@ import {
   type WorkoutSetUpdateProps,
 } from "../../domain/workout/entities/workout-set.entity";
 import type { IWorkoutSetRepository } from "../../domain/workout/workout-set-repository";
+import { ApplicationError, AuthorizationError, NotFoundError } from "../errors";
 
 // It's good practice to define DTOs for use case inputs and outputs
 export interface UpdateWorkoutSetCommand {

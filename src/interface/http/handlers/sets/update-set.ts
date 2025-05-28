@@ -4,12 +4,12 @@ import * as v from "valibot";
 import {
   type SetUpdateRequestDto,
   SetUpdateRequestSchema,
-} from "../../../../app/dto/set.dto";
+} from "../../../../application/dto/set.dto";
 import {
   ApplicationError,
   AuthorizationError,
   NotFoundError,
-} from "../../../../app/errors";
+} from "../../../../application/errors";
 import {
   type UpdateWorkoutSetCommand,
   WorkoutService,

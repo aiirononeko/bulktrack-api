@@ -1,10 +1,10 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { toExerciseDto } from "../../../../app/dto/exercise";
+import { toExerciseDto } from "../../../../application/dto/exercise";
 import type {
   SearchExercisesHandler,
   SearchExercisesQuery,
-} from "../../../../app/query/exercise/search-exercise";
+} from "../../../../application/query/exercise/search-exercise";
 import type {
   ExerciseMuscleInput,
   ExerciseService,
@@ -57,10 +57,10 @@ export function createSearchExercisesHttpHandler() {
     const limit = limitParam ? Number.parseInt(limitParam, 10) : 20; // Default limit 20
     const offset = offsetParam ? Number.parseInt(offsetParam, 10) : 0; // Default offset 0
 
-    if (isNaN(limit) || limit <= 0) {
+    if (Number.isNaN(limit) || limit <= 0) {
       throw new HTTPException(400, { message: "Invalid 'limit' parameter" });
     }
-    if (isNaN(offset) || offset < 0) {
+    if (Number.isNaN(offset) || offset < 0) {
       throw new HTTPException(400, { message: "Invalid 'offset' parameter" });
     }
 

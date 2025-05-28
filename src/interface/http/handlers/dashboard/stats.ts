@@ -4,11 +4,11 @@ import type {
   WeeklyUserMetricDto,
   WeeklyUserMuscleVolumeDto,
   WeeklyUserVolumeDto,
-} from "../../../../app/query/dashboard/dto";
+} from "../../../../application/query/dashboard/dto";
 import {
   GetDashboardDataQuery,
   type GetDashboardDataQueryHandler,
-} from "../../../../app/query/dashboard/get-dashboard-data";
+} from "../../../../application/query/dashboard/get-dashboard-data";
 // IDashboardRepository and DashboardRepository imports are no longer needed here as DI is handled upstream.
 // import type { IDashboardRepository } from '../../../../domain/dashboard/repository';
 // import { DashboardRepository } from '../../../../infrastructure/db/repository/dashboard-repository';
@@ -16,7 +16,7 @@ import {
 import {
   generateWeeklyDateRange,
   getISOWeekMondayString as getUtilsIsoWeekMondayString,
-} from "../../../../app/utils/date-utils";
+} from "../../../../application/utils/date-utils";
 // Import AppEnv from router.ts to correctly type c.var
 // This might create a circular dependency if AppEnv itself imports this file.
 // If so, AppEnv should be moved to a shared types file.

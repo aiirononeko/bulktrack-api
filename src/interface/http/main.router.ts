@@ -5,7 +5,7 @@ import { logger } from "hono/logger";
 import type { StatusCode } from "hono/utils/http-status";
 import type { JWTPayload } from "hono/utils/jwt/types";
 
-import { ApplicationError } from "../../app/errors";
+import { ApplicationError } from "../../application/errors";
 
 // ValibotのIssuePathの要素の型定義 (valibotから直接エクスポートされていないためローカルで定義)
 // This might be better in a shared types file if used elsewhere, but for now, keep it close.
@@ -21,18 +21,18 @@ import type { DrizzleD1Database } from "drizzle-orm/d1";
 // --- AppEnv Definition ---
 // Import specific command/handler/service types as they are defined in their respective DI containers/modules
 // For now, keep the structure from the original router.ts and refine later.
-import type { ActivateDeviceCommand } from "../../app/command/auth/activate-device-command";
-import type { RefreshTokenCommand } from "../../app/command/auth/refresh-token-command";
-import type { GetDashboardDataQueryHandler } from "../../app/query/dashboard/get-dashboard-data";
-import type { ListRecentExercisesHandler } from "../../app/query/exercise/list-recent-exercises";
-import type { SearchExercisesHandler } from "../../app/query/exercise/search-exercise";
-import type { DashboardDataCompletionService } from "../../app/services/dashboard-data-completion.service";
-import type { DashboardMuscleGroupAggregationService } from "../../app/services/dashboard-muscle-group-aggregation.service";
-import type { DashboardStatsService } from "../../app/services/dashboard-stats-service";
-import type { FtsService } from "../../application/service/FtsService";
+import type { ActivateDeviceCommand } from "../../application/command/auth/activate-device-command";
+import type { RefreshTokenCommand } from "../../application/command/auth/refresh-token-command";
+import type { GetDashboardDataQueryHandler } from "../../application/query/dashboard/get-dashboard-data";
+import type { ListRecentExercisesHandler } from "../../application/query/exercise/list-recent-exercises";
+import type { SearchExercisesHandler } from "../../application/query/exercise/search-exercise";
+import type { DashboardDataCompletionService } from "../../application/services/dashboard-data-completion.service";
+import type { DashboardMuscleGroupAggregationService } from "../../application/services/dashboard-muscle-group-aggregation.service";
 import type { WorkoutService } from "../../application/services/workout.service";
 import type { ExerciseService } from "../../domain/exercise/service";
 import type * as tablesSchema from "../../infrastructure/db/schema";
+import type { DashboardStatsService } from "../../infrastructure/service/dashboard-stats-service";
+import type { FtsService } from "../../infrastructure/service/fts-service";
 
 export type AppEnv = {
   Variables: {
@@ -105,12 +105,14 @@ app.onError((err, c) => {
   // This is a fallback.
   if (err.name === "ValiError" && "issues" in err) {
     // Basic check for Valibot error
+    // biome-ignore lint/suspicious/noExplicitAny: Valibot error structure not exported
     const valibotError = err as any; // Cast to any to access issues
     c.status(400);
     return c.json({
       error: {
         message: "Validation failed",
         code: "VALIDATION_ERROR",
+        // biome-ignore lint/suspicious/noExplicitAny: Issue type not exported from Valibot
         details: valibotError.issues.map((issue: any) => ({
           // Use any for issue type
           path: issue.path?.map((p: PathItem) => p.key).join("."),

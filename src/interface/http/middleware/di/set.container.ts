@@ -3,11 +3,11 @@ import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { AppEnv } from "../../main.router"; // Adjust if AppEnv is moved
 
-import { DashboardStatsService } from "../../../../app/services/dashboard-stats-service";
 import { WorkoutService as AppWorkoutService } from "../../../../application/services/workout.service";
 import { DrizzleExerciseUsageRepository } from "../../../../infrastructure/db/repository/drizzle-exercise-usage-repository";
 import { DrizzleWorkoutSetRepository } from "../../../../infrastructure/db/repository/workout-set-repository";
 import * as tablesSchema from "../../../../infrastructure/db/schema";
+import { DashboardStatsService } from "../../../../infrastructure/service/dashboard-stats-service";
 
 export function setupSetDependencies(
   env: AppEnv["Bindings"],

@@ -2,13 +2,13 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { ValiError } from "valibot";
 
-import type { RefreshTokenRequestInput } from "../../../../app/command/auth/refresh-token-command";
-import type { RefreshTokenCommand } from "../../../../app/command/auth/refresh-token-command";
+import type { RefreshTokenRequestInput } from "../../../../application/command/auth/refresh-token-command";
+import type { RefreshTokenCommand } from "../../../../application/command/auth/refresh-token-command";
 import {
   ApplicationError,
   AuthorizationError,
   ValidationError,
-} from "../../../../app/errors";
+} from "../../../../application/errors";
 
 // Define the expected variable type for this specific handler context
 type RefreshHandlerEnv = {

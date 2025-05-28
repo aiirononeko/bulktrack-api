@@ -1,9 +1,8 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import * as v from "valibot";
-import { AddSetRequestSchema } from "../../../../app/dto/set.dto";
-import { ApplicationError } from "../../../../app/errors";
-import type { DashboardStatsService } from "../../../../app/services/dashboard-stats-service";
+import { AddSetRequestSchema } from "../../../../application/dto/set.dto";
+import { ApplicationError } from "../../../../application/errors";
 import type {
   AddWorkoutSetCommand,
   WorkoutService,
@@ -14,6 +13,7 @@ import {
   UserIdVO,
   WorkoutSetIdVO,
 } from "../../../../domain/shared/vo/identifier";
+import type { DashboardStatsService } from "../../../../infrastructure/service/dashboard-stats-service";
 import type { AppEnv } from "../../main.router";
 
 // Copied from original router.ts for Valibot error formatting
@@ -125,7 +125,7 @@ export function createAddSetHttpHandler() {
               details: error.details,
             },
           },
-          error.statusCode as any,
+          error.statusCode as 400 | 401 | 403 | 404 | 409 | 500,
         );
       }
       console.error("Error in POST /sets:", error);
@@ -139,8 +139,11 @@ export function createAddSetHttpHandler() {
 import {
   type SetUpdateRequestDto,
   SetUpdateRequestSchema,
-} from "../../../../app/dto/set.dto"; // For update handler
-import { AuthorizationError, NotFoundError } from "../../../../app/errors"; // For update/delete handlers
+} from "../../../../application/dto/set.dto"; // For update handler
+import {
+  AuthorizationError,
+  NotFoundError,
+} from "../../../../application/errors"; // For update/delete handlers
 import type { DeleteWorkoutSetCommand } from "../../../../application/services/workout.service"; // For delete handler
 
 export function createUpdateSetHttpHandler() {
@@ -265,10 +268,13 @@ export function createUpdateSetHttpHandler() {
       }
       if (error instanceof ApplicationError) {
         // Catch other application errors
-        throw new HTTPException(error.statusCode as any, {
-          message: error.message,
-          cause: error.details,
-        });
+        throw new HTTPException(
+          error.statusCode as 400 | 401 | 403 | 404 | 409 | 500,
+          {
+            message: error.message,
+            cause: error.details,
+          },
+        );
       }
       if (error instanceof HTTPException) {
         throw error;

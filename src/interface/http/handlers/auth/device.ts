@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 
-import type { ActivateDeviceCommand } from "../../../../app/command/auth/activate-device-command";
+import type { ActivateDeviceCommand } from "../../../../application/command/auth/activate-device-command";
 
 type DeviceHandlerEnv = {
   Variables: {

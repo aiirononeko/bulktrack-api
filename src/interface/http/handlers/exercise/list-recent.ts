@@ -2,9 +2,9 @@ import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { JWTPayload } from "hono/utils/jwt/types";
 
-import type { ExerciseDto } from "../../../../app/dto/exercise";
-import type { ListRecentExercisesHandler } from "../../../../app/query/exercise/list-recent-exercises";
-import type { ListRecentExercisesQuery } from "../../../../app/query/exercise/list-recent-exercises";
+import type { ExerciseDto } from "../../../../application/dto/exercise";
+import type { ListRecentExercisesHandler } from "../../../../application/query/exercise/list-recent-exercises";
+import type { ListRecentExercisesQuery } from "../../../../application/query/exercise/list-recent-exercises";
 import { UserIdVO } from "../../../../domain/shared/vo/identifier";
 import type { AppEnv } from "../../router";
 

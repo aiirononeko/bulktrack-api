@@ -3,9 +3,9 @@ import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { AppEnv } from "../../main.router"; // Adjust if AppEnv is moved
 
-import { GetDashboardDataQueryHandler } from "../../../../app/query/dashboard/get-dashboard-data";
-import { DashboardDataCompletionService } from "../../../../app/services/dashboard-data-completion.service";
-import { DashboardMuscleGroupAggregationService } from "../../../../app/services/dashboard-muscle-group-aggregation.service";
+import { GetDashboardDataQueryHandler } from "../../../../application/query/dashboard/get-dashboard-data";
+import { DashboardDataCompletionService } from "../../../../application/services/dashboard-data-completion.service";
+import { DashboardMuscleGroupAggregationService } from "../../../../application/services/dashboard-muscle-group-aggregation.service";
 import { DashboardRepository } from "../../../../infrastructure/db/repository/dashboard-repository";
 import * as tablesSchema from "../../../../infrastructure/db/schema";
 

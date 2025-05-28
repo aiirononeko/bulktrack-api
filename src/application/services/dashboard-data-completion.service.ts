@@ -130,7 +130,8 @@ export class DashboardDataCompletionService {
         muscleGroupMap.set(muscleVolume.muscleGroupId, new Map());
       }
 
-      const weekMap = muscleGroupMap.get(muscleVolume.muscleGroupId)!;
+      const weekMap = muscleGroupMap.get(muscleVolume.muscleGroupId);
+      if (!weekMap) continue;
       const existingData = weekMap.get(muscleVolume.weekStart);
 
       if (existingData) {
@@ -202,7 +203,8 @@ export class DashboardDataCompletionService {
         metricKeyMap.set(metric.metricKey, new Map());
       }
 
-      const weekMap = metricKeyMap.get(metric.metricKey)!;
+      const weekMap = metricKeyMap.get(metric.metricKey);
+      if (!weekMap) continue;
       weekMap.set(metric.weekStart, metric);
 
       // メタデータを保存

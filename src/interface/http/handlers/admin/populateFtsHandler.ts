@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 
-import type { FtsService } from "../../../../application/service/FtsService";
+import type { FtsService } from "../../../../infrastructure/service/fts-service";
 import type { AppEnv } from "../../main.router"; // Corrected path to main.router.ts
 
 // Hono v4では Context型が変更されている可能性があります。

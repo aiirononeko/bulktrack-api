@@ -4,10 +4,7 @@ import type { DrizzleD1Database } from "drizzle-orm/d1";
 import { calculateEpley1RM } from "../../domain/formulas/strength-formulas";
 import type { UserIdVO } from "../../domain/shared/vo/identifier";
 import * as schema from "../../infrastructure/db/schema";
-import {
-  getISOWeekMondayString,
-  getISOWeekSundayString,
-} from "../utils/date-utils";
+import { getISOWeekMondayString, getISOWeekSundayString } from "../../application/utils/date-utils";
 
 // Helper function as per user's request
 function calcEffectiveVolume(
@@ -143,7 +140,9 @@ export class DashboardStatsService {
       const targetWeekSundayEnd = new Date(
         `${getISOWeekSundayString(targetDate)}T23:59:59.999Z`,
       );
-      console.log(`[DEBUG] Fetching workout sets for user ${userId.value} for week ${targetWeekMonday}...`);
+      console.log(
+        `[DEBUG] Fetching workout sets for user ${userId.value} for week ${targetWeekMonday}...`,
+      );
       const userSets = await this.db
         .select()
         .from(schema.workoutSets)
@@ -164,7 +163,7 @@ export class DashboardStatsService {
         console.log(
           `No workout sets found for user ${userId.value} in the week of ${targetWeekMonday}. Clearing existing aggregation data.`,
         );
-        console.log(`[DEBUG] No sets found, executing cleanup...`);
+        console.log("[DEBUG] No sets found, executing cleanup...");
         await this.db
           .delete(schema.weeklyUserMuscleVolumes)
           .where(
@@ -339,7 +338,9 @@ export class DashboardStatsService {
               detail.tensionFactor,
               modifierMultiplier,
             );
-            const currentMuscleStats = muscleVolumeByMuscle.get(detail.muscleId) || {
+            const currentMuscleStats = muscleVolumeByMuscle.get(
+              detail.muscleId,
+            ) || {
               volume: 0,
               setCount: 0,
               e1rmSum: 0,
@@ -405,64 +406,61 @@ export class DashboardStatsService {
       }
 
       if (newWeeklyUserMuscleVolumesData.length > 0) {
+        console.log(
+          `Upserting ${newWeeklyUserMuscleVolumesData.length} weekly user muscle volume records for user ${userId.value} for week ${targetWeekMonday}.`,
+        );
+
+        // データをより小さなバッチに分割（SQLite変数の制限を回避するため）
+        // 各レコードが8フィールド + ON CONFLICT DO UPDATEで追加の変数が必要なため、安全マージンを持たせて20に設定
+        const BATCH_SIZE = 20; // SQLite変数の制限を考慮したバッチサイズ
+
+        for (
+          let i = 0;
+          i < newWeeklyUserMuscleVolumesData.length;
+          i += BATCH_SIZE
+        ) {
+          const batch = newWeeklyUserMuscleVolumesData.slice(i, i + BATCH_SIZE);
           console.log(
-            `Upserting ${newWeeklyUserMuscleVolumesData.length} weekly user muscle volume records for user ${userId.value} for week ${targetWeekMonday}.`,
+            `Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(newWeeklyUserMuscleVolumesData.length / BATCH_SIZE)}, size: ${batch.length}`,
           );
 
-          // データをより小さなバッチに分割（SQLite変数の制限を回避するため）
-          // 各レコードが8フィールド + ON CONFLICT DO UPDATEで追加の変数が必要なため、安全マージンを持たせて20に設定
-          const BATCH_SIZE = 20; // SQLite変数の制限を考慮したバッチサイズ
-
-          for (
-            let i = 0;
-            i < newWeeklyUserMuscleVolumesData.length;
-            i += BATCH_SIZE
-          ) {
-            const batch = newWeeklyUserMuscleVolumesData.slice(
-              i,
-              i + BATCH_SIZE,
+          try {
+            // D1はトランザクションが使えないので、エラー発生時はその週のレコードのみ影響あり
+            await this.db
+              .insert(schema.weeklyUserMuscleVolumes)
+              .values(batch)
+              .onConflictDoUpdate({
+                target: [
+                  schema.weeklyUserMuscleVolumes.userId,
+                  schema.weeklyUserMuscleVolumes.muscleId,
+                  schema.weeklyUserMuscleVolumes.weekStart,
+                ],
+                set: {
+                  volume: sql`excluded.volume`,
+                  setCount: sql`excluded.set_count`,
+                  e1rmSum: sql`excluded.e1rm_sum`,
+                  e1rmCount: sql`excluded.e1rm_count`,
+                  updatedAt: sql`excluded.updated_at`,
+                },
+              });
+          } catch (error) {
+            console.error(
+              `Error upserting muscle volumes batch for week ${targetWeekMonday}:`,
+              error,
             );
-            console.log(
-              `Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(newWeeklyUserMuscleVolumesData.length / BATCH_SIZE)}, size: ${batch.length}`,
+            console.error(
+              "[DEBUG] Batch data that failed:",
+              JSON.stringify(batch, null, 2),
             );
-
-            try {
-              // D1はトランザクションが使えないので、エラー発生時はその週のレコードのみ影響あり
-              await this.db
-                .insert(schema.weeklyUserMuscleVolumes)
-                .values(batch)
-                .onConflictDoUpdate({
-                  target: [
-                    schema.weeklyUserMuscleVolumes.userId,
-                    schema.weeklyUserMuscleVolumes.muscleId,
-                    schema.weeklyUserMuscleVolumes.weekStart,
-                  ],
-                  set: {
-                    volume: sql`excluded.volume`,
-                    setCount: sql`excluded.set_count`,
-                    e1rmSum: sql`excluded.e1rm_sum`,
-                    e1rmCount: sql`excluded.e1rm_count`,
-                    updatedAt: sql`excluded.updated_at`,
-                  },
-                });
-            } catch (error) {
-              console.error(
-                `Error upserting muscle volumes batch for week ${targetWeekMonday}:`,
-                error,
-              );
-              console.error(
-                `[DEBUG] Batch data that failed:`,
-                JSON.stringify(batch, null, 2),
-              );
-              console.error(`[DEBUG] Error details:`, error);
-              // 処理を継続するため、エラーはスローせず次のバッチに進む
-            }
+            console.error("[DEBUG] Error details:", error);
+            // 処理を継続するため、エラーはスローせず次のバッチに進む
           }
+        }
 
-          console.log(
-            `Weekly user muscle volumes for week ${targetWeekMonday} upserted successfully.`,
-          );
-        }        
+        console.log(
+          `Weekly user muscle volumes for week ${targetWeekMonday} upserted successfully.`,
+        );
+      }
 
       // 2. ユーザー全体の週間ボリュームデータを更新
       const newWeeklyUserVolumesData = {
@@ -471,8 +469,7 @@ export class DashboardStatsService {
         totalVolume: userTotalVolume,
         avgSetVolume:
           userTotalSetCount > 0 ? userTotalVolume / userTotalSetCount : 0,
-        e1rmAvg:
-          userE1rmCount > 0 ? userE1rmSum / userE1rmCount : null,
+        e1rmAvg: userE1rmCount > 0 ? userE1rmSum / userE1rmCount : null,
         updatedAt: now,
       };
 
@@ -504,10 +501,10 @@ export class DashboardStatsService {
           error,
         );
         console.error(
-          `[DEBUG] User volume data that failed:`,
+          "[DEBUG] User volume data that failed:",
           JSON.stringify(newWeeklyUserVolumesData, null, 2),
         );
-        console.error(`[DEBUG] Error details:`, error);
+        console.error("[DEBUG] Error details:", error);
       }
 
       // 3. 1RMメトリクスデータの更新
@@ -557,79 +554,79 @@ export class DashboardStatsService {
         });
       }
 
-        if (newMetricsData.length > 0) {
-          try {
-            // まず該当週の古い1RMデータを削除
-            console.log(
-              `Clearing existing 1RM metrics for user ${userId.value} for week ${targetWeekMonday}`,
-            );
-            await this.db
-              .delete(schema.weeklyUserMetrics)
-              .where(
-                and(
-                  eq(schema.weeklyUserMetrics.userId, userId.value),
-                  eq(schema.weeklyUserMetrics.weekStart, targetWeekMonday),
-                  like(
-                    schema.weeklyUserMetrics.metricKey,
-                    "exercise_%_1rm_epley",
-                  ),
+      if (newMetricsData.length > 0) {
+        try {
+          // まず該当週の古い1RMデータを削除
+          console.log(
+            `Clearing existing 1RM metrics for user ${userId.value} for week ${targetWeekMonday}`,
+          );
+          await this.db
+            .delete(schema.weeklyUserMetrics)
+            .where(
+              and(
+                eq(schema.weeklyUserMetrics.userId, userId.value),
+                eq(schema.weeklyUserMetrics.weekStart, targetWeekMonday),
+                like(
+                  schema.weeklyUserMetrics.metricKey,
+                  "exercise_%_1rm_epley",
                 ),
-              );
-
-            // バッチサイズを小さくして処理
-            // 各レコードが6フィールド + ON CONFLICT DO UPDATEで追加の変数が必要なため、安全マージンを持たせて20に設定
-            const BATCH_SIZE = 20;
-            console.log(
-              `Upserting ${newMetricsData.length} 1RM metrics for user ${userId.value} for week ${targetWeekMonday} in batches`,
+              ),
             );
 
-            for (let i = 0; i < newMetricsData.length; i += BATCH_SIZE) {
-              const batch = newMetricsData.slice(i, i + BATCH_SIZE);
-              console.log(
-                `Processing 1RM metrics batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(newMetricsData.length / BATCH_SIZE)}, size: ${batch.length}`,
-              );
+          // バッチサイズを小さくして処理
+          // 各レコードが6フィールド + ON CONFLICT DO UPDATEで追加の変数が必要なため、安全マージンを持たせて20に設定
+          const BATCH_SIZE = 20;
+          console.log(
+            `Upserting ${newMetricsData.length} 1RM metrics for user ${userId.value} for week ${targetWeekMonday} in batches`,
+          );
 
-              try {
-                await this.db
-                  .insert(schema.weeklyUserMetrics)
-                  .values(batch)
-                  .onConflictDoUpdate({
-                    target: [
-                      schema.weeklyUserMetrics.userId,
-                      schema.weeklyUserMetrics.weekStart,
-                      schema.weeklyUserMetrics.metricKey,
-                    ],
-                    set: {
-                      metricValue: sql`excluded.metric_value`,
-                      metricUnit: sql`excluded.metric_unit`,
-                      updatedAt: sql`excluded.updated_at`,
-                    },
-                  });
-              } catch (batchError) {
-                console.error(
-                  `Error upserting 1RM metrics batch for week ${targetWeekMonday}:`,
-                  batchError,
-                );
-                console.error(
-                  `[DEBUG] 1RM batch data that failed:`,
-                  JSON.stringify(batch, null, 2),
-                );
-                console.error(`[DEBUG] Error details:`, batchError);
-                // バッチエラーでも次に進む
-              }
+          for (let i = 0; i < newMetricsData.length; i += BATCH_SIZE) {
+            const batch = newMetricsData.slice(i, i + BATCH_SIZE);
+            console.log(
+              `Processing 1RM metrics batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(newMetricsData.length / BATCH_SIZE)}, size: ${batch.length}`,
+            );
+
+            try {
+              await this.db
+                .insert(schema.weeklyUserMetrics)
+                .values(batch)
+                .onConflictDoUpdate({
+                  target: [
+                    schema.weeklyUserMetrics.userId,
+                    schema.weeklyUserMetrics.weekStart,
+                    schema.weeklyUserMetrics.metricKey,
+                  ],
+                  set: {
+                    metricValue: sql`excluded.metric_value`,
+                    metricUnit: sql`excluded.metric_unit`,
+                    updatedAt: sql`excluded.updated_at`,
+                  },
+                });
+            } catch (batchError) {
+              console.error(
+                `Error upserting 1RM metrics batch for week ${targetWeekMonday}:`,
+                batchError,
+              );
+              console.error(
+                "[DEBUG] 1RM batch data that failed:",
+                JSON.stringify(batch, null, 2),
+              );
+              console.error("[DEBUG] Error details:", batchError);
+              // バッチエラーでも次に進む
             }
-
-            console.log(
-              `1RM metrics for week ${targetWeekMonday} upserted successfully`,
-            );
-          } catch (error) {
-            console.error(
-              `Error upserting 1RM metrics for week ${targetWeekMonday}:`,
-              error,
-            );
-            // 処理を継続
           }
+
+          console.log(
+            `1RM metrics for week ${targetWeekMonday} upserted successfully`,
+          );
+        } catch (error) {
+          console.error(
+            `Error upserting 1RM metrics for week ${targetWeekMonday}:`,
+            error,
+          );
+          // 処理を継続
         }
+      }
 
       // 4. アクティブ日数メトリクスの更新
       const activeDaysMetricKey = "active_days";
@@ -687,12 +684,12 @@ export class DashboardStatsService {
             `Error upserting active days metric for week ${targetWeekMonday}:`,
             error,
           );
-          console.error(`[DEBUG] Active days data that failed:`, {
+          console.error("[DEBUG] Active days data that failed:", {
             userId: userId.value,
             weekStart: targetWeekMonday,
             totalActiveDays,
           });
-          console.error(`[DEBUG] Error details:`, error);
+          console.error("[DEBUG] Error details:", error);
           // 処理を継続
         }
       }
@@ -705,8 +702,8 @@ export class DashboardStatsService {
         `Error updating dashboard stats for user ${userId.value} for week of ${targetDate.toISOString()}:`,
         error,
       );
-      console.error(`[DEBUG] Final error in updateStatsForUser:`, error);
-      console.error(`[DEBUG] Error stack:`, (error as Error).stack);
+      console.error("[DEBUG] Final error in updateStatsForUser:", error);
+      console.error("[DEBUG] Error stack:", (error as Error).stack);
       throw error;
     }
   }

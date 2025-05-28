@@ -3,7 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import type {
   ListRecentExercisesHandler,
   ListRecentExercisesQuery,
-} from "../../../../app/query/exercise/list-recent-exercises";
+} from "../../../../application/query/exercise/list-recent-exercises";
 import { UserIdVO } from "../../../../domain/shared/vo/identifier";
 import type { AppEnv } from "../../main.router";
 
@@ -44,7 +44,12 @@ export function createListRecentExercisesHttpHandler() {
     const limit = limitParam ? Number.parseInt(limitParam, 10) : 10; // Default limit
     const offset = offsetParam ? Number.parseInt(offsetParam, 10) : 0; // Default offset
 
-    if (isNaN(limit) || isNaN(offset) || limit <= 0 || offset < 0) {
+    if (
+      Number.isNaN(limit) ||
+      Number.isNaN(offset) ||
+      limit <= 0 ||
+      offset < 0
+    ) {
       throw new HTTPException(400, {
         message: "Invalid limit or offset parameters.",
       });

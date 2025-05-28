@@ -2,8 +2,8 @@ import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { AppEnv } from "../../main.router"; // Adjust if AppEnv is moved
 
-import { ActivateDeviceCommand } from "../../../../app/command/auth/activate-device-command";
-import { RefreshTokenCommand } from "../../../../app/command/auth/refresh-token-command";
+import { ActivateDeviceCommand } from "../../../../application/command/auth/activate-device-command";
+import { RefreshTokenCommand } from "../../../../application/command/auth/refresh-token-command";
 import { AuthService as DomainAuthService } from "../../../../domain/auth/service";
 import { JwtServiceImpl } from "../../../../infrastructure/auth/jwt-service";
 import { DeviceRepositoryImpl } from "../../../../infrastructure/db/repository/device-repository";

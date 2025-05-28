@@ -3,8 +3,8 @@ import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { AppEnv } from "../../main.router"; // Adjust if AppEnv is moved
 
-import { FtsService as AppFtsService } from "../../../../application/service/FtsService";
 import * as tablesSchema from "../../../../infrastructure/db/schema";
+import { FtsService as AppFtsService } from "../../../../infrastructure/service/fts-service";
 
 export function setupAdminDependencies(
   env: AppEnv["Bindings"],
