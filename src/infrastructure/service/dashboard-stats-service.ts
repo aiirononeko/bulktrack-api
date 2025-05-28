@@ -1,10 +1,13 @@
 import { and, eq, gte, inArray, like, lte, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 
+import {
+  getISOWeekMondayString,
+  getISOWeekSundayString,
+} from "../../application/utils/date-utils";
 import { calculateEpley1RM } from "../../domain/formulas/strength-formulas";
 import type { UserIdVO } from "../../domain/shared/vo/identifier";
 import * as schema from "../../infrastructure/db/schema";
-import { getISOWeekMondayString, getISOWeekSundayString } from "../../application/utils/date-utils";
 
 // Helper function as per user's request
 function calcEffectiveVolume(

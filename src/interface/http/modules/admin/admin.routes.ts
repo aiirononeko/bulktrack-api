@@ -1,12 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../../main.router";
 import { setupAdminDependencies } from "../../middleware/di/admin.container";
-// Admin routes might have different auth, e.g., an admin-specific JWT or API key.
-// For now, let's assume they might also use the standard jwtAuthMiddleware or none if IP restricted etc.
-// import { jwtAuthMiddleware } from '../../middleware/auth.middleware';
-
-// Assuming createPopulateFtsHandler configures routes on the passed Hono app
-import { createPopulateFtsHandler } from "../../handlers/admin/populateFtsHandler";
+import { populateFtsHandler } from "./admin.handlers";
 
 const adminApp = new Hono<AppEnv>();
 
@@ -24,7 +19,7 @@ adminApp.use("*", async (c, next) => {
 // Or if it's a separate admin auth, that middleware would be used here.
 // If it's protected by other means (e.g. Cloudflare Access, IP Whitelisting), no JWT auth here.
 
-// Configure admin routes using the existing handler setup function
-createPopulateFtsHandler(adminApp);
+// Define admin routes
+adminApp.post("/fts/populate", populateFtsHandler);
 
 export default adminApp;
