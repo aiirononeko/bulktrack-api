@@ -14,7 +14,7 @@ This document outlines the tasks required to implement the changes made to the `
     *   `paths./v1/me/exercises/recent.get.parameters` (removal of `locale` query param)
 *   **Implementation Details:**
     *   Update request parsing in handlers for `GET /v1/exercises` and `GET /v1/me/exercises/recent`.
-    *   Modify service layers (e.g., `src/app/query/exercise/`) to retrieve and use the language from the `Accept-Language` header.
+    *   Modify service layers (e.g., `src/application/query/exercise/`) to retrieve and use the language from the `Accept-Language` header.
     *   Verify that exercise name retrieval logic correctly prioritizes this header.
 
 ## Task 2: Enhance `GET /v1/exercises` Endpoint Functionality & Add Pagination
@@ -29,8 +29,8 @@ This document outlines the tasks required to implement the changes made to the `
     *   `paths./v1/exercises.get.summary`
     *   `paths./v1/exercises.get.parameters` (addition of `limit` and `offset` query params)
 *   **Implementation Details:**
-    *   Modify the request handler for `GET /v1/exercises` (e.g., `src/interface/http/handlers/exercise/search.ts`).
-    *   Update the corresponding service logic (e.g., `src/app/query/exercise/search-exercise.ts`) to:
+    *   Modify the request handler for `GET /v1/exercises` (e.g., `src/interface/http/modules/exercise/exercise.handlers.ts`).
+    *   Update the corresponding service logic (e.g., `src/application/query/exercise/search-exercise.ts`) to:
         *   Accept `limit` and `offset` parameters.
         *   Apply pagination to the database query when `q` is not provided.
         *   Maintain prefix search functionality when `q` is provided.
@@ -48,8 +48,8 @@ This document outlines the tasks required to implement the changes made to the `
     *   **Database:** Add an `is_official` column (boolean, non-null, default e.g., `false` or handle in application logic) to the `exercises` table in `src/infrastructure/db/schema.ts`. Generate and apply migration.
     *   **Entity/DTOs:**
         *   Update the `Exercise` entity/interface in domain layer (`src/domain/exercise/entity.ts`).
-        *   Update the `Exercise` DTO (`src/app/dto/exercise.ts`) to include `isOfficial`.
-    *   **Exercise Creation:** Modify the `POST /v1/exercises` handler/service (`src/interface/http/handlers/exercise/create.ts`, `src/app/command/exercise/...`) to ensure `isOfficial` is set to `false` when a new custom exercise is created.
+        *   Update the `Exercise` DTO (`src/application/dto/exercise.ts`) to include `isOfficial`.
+    *   **Exercise Creation:** Modify the `POST /v1/exercises` handler/service (`src/interface/http/modules/exercise/exercise.handlers.ts`, `src/application/command/exercise/...`) to ensure `isOfficial` is set to `false` when a new custom exercise is created.
     *   **Exercise Retrieval:** Ensure all services and handlers that return `Exercise` objects (e.g., for `GET /v1/exercises`, `GET /v1/me/exercises/recent`) correctly populate the `isOfficial` field.
     *   **Seed Data:** Update any database seed scripts (e.g., `scripts/seed_v2.sql`) to set `isOfficial = true` for all system-provided exercises.
 
@@ -71,7 +71,7 @@ This document outlines the tasks required to implement the changes made to the `
     *   **Database:** If `session_id` exists on the `workout_sets` table (in `src/infrastructure/db/schema.ts`) and is no longer conceptually needed, remove it. Generate and apply migration.
     *   **Entity/DTOs:**
         *   Update the `WorkoutSet` entity/interface in the domain layer (`src/domain/workout/entities/workout-set.entity.ts`) to remove `sessionId`.
-        *   Update the `WorkoutSet` DTO (`src/app/dto/set.dto.ts`) to remove `sessionId`.
+        *   Update the `WorkoutSet` DTO (`src/application/dto/set.dto.ts`) to remove `sessionId`.
         *   Ensure `SetCreate` and `SetUpdate` DTOs do not contain `distance` or `duration`.
     *   **Service/Repository Layers:** Remove any logic that processes or relies on `sessionId` for individual sets if it's no longer relevant. Remove any handling for `distance` or `duration`.
 
@@ -113,8 +113,8 @@ This document outlines the tasks required to implement the changes made to the `
 *   **Affected `openapi.yaml` sections (for reference):**
     *   `paths./v1/dashboard.get.parameters` (addition of `Accept-Language` header)
 *   **Implementation Details:**
-    *   Update the request handler for `GET /v1/dashboard` (e.g., `src/interface/http/handlers/dashboard/stats.ts`) to read the `Accept-Language` header.
-    *   Pass the language preference to the service layer (e.g., `src/app/query/dashboard/get-dashboard-data.ts`).
+    *   Update the request handler for `GET /v1/dashboard` (e.g., `src/interface/http/modules/dashboard/dashboard.handlers.ts`) to read the `Accept-Language` header.
+    *   Pass the language preference to the service layer (e.g., `src/application/query/dashboard/get-dashboard-data.ts`).
     *   Ensure that data retrieval logic for `MuscleGroupSeries.groupName` (and any other identified translatable fields like those in `MetricSeries`) uses the language preference. This might involve changes in how these names are stored or fetched if they require translation.
 
 ## Task 8: Refactor `DashboardResponse` DTO and Date Handling
@@ -130,6 +130,6 @@ This document outlines the tasks required to implement the changes made to the `
     *   `components.schemas.MuscleGroupWeekPoint.properties.weekStart` (`format: date` added)
     *   `components.schemas.MetricSeries.properties.points.items.properties.weekStart` (`format: date` added)
 *   **Implementation Details:**
-    *   Modify the `DashboardResponse` DTO (e.g., `src/app/query/dashboard/dto.ts`) to remove `userId` and `span` properties.
+    *   Modify the `DashboardResponse` DTO (e.g., `src/application/query/dashboard/dto.ts`) to remove `userId` and `span` properties.
     *   Review and update DTOs for `WeekPoint`, `MuscleGroupWeekPoint`, and the points within `MetricSeries` to ensure `weekStart` is consistently typed and formatted (e.g., as an ISO 8601 date string `YYYY-MM-DD` if it's being serialized directly from such a type).
-    *   Verify that service layer logic (`src/app/query/dashboard/get-dashboard-data.ts`) correctly constructs these DTOs without the removed fields and with proper date representations.
+    *   Verify that service layer logic (`src/application/query/dashboard/get-dashboard-data.ts`) correctly constructs these DTOs without the removed fields and with proper date representations.

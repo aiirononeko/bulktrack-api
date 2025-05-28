@@ -174,6 +174,6 @@ Apple ID連携・サインイン機能を実装するには、データベース
     *   (Apple ID連携用) Apple `identityToken` 検証サービス (実装が必要)
 *   **インターフェース層**:
     *   `jwtAuthMiddleware` (`src/interface/http/router.ts`): `hono/jwt` を利用した認証ミドルウェア。
-    *   関連するHonoハンドラ (`src/interface/http/handlers/auth/*`): Apple ID連携用のハンドラも追加が必要。
+    *   関連するHonoハンドラ (`src/interface/http/modules/auth/*`): Apple ID連携用のハンドラも追加が必要。
     *   ルーター (`src/interface/http/router.ts`): DI設定とルーティング定義。
  

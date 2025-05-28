@@ -99,18 +99,26 @@ The Aggregator Worker runs this nightly to update `muscle_volumes_day`, feeding 
 │   │   │   ├── entity.ts
 │   │   │   └── service.ts
 │   │   └── shared/vo/             # Value objects (IDs, units) – Zod‑validated
-│   ├── app/                       # Application layer (CQRS)
+│   ├── application/               # Application layer (CQRS)
 │   │   ├── command/
-│   │   │   ├── exercise/
-│   │   │   │   └── create-exercise.ts
-│   │   │   └── session/
-│   │   │       ├── start-session.ts
-│   │   │       └── finish-session.ts
-│   │   ├── query/
+│   │   │   ├── auth/
+│   │   │   │   ├── activate-device-command.ts
+│   │   │   │   └── refresh-token-command.ts
 │   │   │   └── exercise/
+│   │   ├── query/
+│   │   │   ├── dashboard/
+│   │   │   │   ├── dto.ts
+│   │   │   │   └── get-dashboard-data.ts
+│   │   │   └── exercise/
+│   │   │       ├── list-recent-exercises.ts
 │   │   │       └── search-exercise.ts
 │   │   ├── dto/
-│   │   └── errors/
+│   │   ├── errors.ts
+│   │   ├── services/
+│   │   │   ├── dashboard-data-completion.service.ts
+│   │   │   ├── dashboard-muscle-group-aggregation.service.ts
+│   │   │   └── workout.service.ts
+│   │   └── utils/
 │   ├── interface/                 # Delivery layer
 │   │   └── http/
 │   │       ├── router.ts          # Hono router composition
@@ -118,24 +126,43 @@ The Aggregator Worker runs this nightly to update `muscle_volumes_day`, feeding 
 │   │       │   ├── auth.ts
 │   │       │   ├── cors.ts
 │   │       │   └── logging.ts
-│   │       └── handlers/
+│   │       └── modules/
+│   │           ├── admin/
+│   │           │   ├── admin.handlers.ts
+│   │           │   └── admin.routes.ts
 │   │           ├── auth/
-│   │           │   ├── device.ts
-│   │           │   └── apple.ts
+│   │           │   ├── auth.handlers.ts
+│   │           │   └── auth.routes.ts
+│   │           ├── dashboard/
+│   │           │   ├── dashboard.handlers.ts
+│   │           │   └── dashboard.routes.ts
 │   │           ├── exercise/
-│   │           │   ├── create.ts
-│   │           │   └── search.ts
-│   │           ├── session/
-│   │           │   ├── start.ts
-│   │           │   ├── finish.ts
-│   │           │   └── sets.ts
-│   │           └── dashboard/stats.ts
+│   │           │   ├── exercise.handlers.ts
+│   │           │   └── exercise.routes.ts
+│   │           ├── set/
+│   │           │   ├── set.handlers.ts
+│   │           │   └── set.routes.ts
+│   │           └── user/
+│   │               ├── user.handlers.ts
+│   │               └── user.routes.ts
 │   └── infrastructure/
 │       ├── db/
+│       │   ├── repository/
+│       │   │   ├── dashboard-repository.ts
+│       │   │   ├── device-repository.ts
+│       │   │   ├── drizzle-exercise-usage-repository.ts
+│       │   │   ├── exercise-repository.ts
+│       │   │   ├── user-repository.ts
+│       │   │   └── workout-set-repository.ts
 │       │   └── schema.ts
-│       ├── kv/token-store.ts
-│       ├── auth/jwt-service.ts
-│       └── logging/logger.ts
+│       ├── kv/
+│       │   └── token-store.ts
+│       ├── auth/
+│       │   └── jwt-service.ts
+│       ├── logging/
+│       └── service/
+│           ├── dashboard-stats-service.ts
+│           └── fts-service.ts
 ├── drizzle/                        # Migration files
 ├── api/
 │   └── openapi.yaml
