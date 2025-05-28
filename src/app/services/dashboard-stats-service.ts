@@ -417,8 +417,8 @@ export class DashboardStatsService {
           );
 
           // データをより小さなバッチに分割（SQLite変数の制限を回避するため）
-          // 各レコードが8フィールド + ON CONFLICT DO UPDATEで追加の変数が必要なため、安全マージンを持たせて20に設定
-          const BATCH_SIZE = 20; // SQLite変数の制限を考慮したバッチサイズ
+          // 各レコードが8フィールド + ON CONFLICT DO UPDATEで追加の変数が必要なため、安全マージンを持たせて10に設定
+          const BATCH_SIZE = 10; // SQLite変数の制限を考慮したバッチサイズ
 
           for (
             let i = 0;
@@ -589,8 +589,8 @@ export class DashboardStatsService {
               );
 
             // バッチサイズを小さくして処理
-            // 各レコードが6フィールド + ON CONFLICT DO UPDATEで追加の変数が必要なため、安全マージンを持たせて20に設定
-            const BATCH_SIZE = 20;
+            // 各レコードが6フィールド + ON CONFLICT DO UPDATEで追加の変数が必要なため、安全マージンを持たせて10に設定
+            const BATCH_SIZE = 10;
             console.log(
               `Upserting ${newMetricsData.length} 1RM metrics for user ${userId.value} for week ${weekStart} in batches`,
             );
