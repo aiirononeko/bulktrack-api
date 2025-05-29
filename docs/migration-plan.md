@@ -72,7 +72,10 @@ bulktrack-api/
 ### APIエンドポイントの移行
 - ✅ 認証エンドポイント（/v1/auth/device, /v1/auth/refresh）
 - ✅ トレーニングセット記録エンドポイント
-- [ ] エクササイズ検索API
+- ✅ エクササイズ検索API（/v1/exercises, /v1/me/exercises/recent）
+  - SearchExercisesUseCase と ListRecentExercisesUseCase の実装
+  - 既存のドメインエンティティとの統合
+  - Honoルーターとハンドラーの実装
 - [ ] ワークアウト履歴API
 - [ ] ダッシュボードAPI
 
@@ -81,9 +84,9 @@ bulktrack-api/
 ### Phase 1.5: 残りのAPIエンドポイントの移行（1週間）
 
 1. **エクササイズ検索APIの実装**
-   - [ ] 全文検索エンドポイント
-   - [ ] 最近使用したエクササイズ取得
-   - [ ] 多言語対応
+   - ✅ 全文検索エンドポイント（/v1/exercises）
+   - ✅ 最近使用したエクササイズ取得（/v1/me/exercises/recent）
+   - ✅ 多言語対応（Accept-Languageヘッダー対応）
 
 2. **ワークアウト履歴APIの実装**
    - [ ] 履歴一覧取得

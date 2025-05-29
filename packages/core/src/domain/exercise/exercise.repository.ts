@@ -2,7 +2,7 @@ import type { Result } from "@bulktrack/shared-kernel";
 import type { Exercise, ExerciseId } from "./exercise.entity";
 
 export interface SearchParams {
-  query: string;
+  query: string | null;
   locale: string;
   limit?: number;
   offset?: number;
@@ -10,7 +10,7 @@ export interface SearchParams {
 
 export interface RecentExerciseParams {
   userId: string;
-  muscleId?: string;
+  locale: string;
   limit?: number;
   offset?: number;
 }

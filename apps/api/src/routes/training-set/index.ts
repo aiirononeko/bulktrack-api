@@ -1,12 +1,10 @@
 import { Hono } from "hono";
-import type { WorkerEnv } from "../../types/env";
+import type { Variables, WorkerEnv } from "../../types/env";
 import { getTrainingSets, recordTrainingSet } from "./handlers";
 
 export const trainingSetRoutes = new Hono<{
   Bindings: WorkerEnv;
-  Variables: {
-    userId?: string;
-  };
+  Variables: Variables;
 }>();
 
 // POST /training-sets - Record a new training set

@@ -3,15 +3,19 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { authMiddleware } from "./middleware/auth.middleware";
 import { authRoutes } from "./routes/auth";
+import { exerciseRoutes } from "./routes/exercise";
 import { trainingSetRoutes } from "./routes/training-set";
+import { userRoutes } from "./routes/user";
 import type { WorkerEnv } from "./types/env";
 
-const app = new Hono<{
+export type AppEnv = {
   Bindings: WorkerEnv;
   Variables: {
     userId?: string;
   };
-}>();
+};
+
+const app = new Hono<AppEnv>();
 
 // Middleware
 app.use("*", logger());
@@ -30,13 +34,10 @@ app.get("/health", (c) => {
 app.route("/api/v1/auth", authRoutes);
 
 // Protected API routes
-const protectedRoutes = new Hono<{
-  Bindings: WorkerEnv;
-  Variables: {
-    userId?: string;
-  };
-}>();
+const protectedRoutes = new Hono<AppEnv>();
 protectedRoutes.use("*", authMiddleware);
+protectedRoutes.route("/exercises", exerciseRoutes);
+protectedRoutes.route("/me", userRoutes);
 protectedRoutes.route("/training-sets", trainingSetRoutes);
 
 app.route("/api/v1", protectedRoutes);

@@ -66,7 +66,7 @@ export class D1ExerciseRepository implements ExerciseRepository {
 
   async search(params: SearchParams): Promise<Result<Exercise[], Error>> {
     try {
-      const normalizedQuery = this.normalizeToHiragana(params.query);
+      const normalizedQuery = params.query ? this.normalizeToHiragana(params.query) : '';
 
       const whereCondition =
         params.locale !== "all"

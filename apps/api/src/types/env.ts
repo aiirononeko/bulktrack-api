@@ -12,6 +12,7 @@ export interface Env {
 
   // KV
   KV: KVNamespace;
+  REFRESH_TOKEN_STORE: KVNamespace;
 
   // Environment variables
   JWT_SECRET: string;
