@@ -19,6 +19,22 @@ npx biome check         # Run linter and formatter checks
 npx biome check --write # Auto-fix linting and formatting issues
 ```
 
+## Monorepo Worker Port Allocation
+
+When adding new Workers to the monorepo, ensure unique port assignments to avoid conflicts:
+
+| Worker | HTTP Port | Inspector Port |
+|--------|-----------|----------------|
+| API    | 8787      | 9231          |
+| Aggregation Worker | 8788 | 9232 |
+| AI Worker (future) | 8789 | 9233 |
+| Webhook Worker (future) | 8790 | 9234 |
+
+**Important**: Always specify ports explicitly in package.json dev scripts:
+```json
+"dev": "wrangler dev --port <HTTP_PORT> --inspector-port <INSPECTOR_PORT>"
+```
+
 ## Architecture Overview
 
 This is a **Cloudflare Workers** fitness tracking API built with **Clean Architecture/Hexagonal Architecture**:

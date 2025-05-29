@@ -1,0 +1,32 @@
+name = "bulktrack-aggregation-worker"
+main = "src/index.ts"
+compatibility_date = "2025-05-07"
+
+[dev]
+port = 8788
+inspector_port = 9232
+local_protocol = "http"
+
+[env.development]
+
+[[env.development.d1_databases]]
+binding = "DB"
+database_name = "bulktrack-dev"
+database_id = "YOUR_DEV_DATABASE_ID"
+
+[[env.development.queues.consumers]]
+queue = "volume-aggregation"
+max_batch_size = 100
+max_batch_timeout = 1
+
+[env.production]
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "bulktrack-prod"
+database_id = "YOUR_PROD_DATABASE_ID"
+
+[[env.production.queues.consumers]]
+queue = "volume-aggregation"
+max_batch_size = 100
+max_batch_timeout = 1

@@ -1,0 +1,26 @@
+{
+  "name": "@bulktrack/infrastructure",
+  "version": "1.0.0",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "lint": "biome check src"
+  },
+  "dependencies": {
+    "@bulktrack/core": "workspace:*",
+    "@bulktrack/shared-kernel": "workspace:*",
+    "drizzle-orm": "^0.43.1",
+    "jose": "^6.0.11",
+    "uuid": "^11.1.0",
+    "uuidv7": "^1.0.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250508.0",
+    "@types/node": "^22.15.17",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.8.3",
+    "vitest": "^2.1.8"
+  }
+}

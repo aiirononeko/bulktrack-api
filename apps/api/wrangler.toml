@@ -1,0 +1,61 @@
+name = "bulktrack-api"
+main = "src/index.ts"
+compatibility_date = "2025-05-07"
+
+[dev]
+port = 8787
+inspector_port = 9231
+local_protocol = "http"
+
+[env.development]
+vars = { ENVIRONMENT = "development" }
+
+[[env.development.d1_databases]]
+binding = "DB"
+database_name = "bulktrack-dev"
+database_id = "YOUR_DEV_DATABASE_ID"
+
+[[env.development.kv_namespaces]]
+binding = "KV"
+id = "YOUR_DEV_KV_ID"
+
+[[env.development.queues.producers]]
+queue = "volume-aggregation"
+binding = "VOLUME_AGGREGATION_QUEUE"
+
+[[env.development.queues.producers]]
+queue = "ai-analysis"
+binding = "AI_ANALYSIS_QUEUE"
+
+[[env.development.queues.producers]]
+queue = "webhook-notifications"
+binding = "WEBHOOK_NOTIFICATIONS_QUEUE"
+
+[env.production]
+vars = { ENVIRONMENT = "production" }
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "bulktrack-prod"
+database_id = "YOUR_PROD_DATABASE_ID"
+
+[[env.production.kv_namespaces]]
+binding = "KV"
+id = "YOUR_PROD_KV_ID"
+
+[[env.production.queues.producers]]
+queue = "volume-aggregation"
+binding = "VOLUME_AGGREGATION_QUEUE"
+
+[[env.production.queues.producers]]
+queue = "ai-analysis"
+binding = "AI_ANALYSIS_QUEUE"
+
+[[env.production.queues.producers]]
+queue = "webhook-notifications"
+binding = "WEBHOOK_NOTIFICATIONS_QUEUE"
+
+# Routes
+[[routes]]
+pattern = "bulktrack-api.your-domain.com/*"
+zone_name = "your-domain.com"

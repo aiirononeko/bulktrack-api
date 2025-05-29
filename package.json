@@ -1,8 +1,12 @@
 {
-  "name": "bulktrack-api",
+  "name": "bulktrack-backend",
+  "private": true,
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy --minify",
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "deploy": "turbo deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "generate": "drizzle-kit generate",
     "local:migration": "wrangler d1 migrations apply bulktrack-db --local",
@@ -23,6 +27,11 @@
     "drizzle-kit": "^0.31.1",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
-    "wrangler": "^4.17.0"
+    "wrangler": "^4.18.0",
+    "turbo": "^2.3.3"
+  },
+  "packageManager": "pnpm@9.15.1",
+  "engines": {
+    "node": ">=24.0.0"
   }
 }
