@@ -33,6 +33,7 @@ import type { ExerciseService } from "../../domain/exercise/service";
 import type * as tablesSchema from "../../infrastructure/db/schema";
 import type { DashboardStatsService } from "../../infrastructure/service/dashboard-stats-service";
 import type { FtsService } from "../../infrastructure/service/fts-service";
+import type { WorkoutHandlers } from "./modules/workout/workout.handlers";
 
 export type AppEnv = {
   Variables: {
@@ -45,6 +46,7 @@ export type AppEnv = {
     exerciseService?: ExerciseService;
     // Workout/Set
     workoutService?: WorkoutService;
+    workoutHandlers?: WorkoutHandlers;
     // Dashboard
     dashboardQueryHandler?: GetDashboardDataQueryHandler;
     dashboardMuscleGroupAggregationService?: DashboardMuscleGroupAggregationService;

@@ -275,6 +275,88 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/DashboardResponse' }
 
+  # ---------------- Workout History ---------------- #
+  /v1/me/workouts:
+    get:
+      summary: List daily workout summaries for the authenticated user
+      tags: [Workouts]
+      parameters:
+        - name: Accept-Language
+          in: header
+          required: false
+          description: "Preferred language for exercise names (e.g., en, ja). If not specified, the server's default language will be used."
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Maximum number of days to return.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+          description: Offset for pagination.
+      responses:
+        '200':
+          description: List of daily workout summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DailyWorkoutSummary'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - BearerAuth: []
+
+  /v1/me/workouts/{date}:
+    get:
+      summary: Get detailed workout data for a specific date
+      tags: [Workouts]
+      parameters:
+        - name: Accept-Language
+          in: header
+          required: false
+          description: "Preferred language for exercise names and muscle group names (e.g., en, ja). If not specified, the server's default language will be used."
+          schema: { type: string }
+        - name: date
+          in: path
+          required: true
+          description: Date to retrieve workout details for (YYYY-MM-DD format)
+          schema:
+            type: string
+            format: date
+            examples: ['2025-05-29']
+      responses:
+        '200':
+          description: Detailed workout data for the specified date
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyWorkoutDetail'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No workout data found for the specified date
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - BearerAuth: []
+
 components:
   securitySchemes:
     BearerAuth:
@@ -508,3 +590,103 @@ components:
         metrics:
           type: array
           items: { $ref: '#/components/schemas/MetricSeries' }
+
+    DailyWorkoutSummary:
+      type: object
+      required: [date, exercises, totalVolume, avgRM, setCount]
+      properties:
+        date:
+          type: string
+          format: date
+          description: The date of the workout (YYYY-MM-DD format)
+          examples: ['2025-05-29']
+        exercises:
+          type: array
+          items:
+            type: object
+            required: [exerciseId, exerciseName]
+            properties:
+              exerciseId: { type: string, format: uuid }
+              exerciseName: { type: string, description: "Exercise name in the requested language" }
+          description: List of exercises performed on this date
+        totalVolume:
+          type: number
+          format: float
+          description: Total training volume for the day (weight × reps)
+          examples: [12500]
+        avgRM:
+          type: number
+          format: float
+          description: Average 1RM estimation for the day
+          examples: [85.5]
+        setCount:
+          type: integer
+          description: Total number of sets performed on this date
+          examples: [25]
+
+    DailyWorkoutDetail:
+      type: object
+      required: [date, exercises, totalVolume, avgRM]
+      properties:
+        date:
+          type: string
+          format: date
+          description: The date of the workout (YYYY-MM-DD format)
+          examples: ['2025-05-29']
+        totalVolume:
+          type: number
+          format: float
+          description: Total training volume for the day
+          examples: [12500]
+        avgRM:
+          type: number
+          format: float
+          description: Average 1RM estimation for the day
+          examples: [85.5]
+        exercises:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExerciseDetail'
+
+    ExerciseDetail:
+      type: object
+      required: [exerciseId, exerciseName, sets, totalVolume, avgRM, muscleVolumeBreakdown]
+      properties:
+        exerciseId:
+          type: string
+          format: uuid
+        exerciseName:
+          type: string
+          description: Exercise name in the requested language
+        sets:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkoutSet'
+          description: All sets performed for this exercise on this date
+        totalVolume:
+          type: number
+          format: float
+          description: Total volume for this exercise (weight × reps)
+          examples: [3500]
+        avgRM:
+          type: number
+          format: float
+          description: Average 1RM estimation for this exercise
+          examples: [90.0]
+        muscleVolumeBreakdown:
+          type: array
+          items:
+            type: object
+            required: [muscleGroupId, muscleGroupName, effectiveVolume]
+            properties:
+              muscleGroupId:
+                type: integer
+                description: ID of the muscle group
+              muscleGroupName:
+                type: string
+                description: Name of the muscle group in the requested language
+              effectiveVolume:
+                type: number
+                format: float
+                description: Effective volume for this muscle group (volume × tension_ratio × tension_factor)
+                examples: [2100]

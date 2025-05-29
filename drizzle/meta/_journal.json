@@ -15,6 +15,13 @@
       "when": 1747660799268,
       "tag": "0001_rainy_scorpion",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1748511238562,
+      "tag": "0002_uneven_swarm",
+      "breakpoints": true
     }
   ]
 }

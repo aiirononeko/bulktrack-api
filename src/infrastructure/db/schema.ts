@@ -476,7 +476,130 @@ export const setModifiers = sqliteTable(
 // --------------------------------------------------
 
 // ------------------------------------------------
-// 7. End of schema
+// 7. Daily Aggregates for Workout History
+// ------------------------------------------------
+// These tables store pre-computed daily summaries to optimize
+// the workout history endpoints (/v1/me/workouts)
+
+// --------------------------------------------------
+// 7.1 Daily workout summaries per user
+// --------------------------------------------------
+export const dailyWorkoutSummaries = sqliteTable(
+  "daily_workout_summaries",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
+
+    // Date of the workout (YYYY-MM-DD format)
+    date: text("date").notNull(),
+
+    // Total volume for the day Σ(weight × reps)
+    totalVolume: real("total_volume").notNull(),
+
+    // Average estimated 1RM for the day
+    avgRM: real("avg_rm"),
+
+    // Total number of sets performed
+    setCount: integer("set_count").notNull(),
+
+    // Count of distinct exercises performed
+    exerciseCount: integer("exercise_count").notNull(),
+
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.date] }),
+    idxUserDate: index("idx_daily_ws_user_date").on(table.userId, table.date),
+  }),
+);
+
+// --------------------------------------------------
+// 7.2 Daily exercise summaries per user
+// --------------------------------------------------
+export const dailyExerciseSummaries = sqliteTable(
+  "daily_exercise_summaries",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
+
+    date: text("date").notNull(),
+
+    exerciseId: text("exercise_id")
+      .notNull()
+      .references(() => exercises.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+
+    // Total volume for this exercise Σ(weight × reps)
+    totalVolume: real("total_volume").notNull(),
+
+    // Average estimated 1RM for this exercise
+    avgRM: real("avg_rm"),
+
+    // Number of sets for this exercise
+    setCount: integer("set_count").notNull(),
+
+    // JSON array of set IDs for detail retrieval
+    setIds: text("set_ids").notNull(), // JSON array of workout_sets.id
+
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.userId, table.date, table.exerciseId],
+    }),
+    idxUserDate: index("idx_daily_es_user_date").on(table.userId, table.date),
+  }),
+);
+
+// --------------------------------------------------
+// 7.3 Daily exercise muscle volume breakdown
+// --------------------------------------------------
+export const dailyExerciseMuscleVolumes = sqliteTable(
+  "daily_exercise_muscle_volumes",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
+
+    date: text("date").notNull(),
+
+    exerciseId: text("exercise_id")
+      .notNull()
+      .references(() => exercises.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+
+    muscleId: integer("muscle_id")
+      .notNull()
+      .references(() => muscles.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+
+    // Effective volume: Σ(weight × reps × relativeShare × tensionFactor)
+    effectiveVolume: real("effective_volume").notNull(),
+
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.userId, table.date, table.exerciseId, table.muscleId],
+    }),
+    idxUserDateExercise: index("idx_daily_emv_user_date_exercise").on(
+      table.userId,
+      table.date,
+      table.exerciseId,
+    ),
+  }),
+);
+
+// ------------------------------------------------
+// 8. End of schema
 // ------------------------------------------------
 
 // Migration helper notes (like pragma user_version) are for migration files, not the schema.ts itself.

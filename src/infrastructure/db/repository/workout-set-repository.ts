@@ -1,5 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
+import { DailyAggregationService } from "../../../application/services/daily-aggregation.service";
 import type {
   UserIdVO,
   WorkoutSetIdVO,
@@ -10,10 +11,14 @@ import type { IWorkoutSetRepository } from "../../../domain/workout/workout-set-
 import type * as fullSchema from "../schema"; // Drizzle schema
 
 export class DrizzleWorkoutSetRepository implements IWorkoutSetRepository {
+  private readonly aggregationService: DailyAggregationService;
+
   constructor(
     private readonly db: DrizzleD1Database<typeof fullSchema>,
     private readonly schema: typeof fullSchema,
-  ) {}
+  ) {
+    this.aggregationService = new DailyAggregationService(this.db, this.schema);
+  }
 
   async saveSet(set: WorkoutSet, userId: UserIdVO): Promise<void> {
     const setPrimitives = set.toPrimitives();
@@ -29,7 +34,14 @@ export class DrizzleWorkoutSetRepository implements IWorkoutSetRepository {
       rpe: setPrimitives.rpe ?? undefined,
       restSec: setPrimitives.restSec ?? undefined,
     };
+
     await this.db.insert(this.schema.workoutSets).values(setToInsert);
+
+    // 日別集計を更新
+    const performedDate = new Date(setPrimitives.performedAt)
+      .toISOString()
+      .split("T")[0];
+    await this.aggregationService.updateDailyAggregation(userId, performedDate);
   }
 
   async findSetByIdAndUserId(
@@ -77,6 +89,14 @@ export class DrizzleWorkoutSetRepository implements IWorkoutSetRepository {
       );
     }
 
+    const existingPrimitives = existingSet.toPrimitives();
+    const oldPerformedDate = new Date(existingPrimitives.performedAt)
+      .toISOString()
+      .split("T")[0];
+    const newPerformedDate = new Date(setPrimitives.performedAt)
+      .toISOString()
+      .split("T")[0];
+
     await this.db
       .update(this.schema.workoutSets)
       .set({
@@ -96,9 +116,24 @@ export class DrizzleWorkoutSetRepository implements IWorkoutSetRepository {
           eq(this.schema.workoutSets.userId, userId.value),
         ),
       );
+
+    // 日別集計を更新（日付が変更された場合は両方の日付を更新）
+    if (oldPerformedDate !== newPerformedDate) {
+      await this.aggregationService.updateDailyAggregation(
+        userId,
+        oldPerformedDate,
+      );
+    }
+    await this.aggregationService.updateDailyAggregation(
+      userId,
+      newPerformedDate,
+    );
   }
 
   async deleteSet(id: WorkoutSetIdVO, userId: UserIdVO): Promise<void> {
+    // 削除前にセットの情報を取得（日付を特定するため）
+    const existingSet = await this.findSetByIdAndUserId(id, userId);
+
     const result = await this.db
       .delete(this.schema.workoutSets)
       .where(
@@ -112,6 +147,19 @@ export class DrizzleWorkoutSetRepository implements IWorkoutSetRepository {
     if (result.length === 0) {
       console.warn(
         `Set with id ${id.value} not found or user ${userId.value} not authorized for deletion.`,
+      );
+      return;
+    }
+
+    // 日別集計を更新
+    if (existingSet) {
+      const existingPrimitives = existingSet.toPrimitives();
+      const performedDate = new Date(existingPrimitives.performedAt)
+        .toISOString()
+        .split("T")[0];
+      await this.aggregationService.updateDailyAggregation(
+        userId,
+        performedDate,
       );
     }
   }

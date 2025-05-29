@@ -106,11 +106,15 @@ src/
 - Run `npx biome check --write` before committing
 
 ### Post-Task Requirements
-**IMPORTANT**: After completing any coding task, Claude MUST run the following command to ensure code quality:
+**IMPORTANT**: After completing any coding task, Claude MUST run the following commands to ensure code quality:
 ```bash
+# 1. Check TypeScript compilation
+npx tsc --noEmit
+
+# 2. Run Biome formatter/linter
 npx biome check --write
 ```
-This is mandatory for all tasks involving code changes and should be the final step before marking tasks as complete.
+These commands are mandatory for all tasks involving code changes and should be run in this order before marking tasks as complete. If TypeScript errors are found, they MUST be fixed before proceeding.
 
 ### Testing Commands
 No specific test runner configured in package.json. Test files should be placed in:

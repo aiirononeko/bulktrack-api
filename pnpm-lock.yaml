@@ -22,7 +22,7 @@ importers:
         version: 11.1.0
       valibot:
         specifier: ^1.1.0
-        version: 1.1.0
+        version: 1.1.0(typescript@5.8.3)
       wanakana:
         specifier: ^5.3.1
         version: 5.3.1
@@ -42,6 +42,9 @@ importers:
       tsx:
         specifier: ^4.19.4
         version: 4.19.4
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
       wrangler:
         specifier: ^4.17.0
         version: 4.17.0(@cloudflare/workers-types@4.20250508.0)
@@ -829,6 +832,11 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
 
+  typescript@5.8.3:
+    resolution: {integrity: sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
   ufo@1.6.1:
     resolution: {integrity: sha512-9a4/uxlTWJ4+a5i0ooc1rU7C7YOw3wT+UGqdeNNHWnOF9qcMBgLRS+4IYUqbczewFx4mLEig6gawh7X6mFlEkA==}
 
@@ -1434,6 +1442,8 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.3
 
+  typescript@5.8.3: {}
+
   ufo@1.6.1: {}
 
   undici-types@6.21.0: {}
@@ -1452,7 +1462,9 @@ snapshots:
 
   uuid@11.1.0: {}
 
-  valibot@1.1.0: {}
+  valibot@1.1.0(typescript@5.8.3):
+    optionalDependencies:
+      typescript: 5.8.3
 
   wanakana@5.3.1: {}
 
