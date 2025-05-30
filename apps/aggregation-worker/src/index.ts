@@ -1,8 +1,15 @@
 import {
+  DailyAggregationService,
+  WeeklyAggregationService,
+} from "@bulktrack/core";
+import * as schema from "@bulktrack/infrastructure/database/schema";
+import {
   type DomainEvent,
   type TrainingSetRecordedEvent,
+  UserIdVO,
   VolumeThresholdReachedEvent,
 } from "@bulktrack/shared-kernel";
+import { drizzle } from "drizzle-orm/d1";
 
 interface Env {
   DB: D1Database;
@@ -45,18 +52,39 @@ async function handleTrainingSetRecorded(
 ): Promise<void> {
   const { userId, exerciseId, volume, performedAt } = event.payload;
 
-  // TODO: Implement aggregation logic
-  // 1. Update daily volume aggregation
-  // 2. Update weekly muscle group volumes
-  // 3. Calculate progress metrics
-  // 4. Check for volume thresholds
+  const db = drizzle(env.DB);
+  const userIdVO = new UserIdVO(userId);
 
-  console.log(`Aggregating volume for user ${userId}: ${volume}kg`);
+  // 日付の情報を取得
+  const performedDate = new Date(performedAt);
+  const dateStr = performedDate.toISOString().split("T")[0];
 
-  // Placeholder for actual implementation
-  // This would involve:
-  // - Fetching current aggregations from DB
-  // - Calculating new aggregations
-  // - Storing updated aggregations
-  // - Potentially publishing new events (e.g., VolumeThresholdReached)
+  // 週次集計サービスを初期化
+  const weeklyAggregationService = new WeeklyAggregationService(db, schema);
+  const weekStart = weeklyAggregationService.getWeekStart(performedDate);
+
+  // 日次集計サービスを初期化
+  const dailyAggregationService = new DailyAggregationService(db, schema);
+
+  try {
+    // 1. 日次集計を更新
+    console.log(`Updating daily aggregation for user ${userId} on ${dateStr}`);
+    await dailyAggregationService.updateDailyAggregation(userIdVO, dateStr);
+
+    // 2. 週次集計を更新
+    console.log(
+      `Updating weekly aggregation for user ${userId} for week ${weekStart}`,
+    );
+    await weeklyAggregationService.updateWeeklyAggregation(userIdVO, weekStart);
+
+    console.log(
+      `Successfully aggregated volume for user ${userId}: ${volume}kg`,
+    );
+
+    // 3. TODO: ボリューム閾値のチェック
+    // 4. TODO: 必要に応じて新しいイベントを発行 (e.g., VolumeThresholdReached)
+  } catch (error) {
+    console.error(`Failed to aggregate data for user ${userId}:`, error);
+    throw error; // Re-throw to trigger retry
+  }
 }

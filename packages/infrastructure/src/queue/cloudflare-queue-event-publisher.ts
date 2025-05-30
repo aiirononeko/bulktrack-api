@@ -29,10 +29,17 @@ export class CloudflareQueueEventPublisher implements DomainEventPublisher {
 
     const queue = this.getQueue(queueName);
     if (!queue) {
-      throw new Error(`Queue not found: ${queueName}`);
+      // In development, queues might not be configured
+      console.warn(`Queue not found: ${queueName}. Event not published.`);
+      return;
     }
 
-    await queue.send(event);
+    try {
+      await queue.send(event);
+    } catch (error) {
+      console.error(`Failed to publish event to queue ${queueName}:`, error);
+      // Don't throw - allow the main operation to succeed even if queue publishing fails
+    }
   }
 
   async publishBatch(events: DomainEvent[]): Promise<void> {

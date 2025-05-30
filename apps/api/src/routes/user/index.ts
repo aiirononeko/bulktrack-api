@@ -1,7 +1,7 @@
+import { UserIdVO } from "@bulktrack/core";
 import { vValidator } from "@hono/valibot-validator";
 import { Hono } from "hono";
 import * as v from "valibot";
-import { UserIdVO } from "../../../../src/domain/shared/vo/identifier";
 import { createUserContainer } from "../../container/user.container";
 import type { Variables, WorkerEnv } from "../../types/env";
 
@@ -12,6 +12,12 @@ const recentExercisesSchema = v.object({
   offset: v.optional(v.string()),
 });
 
+// Sub-routes for /me
+import { workoutRoutes } from "../workouts";
+
+// Mount workout routes under /me/workouts
+userRoutes.route("/workouts", workoutRoutes);
+
 // GET /v1/me/exercises/recent - List recent exercises
 userRoutes.get(
   "/exercises/recent",
@@ -19,7 +25,13 @@ userRoutes.get(
   async (c) => {
     const userId = c.get("userId");
     if (!userId) {
-      return c.json({ error: "Unauthorized" }, 401);
+      return c.json(
+        {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+        },
+        401,
+      );
     }
 
     const { limit, offset } = c.req.valid("query");
@@ -30,14 +42,33 @@ userRoutes.get(
       ? acceptLanguage.split(",")[0].split(";")[0].trim()
       : "en";
 
-    const result = await container.listRecentExercisesHandler.execute({
+    const result = await container.listRecentExercisesUseCase.execute({
       userId: new UserIdVO(userId),
       locale,
-      limit: limit ? Number.parseInt(limit, 10) : 10,
+      limit: limit ? Number.parseInt(limit, 10) : 20, // Default changed to match OpenAPI spec
       offset: offset ? Number.parseInt(offset, 10) : 0,
     });
 
-    return c.json(result);
+    if (result.isErr()) {
+      return c.json(
+        {
+          code: "INTERNAL_ERROR",
+          message: result.getError().message,
+        },
+        500,
+      );
+    }
+
+    // Transform to OpenAPI Exercise schema
+    const exercises = result.unwrap().map((exercise) => ({
+      id: exercise.id,
+      name: exercise.name,
+      isOfficial: true, // All exercises from the main table are official
+      lastUsedAt: null, // This would need to be added from usage data
+      useCount: null, // This would need to be added from usage data
+    }));
+
+    return c.json(exercises);
   },
 );
 

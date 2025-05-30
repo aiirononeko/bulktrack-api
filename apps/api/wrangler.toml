@@ -16,7 +16,7 @@ database_name = "bulktrack-dev"
 database_id = "YOUR_DEV_DATABASE_ID"
 
 [[env.development.kv_namespaces]]
-binding = "KV"
+binding = "REFRESH_TOKENS_KV"
 id = "YOUR_DEV_KV_ID"
 
 [[env.development.queues.producers]]

@@ -25,19 +25,44 @@ exerciseRoutes.get("/", vValidator("query", searchQuerySchema), async (c) => {
     ? acceptLanguage.split(",")[0].split(";")[0].trim()
     : "en";
 
-  const searchResult = await container.searchExercisesHandler.execute({
-    q: q || null,
+  const searchResult = await container.searchExercisesUseCase.execute({
+    query: q || null,
     locale,
     limit: limit ? Number.parseInt(limit, 10) : 20,
     offset: offset ? Number.parseInt(offset, 10) : 0,
   });
 
-  return c.json(searchResult);
+  if (searchResult.isErr()) {
+    return c.json(
+      {
+        code: "INTERNAL_ERROR",
+        message: searchResult.getError().message,
+      },
+      500,
+    );
+  }
+
+  // Transform to OpenAPI Exercise schema
+  const exercises = searchResult.unwrap().map((exercise) => ({
+    id: exercise.id,
+    name: exercise.name,
+    isOfficial: true, // All exercises from the main table are official
+    lastUsedAt: null, // This would need to be added from usage data
+    useCount: null, // This would need to be added from usage data
+  }));
+
+  return c.json(exercises);
 });
 
 // POST /v1/exercises - Create custom exercise (TODO)
 exerciseRoutes.post("/", async (c) => {
-  return c.json({ error: "Not implemented" }, 501);
+  return c.json(
+    {
+      code: "NOT_IMPLEMENTED",
+      message: "Custom exercise creation is not yet implemented",
+    },
+    501,
+  );
 });
 
 export { exerciseRoutes };

@@ -20,7 +20,7 @@ export interface AuthContainer {
 export function createAuthContainer(env: WorkerEnv): AuthContainer {
   const userRepository = new D1UserRepository(env.DB);
   const deviceRepository = new D1DeviceRepository(env.DB);
-  const tokenRepository = new KvTokenRepository(env.KV);
+  const tokenRepository = new KvTokenRepository(env.REFRESH_TOKENS_KV);
   const jwtService = new JwtService({
     secret: env.JWT_SECRET,
     accessTokenTtl: 15 * 60, // 15 minutes

@@ -5,7 +5,7 @@ import type { D1Database } from "@cloudflare/workers-types";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { uuidv7 } from "uuidv7";
-import { users } from "../schema/tables";
+import { users } from "./schema";
 
 export class D1UserRepository implements UserRepository {
   private db;

@@ -1,7 +1,7 @@
-import { Context } from 'hono';
-import { ActivateDeviceUseCase } from '@bulktrack/core';
-import { JwtService, TokenRepository } from '@bulktrack/infrastructure';
-import { AppEnv } from '../../index';
+import type { ActivateDeviceUseCase } from "@bulktrack/core";
+import type { JwtService, TokenRepository } from "@bulktrack/infrastructure";
+import type { Context } from "hono";
+import type { AppEnv } from "../../index";
 
 export class AuthHandlers {
   constructor(
@@ -11,13 +11,25 @@ export class AuthHandlers {
   ) {}
 
   async activateDevice(c: Context<AppEnv>) {
-    const deviceId = c.req.header('X-Device-Id');
+    const deviceId = c.req.header("X-Device-Id");
     if (!deviceId) {
-      return c.json({ error: 'Device ID is required' }, 400);
+      return c.json({ error: "Device ID is required" }, 400);
     }
 
-    const body = await c.req.json<{ platform?: string }>();
-    const platform = body.platform || 'unknown';
+    // Handle body parsing gracefully
+    let platform = "unknown";
+    try {
+      const contentType = c.req.header("Content-Type");
+      const contentLength = c.req.header("Content-Length");
+
+      if (contentType?.includes("application/json") && contentLength !== "0") {
+        const body = await c.req.json<{ platform?: string }>();
+        platform = body?.platform || "unknown";
+      }
+    } catch (error) {
+      // If JSON parsing fails, use default platform
+      console.warn("Failed to parse request body:", error);
+    }
 
     // Activate device
     const result = await this.activateDeviceUseCase.execute({
@@ -57,8 +69,7 @@ export class AuthHandlers {
     return c.json({
       accessToken,
       refreshToken,
-      userId,
-      isNewUser,
+      expiresIn: 15 * 60, // 15 minutes in seconds
     });
   }
 
@@ -69,7 +80,7 @@ export class AuthHandlers {
     // Verify refresh token
     const verifyResult = await this.jwtService.verifyRefreshToken(refreshToken);
     if (verifyResult.isFailure()) {
-      return c.json({ error: 'Invalid refresh token' }, 401);
+      return c.json({ error: "Invalid refresh token" }, 401);
     }
 
     const { userId, deviceId } = verifyResult.getValue();
@@ -83,7 +94,7 @@ export class AuthHandlers {
       storedTokenResult.isFailure() ||
       storedTokenResult.getValue() !== refreshToken
     ) {
-      return c.json({ error: 'Invalid refresh token' }, 401);
+      return c.json({ error: "Invalid refresh token" }, 401);
     }
 
     // Generate new token pair
@@ -96,7 +107,8 @@ export class AuthHandlers {
       return c.json({ error: tokenResult.getError().message }, 500);
     }
 
-    const { accessToken, refreshToken: newRefreshToken } = tokenResult.getValue();
+    const { accessToken, refreshToken: newRefreshToken } =
+      tokenResult.getValue();
 
     // Update refresh token in KV
     const saveResult = await this.tokenRepository.saveRefreshToken(
@@ -112,6 +124,7 @@ export class AuthHandlers {
     return c.json({
       accessToken,
       refreshToken: newRefreshToken,
+      expiresIn: 15 * 60, // 15 minutes in seconds
     });
   }
 }

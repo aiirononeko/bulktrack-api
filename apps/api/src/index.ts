@@ -3,9 +3,11 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { authMiddleware } from "./middleware/auth.middleware";
 import { authRoutes } from "./routes/auth";
+import { dashboardRoutes } from "./routes/dashboard";
 import { exerciseRoutes } from "./routes/exercise";
-import { trainingSetRoutes } from "./routes/training-set";
+import { setRoutes } from "./routes/sets";
 import { userRoutes } from "./routes/user";
+import { workoutRoutes } from "./routes/workouts";
 import type { WorkerEnv } from "./types/env";
 
 export type AppEnv = {
@@ -31,26 +33,25 @@ app.get("/health", (c) => {
 });
 
 // Auth routes (no middleware)
-app.route("/api/v1/auth", authRoutes);
+app.route("/v1/auth", authRoutes);
 
 // Protected API routes
 const protectedRoutes = new Hono<AppEnv>();
 protectedRoutes.use("*", authMiddleware);
 protectedRoutes.route("/exercises", exerciseRoutes);
 protectedRoutes.route("/me", userRoutes);
-protectedRoutes.route("/training-sets", trainingSetRoutes);
+protectedRoutes.route("/me/workouts", workoutRoutes);
+protectedRoutes.route("/sets", setRoutes);
+protectedRoutes.route("/dashboard", dashboardRoutes);
 
-app.route("/api/v1", protectedRoutes);
+app.route("/v1", protectedRoutes);
 
 // 404 handler
 app.notFound((c) => {
   return c.json(
     {
-      success: false,
-      error: {
-        code: "NOT_FOUND",
-        message: "The requested resource was not found",
-      },
+      code: "NOT_FOUND",
+      message: "The requested resource was not found",
     },
     404,
   );
@@ -61,11 +62,8 @@ app.onError((err, c) => {
   console.error("Application error:", err);
   return c.json(
     {
-      success: false,
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "An internal error occurred",
-      },
+      code: "INTERNAL_ERROR",
+      message: "An internal error occurred",
     },
     500,
   );

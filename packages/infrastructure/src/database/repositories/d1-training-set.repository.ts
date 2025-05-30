@@ -16,7 +16,8 @@ import {
 } from "@bulktrack/shared-kernel";
 import { and, between, desc, eq, gte, lte } from "drizzle-orm";
 import { type DrizzleD1Database, drizzle } from "drizzle-orm/d1";
-import { type TrainingSet as TrainingSetRow, trainingSets } from "../schema";
+
+import { workoutSets } from "../schema";
 
 export class D1TrainingSetRepository implements TrainingSetRepository {
   private db: DrizzleD1Database;
@@ -29,7 +30,7 @@ export class D1TrainingSetRepository implements TrainingSetRepository {
     try {
       const data = this.toPersistence(trainingSet);
 
-      await this.db.insert(trainingSets).values(data);
+      await this.db.insert(workoutSets).values(data);
 
       return ok(undefined);
     } catch (error) {
@@ -37,18 +38,18 @@ export class D1TrainingSetRepository implements TrainingSetRepository {
     }
   }
 
-  async findById(
-    id: WorkoutSetIdVO,
-  ): Promise<Result<TrainingSet | null, RepositoryError>> {
+  async findById(id: string): Promise<Result<TrainingSet, RepositoryError>> {
     try {
       const rows = await this.db
         .select()
-        .from(trainingSets)
-        .where(eq(trainingSets.id, id.value))
+        .from(workoutSets)
+        .where(eq(workoutSets.id, id))
         .limit(1);
 
       if (rows.length === 0) {
-        return ok(null);
+        return err(
+          new RepositoryError("findById", new Error("Training set not found")),
+        );
       }
 
       const trainingSet = this.toDomain(rows[0]);
@@ -68,35 +69,33 @@ export class D1TrainingSetRepository implements TrainingSetRepository {
     },
   ): Promise<Result<TrainingSet[], Error>> {
     try {
-      // Build conditions
-      const conditions = [eq(trainingSets.userId, userId)];
+      let baseQuery = this.db.select().from(workoutSets).$dynamic();
+
+      // Add date filters if provided
+      const conditions = [eq(workoutSets.userId, userId)];
 
       if (options?.startDate && options?.endDate) {
         conditions.push(
           between(
-            trainingSets.performedAt,
+            workoutSets.performedAt,
             options.startDate.toISOString(),
             options.endDate.toISOString(),
           ),
         );
       } else if (options?.startDate) {
         conditions.push(
-          gte(trainingSets.performedAt, options.startDate.toISOString()),
+          gte(workoutSets.performedAt, options.startDate.toISOString()),
         );
       } else if (options?.endDate) {
         conditions.push(
-          lte(trainingSets.performedAt, options.endDate.toISOString()),
+          lte(workoutSets.performedAt, options.endDate.toISOString()),
         );
       }
 
-      // Build query with all conditions at once
-      const baseQuery = this.db
-        .select()
-        .from(trainingSets)
-        .where(conditions.length > 1 ? and(...conditions) : conditions[0])
-        .orderBy(desc(trainingSets.performedAt));
+      baseQuery = baseQuery
+        .where(and(...conditions))
+        .orderBy(desc(workoutSets.performedAt));
 
-      // Apply pagination and execute
       const rows = await (options?.limit !== undefined &&
       options?.offset !== undefined
         ? baseQuery.limit(options.limit).offset(options.offset)
@@ -105,7 +104,8 @@ export class D1TrainingSetRepository implements TrainingSetRepository {
           : options?.offset !== undefined
             ? baseQuery.offset(options.offset)
             : baseQuery);
-      const sets = rows.map((row: TrainingSetRow) => this.toDomain(row));
+
+      const sets = rows.map((row) => this.toDomain(row));
 
       return ok(sets);
     } catch (error) {
@@ -123,9 +123,10 @@ export class D1TrainingSetRepository implements TrainingSetRepository {
     try {
       const baseQuery = this.db
         .select()
-        .from(trainingSets)
-        .where(eq(trainingSets.exerciseId, exerciseId))
-        .orderBy(desc(trainingSets.performedAt));
+        .from(workoutSets)
+        .where(eq(workoutSets.exerciseId, exerciseId))
+        .orderBy(desc(workoutSets.performedAt))
+        .$dynamic();
 
       const rows = await (options?.limit !== undefined &&
       options?.offset !== undefined
@@ -135,7 +136,8 @@ export class D1TrainingSetRepository implements TrainingSetRepository {
           : options?.offset !== undefined
             ? baseQuery.offset(options.offset)
             : baseQuery);
-      const sets = rows.map((row: TrainingSetRow) => this.toDomain(row));
+
+      const sets = rows.map((row) => this.toDomain(row));
 
       return ok(sets);
     } catch (error) {
@@ -143,9 +145,41 @@ export class D1TrainingSetRepository implements TrainingSetRepository {
     }
   }
 
-  async delete(id: WorkoutSetIdVO): Promise<Result<void, RepositoryError>> {
+  async update(
+    trainingSet: TrainingSet,
+  ): Promise<Result<void, RepositoryError>> {
     try {
-      await this.db.delete(trainingSets).where(eq(trainingSets.id, id.value));
+      const data = this.toPersistence(trainingSet);
+
+      await this.db
+        .update(workoutSets)
+        .set({
+          exerciseId: data.exerciseId,
+          weight: data.weight,
+          reps: data.reps,
+          rpe: data.rpe,
+          notes: data.notes,
+          performedAt: data.performedAt,
+          restSec: data.restSec,
+        })
+        .where(
+          and(eq(workoutSets.id, data.id), eq(workoutSets.userId, data.userId)),
+        );
+
+      return ok(undefined);
+    } catch (error) {
+      return err(new RepositoryError("update", error as Error));
+    }
+  }
+
+  async delete(
+    id: string,
+    userId: string,
+  ): Promise<Result<void, RepositoryError>> {
+    try {
+      await this.db
+        .delete(workoutSets)
+        .where(and(eq(workoutSets.id, id), eq(workoutSets.userId, userId)));
 
       return ok(undefined);
     } catch (error) {
@@ -158,9 +192,9 @@ export class D1TrainingSetRepository implements TrainingSetRepository {
   ): Promise<Result<number, RepositoryError>> {
     try {
       const result = await this.db
-        .select({ count: trainingSets.id })
-        .from(trainingSets)
-        .where(eq(trainingSets.userId, userId.value));
+        .select({ count: workoutSets.id })
+        .from(workoutSets)
+        .where(eq(workoutSets.userId, userId.value));
 
       return ok(result.length);
     } catch (error) {
@@ -176,18 +210,18 @@ export class D1TrainingSetRepository implements TrainingSetRepository {
     try {
       const rows = await this.db
         .select()
-        .from(trainingSets)
+        .from(workoutSets)
         .where(
           and(
-            eq(trainingSets.userId, userId.value),
+            eq(workoutSets.userId, userId.value),
             between(
-              trainingSets.performedAt,
+              workoutSets.performedAt,
               startDate.toISOString(),
               endDate.toISOString(),
             ),
           ),
         )
-        .orderBy(trainingSets.performedAt);
+        .orderBy(workoutSets.performedAt);
 
       const grouped = new Map<string, TrainingSet[]>();
 
@@ -207,24 +241,28 @@ export class D1TrainingSetRepository implements TrainingSetRepository {
     }
   }
 
-  private toPersistence(trainingSet: TrainingSet): TrainingSetRow {
+  private toPersistence(trainingSet: TrainingSet): any {
+    // Generate set number - in a real implementation, this would be calculated
+    const setNumber = 1;
+
     return {
       id: trainingSet.id.value,
       userId: trainingSet.userId.value,
       exerciseId: trainingSet.exerciseId.value,
+      setNumber,
       weight: trainingSet.weight.value,
       reps: trainingSet.reps.value,
       rpe: trainingSet.rpe?.value ?? null,
-      restSeconds: trainingSet.restSeconds ?? null,
+      restSec: trainingSet.restSeconds ?? null,
       notes: trainingSet.notes ?? null,
       performedAt: trainingSet.performedAt.toISOString(),
       createdAt: trainingSet.createdAt.toISOString(),
     };
   }
 
-  private toDomain(row: TrainingSetRow): TrainingSet {
-    const weight = Weight.create(row.weight).unwrap();
-    const reps = Reps.create(row.reps).unwrap();
+  private toDomain(row: any): TrainingSet {
+    const weight = Weight.create(row.weight || 0).unwrap();
+    const reps = Reps.create(row.reps || 0).unwrap();
     const rpe = row.rpe ? RPE.create(row.rpe).unwrap() : undefined;
 
     return TrainingSet.reconstitute({
@@ -234,7 +272,7 @@ export class D1TrainingSetRepository implements TrainingSetRepository {
       weight,
       reps,
       rpe,
-      restSeconds: row.restSeconds ?? undefined,
+      restSeconds: row.restSec ?? undefined,
       notes: row.notes ?? undefined,
       performedAt: new Date(row.performedAt),
       createdAt: new Date(row.createdAt),

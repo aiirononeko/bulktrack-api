@@ -1,28 +1,24 @@
+import { ListRecentExercisesUseCase } from "@bulktrack/core";
+import { D1ExerciseRepositoryV2 } from "@bulktrack/infrastructure";
 import { drizzle } from "drizzle-orm/d1";
-import { ListRecentExercisesHandler } from "../../../../src/application/query/exercise/list-recent-exercises";
-import { ExerciseService } from "../../../../src/domain/exercise/service";
-import { DrizzleExerciseRepository } from "../../../../src/infrastructure/db/repository/exercise-repository";
-import { FtsService } from "../../../../src/infrastructure/service/fts-service";
 import type { WorkerEnv } from "../types/env";
 
 export interface UserContainer {
-  listRecentExercisesHandler: ListRecentExercisesHandler;
+  listRecentExercisesUseCase: ListRecentExercisesUseCase;
 }
 
 export function createUserContainer(env: WorkerEnv): UserContainer {
   const db = drizzle(env.DB);
 
-  // Initialize services
-  const ftsService = new FtsService(db);
-  const exerciseRepository = new DrizzleExerciseRepository(db, ftsService);
-  const exerciseService = new ExerciseService(exerciseRepository);
+  // Initialize repositories
+  const exerciseRepository = new D1ExerciseRepositoryV2(env.DB);
 
-  // Initialize handlers
-  const listRecentExercisesHandler = new ListRecentExercisesHandler(
-    exerciseService,
+  // Initialize use cases
+  const listRecentExercisesUseCase = new ListRecentExercisesUseCase(
+    exerciseRepository,
   );
 
   return {
-    listRecentExercisesHandler,
+    listRecentExercisesUseCase,
   };
 }

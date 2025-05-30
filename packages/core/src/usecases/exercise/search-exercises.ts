@@ -1,9 +1,9 @@
-import { Result } from "@bulktrack/shared-kernel";
-import type { Exercise } from "../../../src/domain/exercise/entity";
-import type { ExerciseMuscle } from "../../../src/domain/exercise/vo";
+import { type Result, ok } from "@bulktrack/shared-kernel";
+import type { Exercise } from "../../domain/exercise/exercise-full.entity";
+import type { ExerciseMuscle } from "../../domain/exercise/value-objects/exercise-muscle.vo";
 import type { ExerciseDto } from "../dto/exercise.dto";
 
-export interface ExerciseRepository {
+export interface SearchExerciseRepository {
   search(params: {
     query: string | null;
     locale: string;
@@ -20,7 +20,7 @@ export interface SearchExercisesCommand {
 }
 
 export class SearchExercisesUseCase {
-  constructor(private readonly exerciseRepository: ExerciseRepository) {}
+  constructor(private readonly exerciseRepository: SearchExerciseRepository) {}
 
   async execute(
     command: SearchExercisesCommand,
@@ -58,6 +58,6 @@ export class SearchExercisesUseCase {
       ),
     }));
 
-    return Result.ok(dtos);
+    return ok(dtos);
   }
 }

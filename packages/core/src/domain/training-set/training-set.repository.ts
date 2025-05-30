@@ -4,7 +4,7 @@ import type { TrainingSet } from "./entities/training-set";
 export interface TrainingSetRepository {
   save(trainingSet: TrainingSet): Promise<Result<void, Error>>;
 
-  findById(id: WorkoutSetIdVO): Promise<Result<TrainingSet | null, Error>>;
+  findById(id: string): Promise<Result<TrainingSet, Error>>;
 
   findByUserId(
     userId: string,
@@ -23,4 +23,8 @@ export interface TrainingSetRepository {
       offset?: number;
     },
   ): Promise<Result<TrainingSet[], Error>>;
+
+  update(trainingSet: TrainingSet): Promise<Result<void, Error>>;
+
+  delete(id: string, userId: string): Promise<Result<void, Error>>;
 }

@@ -221,58 +221,38 @@ export class TrainingSet {
     return Volume.calculate(this._weight, this._reps);
   }
 
-  public updateWeight(weight: number): Result<void, ValidationError> {
-    const weightResult = Weight.create(weight);
-    if (weightResult.isErr()) {
-      return err(weightResult.error);
-    }
-
-    this._weight = weightResult.unwrap();
-    return ok(undefined);
+  public updateWeight(weight: Weight): void {
+    this._weight = weight;
   }
 
-  public updateReps(reps: number): Result<void, ValidationError> {
-    const repsResult = Reps.create(reps);
-    if (repsResult.isErr()) {
-      return err(repsResult.error);
-    }
-
-    this._reps = repsResult.unwrap();
-    return ok(undefined);
+  public updateReps(reps: Reps): void {
+    this._reps = reps;
   }
 
-  public updateRPE(rpe: number | undefined): Result<void, ValidationError> {
-    if (rpe === undefined) {
-      this._rpe = undefined;
-      return ok(undefined);
-    }
-
-    const rpeResult = RPE.create(rpe);
-    if (rpeResult.isErr()) {
-      return err(rpeResult.error);
-    }
-
-    this._rpe = rpeResult.unwrap();
-    return ok(undefined);
+  public updateRPE(rpe: RPE | undefined): void {
+    this._rpe = rpe;
   }
 
-  public updateNotes(notes: string | undefined): Result<void, ValidationError> {
-    if (notes && notes.length > 500) {
-      return err(
-        new ValidationError(
-          "Notes cannot exceed 500 characters",
-          "notes",
-          notes,
-        ),
-      );
-    }
-
+  public updateNotes(notes: string | undefined): void {
     this._notes = notes;
-    return ok(undefined);
+  }
+
+  public updateRestSeconds(restSeconds: number | undefined): void {
+    this._restSeconds = restSeconds;
+  }
+
+  public updatePerformedAt(performedAt: Date): void {
+    this._performedAt = performedAt;
   }
 
   public clearDomainEvents(): void {
     this._domainEvents = [];
+  }
+
+  public pullDomainEvents(): DomainEvent[] {
+    const events = [...this._domainEvents];
+    this._domainEvents = [];
+    return events;
   }
 
   private addDomainEvent(event: DomainEvent): void {

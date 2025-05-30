@@ -11,8 +11,7 @@ export interface Env {
   WEBHOOK_NOTIFICATIONS_QUEUE: Queue<QueueMessage>;
 
   // KV
-  KV: KVNamespace;
-  REFRESH_TOKEN_STORE: KVNamespace;
+  REFRESH_TOKENS_KV: KVNamespace;
 
   // Environment variables
   JWT_SECRET: string;

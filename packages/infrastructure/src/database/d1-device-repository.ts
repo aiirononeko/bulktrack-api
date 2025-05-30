@@ -9,7 +9,7 @@ import { Result } from "@bulktrack/shared-kernel";
 import type { D1Database } from "@cloudflare/workers-types";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
-import { userDevices } from "../schema/tables";
+import { userDevices } from "./schema";
 
 export class D1DeviceRepository implements DeviceRepository {
   private db;

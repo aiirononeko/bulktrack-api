@@ -1,12 +1,11 @@
 import {
   type DomainEventPublisher,
-  ExerciseIdVO,
   type Result,
   UseCaseError,
-  WorkoutSetIdVO,
   err,
   ok,
 } from "@bulktrack/shared-kernel";
+import { ExerciseId } from "../domain/exercise/exercise.entity";
 import type { ExerciseRepository } from "../domain/exercise/exercise.repository";
 import { TrainingSet } from "../domain/training-set/entities/training-set";
 import type { TrainingSetRepository } from "../domain/training-set/training-set.repository";
@@ -42,23 +41,25 @@ export class RecordTrainingSetUseCase {
     command: RecordTrainingSetCommand,
   ): Promise<Result<RecordTrainingSetResult, UseCaseError>> {
     try {
+      console.log("RecordTrainingSet command:", command);
+
       // Verify exercise exists
-      const { ExerciseId } = await import("../domain/exercise");
       const exerciseResult = await this.exerciseRepository.findById(
         ExerciseId.create(command.exerciseId),
       );
+      console.log("Exercise lookup result:", exerciseResult);
 
-      if (exerciseResult.isFailure()) {
+      if (exerciseResult.isErr()) {
         return err(
           new UseCaseError(
             "RecordTrainingSet",
             "Failed to verify exercise existence",
-            { error: exerciseResult.getError() },
+            { error: exerciseResult.error },
           ),
         );
       }
 
-      if (!exerciseResult.getValue()) {
+      if (!exerciseResult.unwrap()) {
         return err(
           new UseCaseError("RecordTrainingSet", "Exercise not found", {
             exerciseId: command.exerciseId,
@@ -67,6 +68,7 @@ export class RecordTrainingSetUseCase {
       }
 
       // Create training set
+      console.log("Creating training set...");
       const trainingSetResult = TrainingSet.create({
         userId: command.userId,
         exerciseId: command.exerciseId,
@@ -78,33 +80,40 @@ export class RecordTrainingSetUseCase {
         performedAt: command.performedAt,
       });
 
-      if (trainingSetResult.isFailure()) {
+      if (trainingSetResult.isErr()) {
+        console.error("Training set creation failed:", trainingSetResult.error);
         return err(
           new UseCaseError(
             "RecordTrainingSet",
             "Failed to create training set",
-            { error: trainingSetResult.getError().message },
+            { error: trainingSetResult.error.message },
           ),
         );
       }
 
-      const trainingSet = trainingSetResult.getValue();
+      const trainingSet = trainingSetResult.unwrap();
+      console.log("Training set created:", trainingSet.id.value);
 
       // Save to repository
+      console.log("Saving to repository...");
       const saveResult = await this.trainingSetRepository.save(trainingSet);
-      if (saveResult.isFailure()) {
+      if (saveResult.isErr()) {
+        console.error("Save failed:", saveResult.error);
         return err(
           new UseCaseError("RecordTrainingSet", "Failed to save training set", {
-            error: saveResult.getError(),
+            error: saveResult.error,
           }),
         );
       }
+      console.log("Training set saved successfully");
 
       // Publish domain events
+      console.log("Publishing domain events...");
       const events = trainingSet.domainEvents;
       for (const event of events) {
         await this.eventPublisher.publish(event);
       }
+      console.log("Domain events published");
 
       // Clear events after publishing
       trainingSet.clearDomainEvents();
@@ -114,9 +123,11 @@ export class RecordTrainingSetUseCase {
         volume: trainingSet.calculateVolume().value,
       });
     } catch (error) {
+      console.error("RecordTrainingSet error:", error);
       return err(
         new UseCaseError("RecordTrainingSet", "Unexpected error occurred", {
           error: error instanceof Error ? error.message : "Unknown error",
+          stack: error instanceof Error ? error.stack : undefined,
         }),
       );
     }

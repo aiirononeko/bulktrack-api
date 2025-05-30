@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev --port 8788 --inspector-port 9232",
+    "dev": "wrangler dev src/index.ts --port 8788 --inspector-port 9232",
     "deploy": "wrangler deploy",
     "build": "tsc",
     "test": "vitest",

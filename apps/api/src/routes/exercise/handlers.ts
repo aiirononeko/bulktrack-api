@@ -30,7 +30,7 @@ export class ExerciseHandlers {
     });
 
     if (result.isErr()) {
-      return c.json({ error: result.unwrapErr().message }, 500);
+      return c.json({ error: result.getError().message }, 500);
     }
 
     return c.json(result.unwrap());
@@ -58,7 +58,7 @@ export class ExerciseHandlers {
     });
 
     if (result.isErr()) {
-      return c.json({ error: result.unwrapErr().message }, 500);
+      return c.json({ error: result.getError().message }, 500);
     }
 
     return c.json(result.unwrap());
