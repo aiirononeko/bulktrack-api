@@ -2,21 +2,18 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
+    "baseUrl": ".",
     "composite": true,
     "types": ["@cloudflare/workers-types"],
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@bulktrack/*": ["../../packages/*/src"],
       "@bulktrack/api/*": ["../api/src/*"]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"],
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"],
   "references": [
-    { "path": "../../packages/shared-kernel" },
-    { "path": "../../packages/core" },
-    { "path": "../../packages/infrastructure" },
     { "path": "../../packages/queue-types" },
     { "path": "../../packages/scientific-calc" }
   ]

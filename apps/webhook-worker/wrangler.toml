@@ -1,0 +1,32 @@
+name = "bulktrack-webhook-worker"
+main = "src/index.ts"
+compatibility_date = "2024-12-17"
+
+[env.production]
+name = "bulktrack-webhook-worker-production"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bulktrack-production"
+database_id = "your-database-id"
+
+[[kv_namespaces]]
+binding = "WEBHOOK_CACHE"
+id = "your-kv-namespace-id"
+
+[[queues.consumers]]
+queue = "webhook-notifications"
+max_batch_size = 50
+max_batch_timeout = 2
+max_retries = 3
+visibility_timeout_ms = 60000
+dead_letter_queue = "webhook-dlq"
+
+[[queues.producers]]
+queue = "webhook-dlq"
+binding = "DEAD_LETTER_QUEUE"
+
+[vars]
+ENVIRONMENT = "development"
+WEBHOOK_TIMEOUT = "30000"
+MAX_WEBHOOK_SIZE = "1048576"

@@ -1,9 +1,9 @@
 {
-  "name": "@bulktrack/aggregation-worker",
+  "name": "@bulktrack/ai-worker",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev src/index.ts --port 8788 --inspector-port 9232",
+    "dev": "wrangler dev src/index.ts --port 8789 --inspector-port 9233",
     "deploy": "wrangler deploy",
     "build": "tsc",
     "test": "vitest",
@@ -14,7 +14,10 @@
     "@bulktrack/infrastructure": "workspace:*",
     "@bulktrack/shared-kernel": "workspace:*",
     "@bulktrack/scientific-calc": "workspace:*",
-    "@bulktrack/queue-types": "workspace:*"
+    "@bulktrack/queue-types": "workspace:*",
+    "@cloudflare/ai": "^1.0.0",
+    "base64-js": "^1.5.1",
+    "mustache": "^4.2.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250508.0",

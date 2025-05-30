@@ -1,9 +1,9 @@
 {
-  "name": "@bulktrack/aggregation-worker",
+  "name": "@bulktrack/webhook-worker",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev src/index.ts --port 8788 --inspector-port 9232",
+    "dev": "wrangler dev src/index.ts --port 8790 --inspector-port 9234",
     "deploy": "wrangler deploy",
     "build": "tsc",
     "test": "vitest",
@@ -13,7 +13,6 @@
     "@bulktrack/core": "workspace:*",
     "@bulktrack/infrastructure": "workspace:*",
     "@bulktrack/shared-kernel": "workspace:*",
-    "@bulktrack/scientific-calc": "workspace:*",
     "@bulktrack/queue-types": "workspace:*"
   },
   "devDependencies": {

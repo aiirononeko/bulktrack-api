@@ -1,6 +1,11 @@
 # prod
 dist/
 
+# generated files
+packages/**/*.js
+packages/**/*.d.ts
+!packages/**/node_modules/**/*
+
 # dev
 .yarn/
 !.yarn/releases
