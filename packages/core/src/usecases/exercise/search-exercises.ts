@@ -1,16 +1,8 @@
 import { type Result, ok } from "@bulktrack/shared-kernel";
 import type { Exercise } from "../../domain/exercise/exercise-full.entity";
 import type { ExerciseMuscle } from "../../domain/exercise/value-objects/exercise-muscle.vo";
+import type { ExerciseQueryPort } from "../../domain/exercise/ports/exercise-query.port";
 import type { ExerciseDto } from "../dto/exercise.dto";
-
-export interface SearchExerciseRepository {
-  search(params: {
-    query: string | null;
-    locale: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<Result<Exercise[], Error>>;
-}
 
 export interface SearchExercisesCommand {
   query: string | null;
@@ -20,7 +12,7 @@ export interface SearchExercisesCommand {
 }
 
 export class SearchExercisesUseCase {
-  constructor(private readonly exerciseRepository: SearchExerciseRepository) {}
+  constructor(private readonly exerciseRepository: ExerciseQueryPort) {}
 
   async execute(
     command: SearchExercisesCommand,

@@ -1,16 +1,8 @@
 import { type Result, type UserIdVO, ok } from "@bulktrack/shared-kernel";
 import type { Exercise } from "../../domain/exercise/exercise-full.entity";
 import type { ExerciseMuscle } from "../../domain/exercise/value-objects/exercise-muscle.vo";
+import type { ExerciseQueryPort } from "../../domain/exercise/ports/exercise-query.port";
 import type { ExerciseDto } from "../dto/exercise.dto";
-
-export interface RecentExerciseRepository {
-  findRecentByUserId(params: {
-    userId: string;
-    locale: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<Result<Exercise[], Error>>;
-}
 
 export interface ListRecentExercisesCommand {
   userId: UserIdVO;
@@ -20,7 +12,7 @@ export interface ListRecentExercisesCommand {
 }
 
 export class ListRecentExercisesUseCase {
-  constructor(private readonly exerciseRepository: RecentExerciseRepository) {}
+  constructor(private readonly exerciseRepository: ExerciseQueryPort) {}
 
   async execute(
     command: ListRecentExercisesCommand,

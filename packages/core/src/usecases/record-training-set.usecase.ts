@@ -5,8 +5,8 @@ import {
   err,
   ok,
 } from "@bulktrack/shared-kernel";
-import { ExerciseId } from "../domain/exercise/exercise.entity";
-import type { ExerciseRepository } from "../domain/exercise/exercise.repository";
+import { ExerciseIdVO } from "../domain/shared/value-objects/identifier";
+import type { ExerciseQueryPort } from "../domain/exercise/ports/exercise-query.port";
 import { TrainingSet } from "../domain/training-set/entities/training-set";
 import type { TrainingSetRepository } from "../domain/training-set/training-set.repository";
 
@@ -33,7 +33,7 @@ export interface RecordTrainingSetResult {
 export class RecordTrainingSetUseCase {
   constructor(
     private readonly trainingSetRepository: TrainingSetRepository,
-    private readonly exerciseRepository: ExerciseRepository,
+    private readonly exerciseRepository: ExerciseQueryPort,
     private readonly eventPublisher: DomainEventPublisher,
   ) {}
 
@@ -45,7 +45,7 @@ export class RecordTrainingSetUseCase {
 
       // Verify exercise exists
       const exerciseResult = await this.exerciseRepository.findById(
-        ExerciseId.create(command.exerciseId),
+        new ExerciseIdVO(command.exerciseId),
       );
       console.log("Exercise lookup result:", exerciseResult);
 

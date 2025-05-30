@@ -1,7 +1,9 @@
 import type { MuscleId } from "../muscle/muscle.vo";
 import { ExerciseIdVO } from "../shared/value-objects/identifier";
 import { Exercise, type ExerciseTranslation } from "./exercise-full.entity";
-import type { IExerciseRepository } from "./exercise-full.repository";
+import type { ExerciseQueryPort } from "./ports/exercise-query.port";
+import type { ExerciseCommandPort } from "./ports/exercise-command.port";
+import type { ExerciseAdminPort } from "./ports/exercise-admin.port";
 import type {
   ExerciseMuscle,
   ExerciseSourceId,
@@ -19,7 +21,11 @@ export interface ExerciseMuscleInput {
 }
 
 export class ExerciseService {
-  constructor(private readonly exerciseRepository: IExerciseRepository) {}
+  constructor(
+    private readonly queryPort: ExerciseQueryPort,
+    private readonly commandPort: ExerciseCommandPort,
+    private readonly adminPort: ExerciseAdminPort,
+  ) {}
 
   /**
    * 指定されたクエリとロケールに基づいてエクササイズを検索します。
@@ -34,7 +40,12 @@ export class ExerciseService {
     limit?: number,
     offset?: number,
   ): Promise<Exercise[]> {
-    return this.exerciseRepository.search(query, locale, limit, offset);
+    return this.queryPort.search({ query, locale, limit, offset }).then(result => {
+      if (result.isErr()) {
+        throw result.error;
+      }
+      return result.unwrap();
+    });
   }
 
   /**
@@ -90,7 +101,10 @@ export class ExerciseService {
       exerciseMusclesForEntity,
     );
 
-    await this.exerciseRepository.create(newExercise);
+    const result = await this.commandPort.create(newExercise);
+    if (result.isErr()) {
+      throw result.error;
+    }
     return newExercise;
   }
 
@@ -108,12 +122,12 @@ export class ExerciseService {
     limit: number,
     offset: number,
   ): Promise<Exercise[]> {
-    return this.exerciseRepository.findRecentByUserId(
-      userId,
-      locale,
-      limit,
-      offset,
-    );
+    return this.queryPort.findRecentByUserId({ userId, locale, limit, offset }).then(result => {
+      if (result.isErr()) {
+        throw result.error;
+      }
+      return result.unwrap();
+    });
   }
 
   /**
@@ -132,14 +146,17 @@ export class ExerciseService {
     if (exerciseIds.length === 0) {
       return;
     }
-    const promises = exerciseIds.map((id) =>
-      this.exerciseRepository.upsertExerciseUsage(
+    const promises = exerciseIds.map(async (id) => {
+      const result = await this.commandPort.updateUsage(
         userId,
         new ExerciseIdVO(id),
         sessionFinishedAt,
         true,
-      ),
-    );
+      );
+      if (result.isErr()) {
+        throw result.error;
+      }
+    });
     await Promise.all(promises);
   }
 
@@ -149,7 +166,10 @@ export class ExerciseService {
    * @returns Promise<void>
    */
   async deleteExercise(exerciseId: ExerciseIdVO): Promise<void> {
-    await this.exerciseRepository.deleteFullExerciseById(exerciseId);
+    const result = await this.adminPort.deleteFullExerciseById(exerciseId);
+    if (result.isErr()) {
+      throw result.error;
+    }
   }
 
   /**
@@ -162,11 +182,18 @@ export class ExerciseService {
     exerciseId: ExerciseIdVO,
     translation: ExerciseTranslation,
   ): Promise<Exercise | null> {
-    await this.exerciseRepository.saveExerciseTranslation(
+    const saveResult = await this.adminPort.saveExerciseTranslation(
       exerciseId,
       translation,
     );
-    return this.exerciseRepository.findById(exerciseId);
+    if (saveResult.isErr()) {
+      throw saveResult.error;
+    }
+    const findResult = await this.queryPort.findById(exerciseId);
+    if (findResult.isErr()) {
+      throw findResult.error;
+    }
+    return findResult.unwrap();
   }
 
   /**
@@ -179,8 +206,15 @@ export class ExerciseService {
     exerciseId: ExerciseIdVO,
     locale: string,
   ): Promise<Exercise | null> {
-    await this.exerciseRepository.deleteExerciseTranslation(exerciseId, locale);
-    return this.exerciseRepository.findById(exerciseId);
+    const deleteResult = await this.adminPort.deleteExerciseTranslation(exerciseId, locale);
+    if (deleteResult.isErr()) {
+      throw deleteResult.error;
+    }
+    const findResult = await this.queryPort.findById(exerciseId);
+    if (findResult.isErr()) {
+      throw findResult.error;
+    }
+    return findResult.unwrap();
   }
 
   /**
@@ -193,7 +227,11 @@ export class ExerciseService {
     exerciseId: ExerciseIdVO,
     newCanonicalName: string,
   ): Promise<Exercise | null> {
-    const exercise = await this.exerciseRepository.findById(exerciseId);
+    const findResult = await this.queryPort.findById(exerciseId);
+    if (findResult.isErr()) {
+      throw findResult.error;
+    }
+    const exercise = findResult.unwrap();
     if (!exercise) {
       return null;
     }
@@ -211,7 +249,10 @@ export class ExerciseService {
       exercise.exerciseMuscles,
     );
 
-    await this.exerciseRepository.saveFullExercise(updatedExercise);
+    const saveResult = await this.adminPort.saveFullExercise(updatedExercise);
+    if (saveResult.isErr()) {
+      throw saveResult.error;
+    }
     return updatedExercise;
   }
 
@@ -229,7 +270,11 @@ export class ExerciseService {
       exerciseMuscles?: ExerciseMuscleInput[];
     },
   ): Promise<Exercise | null> {
-    const exercise = await this.exerciseRepository.findById(exerciseId);
+    const findResult = await this.queryPort.findById(exerciseId);
+    if (findResult.isErr()) {
+      throw findResult.error;
+    }
+    const exercise = findResult.unwrap();
     if (!exercise) {
       return null;
     }
@@ -258,7 +303,10 @@ export class ExerciseService {
       exerciseMusclesForUpdate,
     );
 
-    await this.exerciseRepository.saveFullExercise(updatedExercise);
+    const saveResult = await this.adminPort.saveFullExercise(updatedExercise);
+    if (saveResult.isErr()) {
+      throw saveResult.error;
+    }
     return updatedExercise;
   }
 }

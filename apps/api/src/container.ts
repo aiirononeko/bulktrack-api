@@ -3,7 +3,6 @@ import {
   type DashboardRepository,
   DeleteTrainingSetUseCase,
   type DeviceRepository,
-  type ExerciseRepository,
   GetDashboardQuery,
   GetWorkoutDetailQuery,
   GetWorkoutSummariesQuery,
@@ -18,10 +17,9 @@ import {
   CloudflareQueueEventPublisher,
   D1DashboardRepository,
   D1DeviceRepository,
-  D1ExerciseRepositoryV2,
+  ExerciseRepository,
   D1TrainingSetRepository,
   D1UserRepository,
-  ExerciseRepositoryAdapter,
   JwtService,
   KvTokenRepository,
   type TokenRepository,
@@ -35,7 +33,7 @@ import type { WorkerEnv } from "./types/env";
 export interface Container {
   // Repositories
   trainingSetRepository: TrainingSetRepository;
-  exerciseRepository: D1ExerciseRepositoryV2;
+  exerciseRepository: ExerciseRepository;
   userRepository: UserRepository;
   deviceRepository: DeviceRepository;
   tokenRepository: TokenRepository;
@@ -63,11 +61,7 @@ export interface Container {
 export function createContainer(env: WorkerEnv): Container {
   // Initialize repositories
   const trainingSetRepository = new D1TrainingSetRepository(env.DB);
-  const exerciseRepositoryV2 = new D1ExerciseRepositoryV2(env.DB);
-  const exerciseRepository = exerciseRepositoryV2;
-  const exerciseRepositoryForDomain = new ExerciseRepositoryAdapter(
-    exerciseRepositoryV2,
-  );
+  const exerciseRepository = new ExerciseRepository(env.DB);
   const userRepository = new D1UserRepository(env.DB);
   const deviceRepository = new D1DeviceRepository(env.DB);
   const tokenRepository = new KvTokenRepository(env.REFRESH_TOKENS_KV);
@@ -90,7 +84,7 @@ export function createContainer(env: WorkerEnv): Container {
   // Initialize use cases
   const recordTrainingSetUseCase = new RecordTrainingSetUseCase(
     trainingSetRepository,
-    exerciseRepositoryForDomain,
+    exerciseRepository,
     eventPublisher,
   );
 

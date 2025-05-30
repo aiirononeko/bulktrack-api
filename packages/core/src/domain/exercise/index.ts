@@ -11,9 +11,13 @@ export {
   type ExerciseTranslation as ExerciseFullTranslation,
 } from "./exercise-full.entity";
 
-// Repository exports
-export type { ExerciseRepository } from "./exercise.repository";
-export type { IExerciseRepository } from "./exercise-full.repository";
+// Repository exports (legacy - to be removed)
+// These are deprecated and replaced by the port interfaces below
+
+// Port exports (ISP compliant interfaces)
+export type { ExerciseQueryPort, SearchParams, RecentExerciseParams } from "./ports/exercise-query.port";
+export type { ExerciseCommandPort } from "./ports/exercise-command.port";
+export type { ExerciseAdminPort } from "./ports/exercise-admin.port";
 
 // Service exports
 export * from "./exercise.service";
