@@ -1,13 +1,16 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+
 import { authMiddleware } from "./middleware/auth.middleware";
+
 import { authRoutes } from "./routes/auth";
 import { dashboardRoutes } from "./routes/dashboard";
 import { exerciseRoutes } from "./routes/exercise";
 import { setRoutes } from "./routes/sets";
 import { userRoutes } from "./routes/user";
 import { workoutRoutes } from "./routes/workouts";
+
 import type { WorkerEnv } from "./types/env";
 
 export type AppEnv = {
