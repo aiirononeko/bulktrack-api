@@ -7,7 +7,11 @@
     "skipLibCheck": true,
     "lib": ["ESNext"],
     "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx"
+    "jsxImportSource": "hono/jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@bulktrack/*": ["packages/*/src"]
+    }
   },
   "exclude": ["scripts/*"]
 }
