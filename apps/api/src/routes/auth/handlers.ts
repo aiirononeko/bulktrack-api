@@ -1,7 +1,7 @@
 import type { ActivateDeviceUseCase } from "@bulktrack/core";
 import type { JwtService, TokenRepository } from "@bulktrack/infrastructure";
 import type { Context } from "hono";
-import type { AppEnv } from "../../index";
+import type { AppEnv } from "@bulktrack/api/index";
 
 export class AuthHandlers {
   constructor(

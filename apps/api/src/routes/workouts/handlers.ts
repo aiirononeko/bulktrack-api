@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import { z } from "zod";
-import { createContainer } from "../../container";
-import type { WorkerEnv } from "../../types/env";
+import { createContainer } from "@bulktrack/api/container";
+import type { WorkerEnv } from "@bulktrack/api/types/env";
 
 // Validation schemas
 const getWorkoutSummariesSchema = z.object({

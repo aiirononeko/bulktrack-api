@@ -10,7 +10,8 @@
     "jsxImportSource": "hono/jsx",
     "baseUrl": ".",
     "paths": {
-      "@bulktrack/*": ["packages/*/src"]
+      "@bulktrack/*": ["packages/*/src"],
+      "@bulktrack/api/*": ["apps/api/src/*"]
     }
   },
   "exclude": ["scripts/*"]

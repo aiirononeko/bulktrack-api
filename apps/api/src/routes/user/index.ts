@@ -2,8 +2,8 @@ import { UserIdVO } from "@bulktrack/core";
 import { vValidator } from "@hono/valibot-validator";
 import { Hono } from "hono";
 import * as v from "valibot";
-import { createUserContainer } from "../../container/user.container";
-import type { Variables, WorkerEnv } from "../../types/env";
+import { createUserContainer } from "@bulktrack/api/container/user.container";
+import type { Variables, WorkerEnv } from "@bulktrack/api/types/env";
 
 const userRoutes = new Hono<{ Bindings: WorkerEnv; Variables: Variables }>();
 
@@ -13,7 +13,7 @@ const recentExercisesSchema = v.object({
 });
 
 // Sub-routes for /me
-import { workoutRoutes } from "../workouts";
+import { workoutRoutes } from "@bulktrack/api/routes/workouts";
 
 // Mount workout routes under /me/workouts
 userRoutes.route("/workouts", workoutRoutes);

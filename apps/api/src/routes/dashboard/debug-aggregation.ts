@@ -7,7 +7,7 @@ import { UserIdVO } from "@bulktrack/shared-kernel";
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import type { Context } from "hono";
-import type { WorkerEnv } from "../../types/env";
+import type { WorkerEnv } from "@bulktrack/api/types/env";
 
 /**
  * Debug endpoint to manually trigger aggregation for a user

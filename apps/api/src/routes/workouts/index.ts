@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { Variables, WorkerEnv } from "../../types/env";
+import type { Variables, WorkerEnv } from "@bulktrack/api/types/env";
 import { getWorkoutDetail, getWorkoutSummaries } from "./handlers";
 
 export const workoutRoutes = new Hono<{
